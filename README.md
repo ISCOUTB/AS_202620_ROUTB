@@ -1,9 +1,9 @@
 
-# RoUTB
+# ROUTB
 
 ## Descripción
 
-RideUTB es una plataforma diseñada para facilitar el transporte de los estudiantes de la Universidad Tecnológica de Bolívar.
+ROUTB es una plataforma diseñada para facilitar el transporte de los estudiantes de la Universidad Tecnológica de Bolívar.
 
 La aplicación permite consultar conductores y rutas disponibles, conocer la cantidad de cupos libres y reservar un cupo antes del viaje, haciendo que la organización del transporte sea más rápida y eficiente.
 
