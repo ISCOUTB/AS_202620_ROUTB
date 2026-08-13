@@ -7,7 +7,7 @@ Este documento registra el uso de herramientas de Inteligencia Artificial durant
 ## Herramientas utilizadas
 
 | Herramienta | Uso |
-| ----------- | --- |
+|             |     |
 | —           | —   |
 
 ## Aplicaciones de IA en el proyecto

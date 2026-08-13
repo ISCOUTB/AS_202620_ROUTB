@@ -17,39 +17,136 @@ contributors. See <https://arc42.org>.
 
 # Introduction and Goals {#section-introduction-and-goals}
 
+ROUTB es una plataforma diseñada para facilitar y gestionar el transporte compartido entre los estudiantes de la Universidad Tecnológica de Bolívar. El sistema busca centralizar la información relacionada con estudiantes conductores, rutas disponibles y cupos libres, permitiendo a los estudiantes consultar las opciones de transporte y reservar un cupo antes del viaje.
+
+La plataforma surge como respuesta a las dificultades que presentan algunos estudiantes para encontrar y coordinar transporte hacia o desde la universidad, especialmente debido a la falta de información sobre conductores disponibles, cupos y horarios de salida.
+
+Objetivo general
+
+Desarrollar una plataforma que permita gestionar y coordinar el transporte compartido entre estudiantes de la Universidad Tecnológica de Bolívar.
+
+Objetivos específicos
+- Consultar conductores disponibles.
+- Mostrar las rutas de transporte disponibles.
+- Visualizar la cantidad de cupos libres.
+- Permitir la reserva de un cupo antes del viaje.
+- Reducir los tiempos de espera de los estudiantes.
+- Mejorar la organización y coordinación de los viajes compartidos.
+
 ## Requirements Overview {#_requirements_overview}
+
+ROUTB es una plataforma de movilidad colaborativa dirigida a estudiantes universitarios. El sistema permite a los estudiantes conductores publicar recorridos indicando su origen, destino, horario y cantidad de cupos disponibles, mientras que los estudiantes pasajeros pueden buscar recorridos según sus necesidades y solicitar uno o varios cupos.
+
+Entre las principales funcionalidades del sistema se encuentran la gestión de perfiles, publicación y administración de recorridos, búsqueda y gestión de solicitudes y cupos, ubicación de recogida o destino predeterminado, visualización mediante mapas, notificaciones, historial de recorridos y sistema de valoración.
+
+El sistema también contempla un panel administrativo destinado a la gestión de usuarios, reportes, estadísticas e incidencias.
 
 ## Quality Goals {#_quality_goals}
 
+| Prioridad | Objetivo de calidad | Descripción                                                                                                                      |
+| --------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| 1         | **Rendimiento**     | Las búsquedas y el *matching* deben responder en menos de 2 segundos bajo condiciones normales.                                  |
+| 2         | **Seguridad**       | Las contraseñas deben almacenarse mediante hashing con salt y las comunicaciones deben utilizar HTTPS.                           |
+| 3         | **Disponibilidad**  | El sistema debe alcanzar una disponibilidad mínima del 99 % durante las franjas de mayor demanda.                                |
+| 4         | **Escalabilidad**   | La arquitectura debe permitir el crecimiento del número de usuarios y recorridos sin degradar significativamente el rendimiento. |
+| 5         | **Portabilidad**    | La aplicación debe funcionar de manera equivalente en Android e iOS.                                                             |
+| 6         | **Mantenibilidad**  | El sistema debe utilizar una arquitectura modular y documentada que facilite su evolución.                                       |
+| 7         | **Privacidad**      | Los datos personales deben tratarse de acuerdo con la Ley 1581 de 2012 y las políticas de protección de datos aplicables.        |
+| 8         | **Usabilidad**      | Las acciones principales deben poder realizarse en un máximo de tres pasos.                                                      |
+
+
 ## Stakeholders {#_stakeholders}
 
-+-------------+---------------------------+---------------------------+
-| Role/Name   | Contact                   | Expectations              |
-+=============+===========================+===========================+
-| *           | *\<Contact-1\>*           | *\<Expectation-1\>*       |
-| \<Role-1\>* |                           |                           |
-+-------------+---------------------------+---------------------------+
-| *           | *\<Contact-2\>*           | *\<Expectation-2\>*       |
-| \<Role-2\>* |                           |                           |
-+-------------+---------------------------+---------------------------+
+| Stakeholder                               | Interés / expectativa                                                                                           |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| **Estudiante conductor**                  | Publicar recorridos, gestionar cupos y solicitudes y coordinar los puntos de recogida de los pasajeros.         |
+| **Estudiante pasajero**                   | Encontrar recorridos compatibles, solicitar cupos, conocer el estado de sus solicitudes y gestionar sus viajes. |
+| **Administrador**                         | Gestionar usuarios, reportes, estadísticas e incidencias y supervisar el funcionamiento de la plataforma.       |
+| **Equipo de desarrollo**                  | Mantener una arquitectura modular, mantenible y documentada que permita evolucionar el sistema.                 |
+| **Universidad / comunidad universitaria** | Contar con una plataforma orientada a facilitar la movilidad colaborativa entre estudiantes verificados.        |
+
 
 # Architecture Constraints {#section-architecture-constraints}
+Technical Constraints
+
+- Aplicación móvil multiplataforma para Android e iOS.
+- Uso de Flutter para la aplicación móvil.
+- Uso de FastAPI/Python para el backend.
+- Uso de una base de datos relacional.
+- Autenticación mediante correo institucional verificado.
+- Uso de JWT para la autenticación de sesiones.
+
+Integration Constraints
+
+- Integración con el servicio de correo institucional.
+- Integración con un proveedor externo de mapas y
+  geolocalización.
+- Integración con un servicio de notificaciones push.
+
+Business and Scope Constraints
+
+- El acceso está restringido a estudiantes verificados
+  mediante correo institucional.
+- ROUTB no gestiona pagos ni transacciones comerciales.
+- ROUTB no actúa como operador de transporte.
+- La verificación de antecedentes o idoneidad de los
+  conductores está fuera del alcance del sistema.
 
 # Context and Scope {#section-context-and-scope}
+                 Estudiante Conductor
+                         │
+                         │ Publica recorridos,
+                         │ gestiona solicitudes
+                         ▼
+                 ┌─────────────────┐
+                 │                 │
+Estudiante ─────▶│     ROUTB       │◀───── Administrador
+Pasajero         │                 │
+                 │ Plataforma de   │
+                 │ movilidad       │
+                 │ colaborativa    │
+                 └───────┬─────────┘
+                         │
+              ┌──────────┼──────────┐
+              ▼          ▼          ▼
+           Correo      Servicio    Servicio
+        institucional  de mapas   de notificaciones
+ROUTB es una plataforma de movilidad colaborativa dirigida a estudiantes universitarios. El sistema permite a estudiantes conductores publicar recorridos y gestionar los cupos disponibles, mientras que los estudiantes pasajeros pueden consultar recorridos, solicitar uno o varios cupos y gestionar sus viajes. Los administradores utilizan la plataforma para supervisar usuarios, reportes, estadísticas e incidencias.
 
 ## Business Context {#_business_context}
 
-**\<Diagram or Table\>**
+┌──────────────────┐
+│ Usuario          │
+│ móvil            │
+└────────┬─────────┘
+         │ HTTPS
+         ▼
+┌──────────────────┐
+│      ROUTB       │
+└────────┬─────────┘
+         │
+    ┌────┼──────────────┐
+    │    │              │
+    │ HTTPS/API     Push
+    ▼    ▼              ▼
+Correo  Mapas      Notificaciones
 
-**\<optionally: Explanation of external domain interfaces\>**
+
+
+
 
 ## Technical Context {#_technical_context}
 
-**\<Diagram or Table\>**
+| Entrada / Salida                 | Origen / Destino                       | Canal                           |
+| -------------------------------- | -------------------------------------- | ------------------------------- |
+| Credenciales y datos de registro | Usuario → ROUTB                        | HTTPS                           |
+| Solicitudes de recorridos        | Usuario → ROUTB                        | HTTPS                           |
+| Información de recorridos        | ROUTB → Usuario                        | HTTPS                           |
+| Ubicaciones                      | Usuario ↔ ROUTB                        | HTTPS / servicio de mapas       |
+| Verificación de correo           | ROUTB ↔ correo institucional           | HTTPS / servicio de correo      |
+| Notificaciones                   | ROUTB → usuario                        | Servicio de notificaciones push |
+| Datos de mapas                   | Servicio de mapas → ROUTB / aplicación | API                             |
 
-**\<optionally: Explanation of technical interfaces\>**
-
-**\<Mapping Input/Output to Channels\>**
 
 # Solution Strategy {#section-solution-strategy}
 
