@@ -105,26 +105,16 @@ flowchart TB
 ROUTB es una plataforma de movilidad colaborativa dirigida a estudiantes universitarios. El sistema permite a estudiantes conductores publicar recorridos y gestionar los cupos disponibles, mientras que los estudiantes pasajeros pueden consultar recorridos, solicitar uno o varios cupos y gestionar sus viajes. Los administradores utilizan la plataforma para supervisar usuarios, reportes, estadísticas e incidencias.
 
 ## Business Context {#_business_context}
+## Business Context {#_business_context}
 
-┌──────────────────┐
-│ Usuario          │
-│ móvil            │
-└────────┬─────────┘
-         │ HTTPS
-         ▼
-┌──────────────────┐
-│      ROUTB       │
-└────────┬─────────┘
-         │
-    ┌────┼──────────────┐
-    │    │              │
-    │ HTTPS/API     Push
-    ▼    ▼              ▼
-Correo  Mapas      Notificaciones
+```mermaid
+flowchart TB
+    U[Usuario móvil] -->|HTTPS| R[ROUTB]
 
-
-
-
+    R -->|HTTPS / API| C[Correo]
+    R -->|HTTPS / API| M[Mapas]
+    R -->|Push| N[Notificaciones]
+```
 
 ## Technical Context {#_technical_context}
 
