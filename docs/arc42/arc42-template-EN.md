@@ -93,24 +93,15 @@ Business and Scope Constraints
   conductores está fuera del alcance del sistema.
 
 # Context and Scope {#section-context-and-scope}
-                 Estudiante Conductor
-                         │
-                         │ Publica recorridos,
-                         │ gestiona solicitudes
-                         ▼
-                 ┌─────────────────┐
-                 │                 │
-Estudiante ─────▶│     ROUTB       │◀───── Administrador
-Pasajero         │                 │
-                 │ Plataforma de   │
-                 │ movilidad       │
-                 │ colaborativa    │
-                 └───────┬─────────┘
-                         │
-              ┌──────────┼──────────┐
-              ▼          ▼          ▼
-           Correo      Servicio    Servicio
-        institucional  de mapas   de notificaciones
+```mermaid
+flowchart TB
+    C[Estudiante Conductor] -->|Publica recorridos y gestiona solicitudes| R[ROUTB]
+    P[Estudiante Pasajero] -->|Consulta recorridos y solicita cupos| R
+    A[Administrador] -->|Supervisa usuarios, reportes e incidencias| R
+    R --> E[Correo institucional]
+    R --> M[Servicio de mapas]
+    R --> N[Servicio de notificaciones]
+```
 ROUTB es una plataforma de movilidad colaborativa dirigida a estudiantes universitarios. El sistema permite a estudiantes conductores publicar recorridos y gestionar los cupos disponibles, mientras que los estudiantes pasajeros pueden consultar recorridos, solicitar uno o varios cupos y gestionar sus viajes. Los administradores utilizan la plataforma para supervisar usuarios, reportes, estadísticas e incidencias.
 
 ## Business Context {#_business_context}
