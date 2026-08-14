@@ -15,7 +15,7 @@ Template Version 9.0-EN. (based upon AsciiDoc version), July 2025
 Created, maintained and © by Dr. Peter Hruschka, Dr. Gernot Starke and
 contributors. See <https://arc42.org>.
 
-# Introduction and Goals {#section-introduction-and-goals}
+# Introduction and Goals
 
 ROUTB es una plataforma diseñada para facilitar y gestionar el transporte compartido entre los estudiantes de la Universidad Tecnológica de Bolívar. El sistema busca centralizar la información relacionada con estudiantes conductores, rutas disponibles y cupos libres, permitiendo a los estudiantes consultar las opciones de transporte y reservar un cupo antes del viaje.
 
