@@ -54,6 +54,43 @@ El sistema también contempla un panel administrativo destinado a la gestión de
 | 7         | **Privacidad**      | Los datos personales deben tratarse de acuerdo con la Ley 1581 de 2012 y las políticas de protección de datos aplicables.        |
 | 8         | **Usabilidad**      | Las acciones principales deben poder realizarse en un máximo de tres pasos.                                                      |
 
+### Utility Tree
+
+El siguiente árbol de utilidad representa los principales atributos de calidad de ROUTB y sus respectivos subatributos:
+
+```text
+ROUTB
+│
+└── Calidad del sistema
+    │
+    ├── Rendimiento
+    │   ├── Tiempo de respuesta
+    │   └── Actualización de información en tiempo real
+    │
+    ├── Usabilidad
+    │   ├── Facilidad de uso
+    │   └── Navegación sencilla
+    │
+    ├── Seguridad
+    │   ├── Autenticación
+    │   └── Protección de datos
+    │
+    ├── Disponibilidad
+    │   └── Acceso a funcionalidades principales
+    │
+    └── Escalabilidad
+        └── Crecimiento
+```
+
+### Quality Scenarios
+
+| Atributo de calidad | Escenario | Medida |
+|---|---|---|
+| Rendimiento | Cuando un pasajero consulta los viajes disponibles, ROUTB procesa la solicitud y muestra los resultados. | El 95 % de las solicitudes debe responder en menos de 2 segundos bajo condiciones normales. |
+| Usabilidad | Cuando un pasajero desea reservar un viaje disponible, el sistema permite realizar la reserva mediante un proceso sencillo y comprensible. | La reserva debe poder completarse en un máximo de 3 pasos principales. |
+| Seguridad | Cuando un usuario no autorizado intenta acceder a un recurso protegido, ROUTB rechaza la solicitud. | El 100 % de los endpoints protegidos debe validar la autenticación y autorización. |
+| Disponibilidad | Cuando un estudiante accede a la plataforma para consultar o reservar un viaje, las funcionalidades principales deben estar disponibles. | El sistema debe mantener una disponibilidad mínima del 99 % mensual. |
+| Escalabilidad | Aumento progresivo de usuarios, viajes y reservas durante periodos de alta demanda. | Soportar 100 usuarios concurrentes sin errores ni interrupciones del servicio. |
 
 ## Stakeholders
 
