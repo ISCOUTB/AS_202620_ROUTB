@@ -33,7 +33,7 @@ Objetivos específicos
 - Reducir los tiempos de espera de los estudiantes.
 - Mejorar la organización y coordinación de los viajes compartidos.
 
-## Requirements Overview {#_requirements_overview}
+## Requirements Overview
 
 ROUTB es una plataforma de movilidad colaborativa dirigida a estudiantes universitarios. El sistema permite a los estudiantes conductores publicar recorridos indicando su origen, destino, horario y cantidad de cupos disponibles, mientras que los estudiantes pasajeros pueden buscar recorridos según sus necesidades y solicitar uno o varios cupos.
 
@@ -41,7 +41,7 @@ Entre las principales funcionalidades del sistema se encuentran la gestión de p
 
 El sistema también contempla un panel administrativo destinado a la gestión de usuarios, reportes, estadísticas e incidencias.
 
-## Quality Goals {#_quality_goals}
+## Quality Goals
 
 | Prioridad | Objetivo de calidad | Descripción                                                                                                                      |
 | --------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
@@ -55,7 +55,7 @@ El sistema también contempla un panel administrativo destinado a la gestión de
 | 8         | **Usabilidad**      | Las acciones principales deben poder realizarse en un máximo de tres pasos.                                                      |
 
 
-## Stakeholders {#_stakeholders}
+## Stakeholders
 
 | Stakeholder                               | Interés / expectativa                                                                                           |
 | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
@@ -66,7 +66,7 @@ El sistema también contempla un panel administrativo destinado a la gestión de
 | **Universidad / comunidad universitaria** | Contar con una plataforma orientada a facilitar la movilidad colaborativa entre estudiantes verificados.        |
 
 
-# Architecture Constraints {#section-architecture-constraints}
+# Architecture Constraints
 Technical Constraints
 
 - Aplicación móvil multiplataforma para Android e iOS.
@@ -92,7 +92,7 @@ Business and Scope Constraints
 - La verificación de antecedentes o idoneidad de los
   conductores está fuera del alcance del sistema.
 
-# Context and Scope {#section-context-and-scope}
+# Context and Scope
 ```mermaid
 flowchart TB
     C[Estudiante Conductor] -->|Publica recorridos y gestiona solicitudes| R[ROUTB]
@@ -104,7 +104,7 @@ flowchart TB
 ```
 ROUTB es una plataforma de movilidad colaborativa dirigida a estudiantes universitarios. El sistema permite a estudiantes conductores publicar recorridos y gestionar los cupos disponibles, mientras que los estudiantes pasajeros pueden consultar recorridos, solicitar uno o varios cupos y gestionar sus viajes. Los administradores utilizan la plataforma para supervisar usuarios, reportes, estadísticas e incidencias.
 
-## Business Context {#_business_context}
+## Business Context
 
 ```mermaid
 flowchart TB
@@ -115,7 +115,7 @@ flowchart TB
     R -->|Push| N[Notificaciones]
 ```
 
-## Technical Context {#_technical_context}
+## Technical Context
 
 | Entrada / Salida                 | Origen / Destino                       | Canal                           |
 | -------------------------------- | -------------------------------------- | ------------------------------- |
@@ -128,11 +128,11 @@ flowchart TB
 | Datos de mapas                   | Servicio de mapas → ROUTB / aplicación | API                             |
 
 
-# Solution Strategy {#section-solution-strategy}
+# Solution Strategy
 
-# Building Block View {#section-building-block-view}
+# Building Block View
 
-## Whitebox Overall System {#_whitebox_overall_system}
+## Whitebox Overall System
 
 ***\<Overview Diagram\>***
 
