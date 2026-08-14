@@ -21,11 +21,11 @@ ROUTB es una plataforma diseñada para facilitar y gestionar el transporte compa
 
 La plataforma surge como respuesta a las dificultades que presentan algunos estudiantes para encontrar y coordinar transporte hacia o desde la universidad, especialmente debido a la falta de información sobre conductores disponibles, cupos y horarios de salida.
 
-Objetivo general
+## Objetivo general
 
 Desarrollar una plataforma que permita gestionar y coordinar el transporte compartido entre estudiantes de la Universidad Tecnológica de Bolívar.
 
-Objetivos específicos
+## Objetivos específicos
 - Consultar conductores disponibles.
 - Mostrar las rutas de transporte disponibles.
 - Visualizar la cantidad de cupos libres.
