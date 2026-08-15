@@ -106,28 +106,44 @@ ROUTB
 # Architecture Constraints
 Technical Constraints
 
-- Aplicación móvil multiplataforma para Android e iOS.
-- Uso de Flutter para la aplicación móvil.
-- Uso de FastAPI/Python para el backend.
-- Uso de una base de datos relacional.
-- Autenticación mediante correo institucional verificado.
-- Uso de JWT para la autenticación de sesiones.
+- Uso de Flutter para la aplicación móvil, ya que permite
+  cubrir Android e iOS con una sola base de código y se
+  ajusta al tiempo y recursos limitados del equipo.
+- Uso de FastAPI/Python para el backend, por ser un framework
+  ligero y rápido de implementar, acorde con la experiencia
+  del equipo y el tiempo disponible en el semestre.
+- Uso de una base de datos relacional, dado que la información
+  del dominio (usuarios, recorridos, cupos, solicitudes) tiene
+  relaciones claras entre sí que se ajustan bien a este modelo.
+- Uso de JWT para la autenticación de sesiones, al ser un
+  estándar para autenticación sin estado en APIs REST, lo que
+  facilita la escalabilidad del backend.
 
 Integration Constraints
 
-- Integración con el servicio de correo institucional.
 - Integración con un proveedor externo de mapas y
-  geolocalización.
-- Integración con un servicio de notificaciones push.
+  geolocalización, ya que el equipo no cuenta con los recursos
+  para desarrollar un motor de mapas propio.
+- Integración con un servicio de notificaciones push, necesario
+  para informar a los usuarios sobre cambios en sus recorridos
+  o solicitudes sin depender de que tengan la app abierta.
 
 Business and Scope Constraints
 
-- El acceso está restringido a estudiantes verificados
-  mediante correo institucional.
-- ROUTB no gestiona pagos ni transacciones comerciales.
-- ROUTB no actúa como operador de transporte.
-- La verificación de antecedentes o idoneidad de los
-  conductores está fuera del alcance del sistema.
+- ROUTB no gestiona pagos ni transacciones comerciales, dado que
+  el transporte compartido se basa en acuerdos informales entre
+  estudiantes y no en un servicio comercial regulado.
+- ROUTB no actúa como operador de transporte, ya que los
+  conductores son estudiantes que comparten su propio vehículo
+  y no una flota contratada por la plataforma.
+- La verificación de antecedentes o idoneidad de los conductores
+  está fuera del alcance del sistema, porque implicaría acceso a
+  bases de datos oficiales y procesos legales que exceden las
+  posibilidades de un proyecto académico.
+- El desarrollo debe ajustarse al cronograma académico del
+  semestre, con entregas incrementales por semana, lo cual
+  limita el alcance funcional que el equipo puede completar en
+  el tiempo disponible.
 
 # Context and Scope
 ```mermaid
