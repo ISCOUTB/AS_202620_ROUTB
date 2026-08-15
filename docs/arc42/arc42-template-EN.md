@@ -1,6 +1,6 @@
 ---
-date: July 2025
-title: "![arc42](images/arc42-logo.png) Template"
+date: August 2026
+title: "![arc42](images/arc42-logo.png) ROUTB"
 ---
 
 # 
@@ -176,7 +176,6 @@ flowchart TB
 | Solicitudes de recorridos        | Usuario → ROUTB                        | HTTPS                           |
 | Información de recorridos        | ROUTB → Usuario                        | HTTPS                           |
 | Ubicaciones                      | Usuario ↔ ROUTB                        | HTTPS / servicio de mapas       |
-| Verificación de correo           | ROUTB ↔ correo institucional           | HTTPS / servicio de correo      |
 | Notificaciones                   | ROUTB → usuario                        | Servicio de notificaciones push |
 | Datos de mapas                   | Servicio de mapas → ROUTB / aplicación | API                             |
 
