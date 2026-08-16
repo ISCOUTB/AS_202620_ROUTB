@@ -1,0 +1,40 @@
+                    ┌──────────────────────────┐
+                    │  Estudiante Conductor    │
+                    │                          │
+                    │  • Publica recorridos    │
+                    │  • Gestiona cupos        │
+                    │  • Gestiona solicitudes  │
+                    └────────────┬─────────────┘
+                                 │
+                                 ▼
+    ┌────────────────────┐   ┌──────────────────────────────┐
+    │ Estudiante         │──▶│         ROUTB                │
+    │ Pasajero           │   │                              │
+    │                    │   │  Plataforma de Movilidad     │
+    │ • Busca recorridos │   │  Colaborativa para           │
+    │ • Solicita cupos   │   │  Estudiantes                 │
+    │ • Gestiona viajes  │   └──────────────┬───────────────┘
+    └────────────────────┘                  │
+                                  ┌─────────┴──────────────┐
+                                  │                        │
+                                  ▼                        ▼
+                         ┌─────────────────┐   ┌──────────────────────┐
+                         │ Servicio de     │   │ Servicio de          │
+                         │ Mapas y         │   │ Notificaciones Push  │
+                         │ Geolocalización │   │                      │
+                         │                 │   │ • Avisos de eventos  │
+                         │ • Mapas         │   │ • Notificaciones     │
+                         │ • Ubicaciones   │   │   del sistema        │
+                         └─────────────────┘   └──────────────────────┘
+
+                    ┌──────────────────────────┐
+                    │   Administrador          │
+                    │                          │
+                    │  • Gestiona usuarios     │
+                    │  • Reportes              │
+                    │  • Estadísticas          │
+                    │  • Gestiona incidencias  │
+                    └────────────┬─────────────┘
+                                 │
+                                 ▼
+                              ROUTB
