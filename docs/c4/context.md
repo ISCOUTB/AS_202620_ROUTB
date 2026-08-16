@@ -28,9 +28,9 @@ flowchart TD
     PUSH ~~~ ADM
 
     %% Estilos
-    classDef actor fill:#111827,stroke:#a855f7,color:#fff,stroke-width:2px
-    classDef system fill:#111827,stroke:#a855f7,color:#fff,stroke-width:2px
-    classDef service fill:#111827,stroke:#a855f7,color:#fff,stroke-width:2px
+    classDef actor fill:#111827,stroke:#2dd4bf,color:#fff,stroke-width:2px
+    classDef system fill:#111827,stroke:#2dd4bf,color:#fff,stroke-width:2px
+    classDef service fill:#111827,stroke:#2dd4bf,color:#fff,stroke-width:2px
     classDef final fill:#064e3b,stroke:#2dd4bf,color:#fff,stroke-width:2px
 
     class EC,EP,ADM actor
