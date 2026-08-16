@@ -1,6 +1,6 @@
 ---
-date: July 2025
-title: "![arc42](images/arc42-logo.png) Template"
+date: August 2026
+title: "![arc42](images/arc42-logo.png) ROUTB"
 ---
 
 # 
@@ -15,17 +15,17 @@ Template Version 9.0-EN. (based upon AsciiDoc version), July 2025
 Created, maintained and © by Dr. Peter Hruschka, Dr. Gernot Starke and
 contributors. See <https://arc42.org>.
 
-# Introduction and Goals {#section-introduction-and-goals}
+# Introduction and Goals
 
 ROUTB es una plataforma diseñada para facilitar y gestionar el transporte compartido entre los estudiantes de la Universidad Tecnológica de Bolívar. El sistema busca centralizar la información relacionada con estudiantes conductores, rutas disponibles y cupos libres, permitiendo a los estudiantes consultar las opciones de transporte y reservar un cupo antes del viaje.
 
 La plataforma surge como respuesta a las dificultades que presentan algunos estudiantes para encontrar y coordinar transporte hacia o desde la universidad, especialmente debido a la falta de información sobre conductores disponibles, cupos y horarios de salida.
 
-Objetivo general
+## Objetivo general
 
 Desarrollar una plataforma que permita gestionar y coordinar el transporte compartido entre estudiantes de la Universidad Tecnológica de Bolívar.
 
-Objetivos específicos
+## Objetivos específicos
 - Consultar conductores disponibles.
 - Mostrar las rutas de transporte disponibles.
 - Visualizar la cantidad de cupos libres.
@@ -33,7 +33,7 @@ Objetivos específicos
 - Reducir los tiempos de espera de los estudiantes.
 - Mejorar la organización y coordinación de los viajes compartidos.
 
-## Requirements Overview {#_requirements_overview}
+## Requirements Overview
 
 ROUTB es una plataforma de movilidad colaborativa dirigida a estudiantes universitarios. El sistema permite a los estudiantes conductores publicar recorridos indicando su origen, destino, horario y cantidad de cupos disponibles, mientras que los estudiantes pasajeros pueden buscar recorridos según sus necesidades y solicitar uno o varios cupos.
 
@@ -41,7 +41,7 @@ Entre las principales funcionalidades del sistema se encuentran la gestión de p
 
 El sistema también contempla un panel administrativo destinado a la gestión de usuarios, reportes, estadísticas e incidencias.
 
-## Quality Goals {#_quality_goals}
+## Quality Goals
 
 | Prioridad | Objetivo de calidad | Descripción                                                                                                                      |
 | --------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
@@ -54,8 +54,45 @@ El sistema también contempla un panel administrativo destinado a la gestión de
 | 7         | **Privacidad**      | Los datos personales deben tratarse de acuerdo con la Ley 1581 de 2012 y las políticas de protección de datos aplicables.        |
 | 8         | **Usabilidad**      | Las acciones principales deben poder realizarse en un máximo de tres pasos.                                                      |
 
+### Utility Tree
 
-## Stakeholders {#_stakeholders}
+El siguiente árbol de utilidad representa los principales atributos de calidad de ROUTB y sus respectivos subatributos:
+
+```text
+ROUTB
+│
+└── Calidad del sistema
+    │
+    ├── Rendimiento
+    │   ├── Tiempo de respuesta
+    │   └── Actualización de información en tiempo real
+    │
+    ├── Usabilidad
+    │   ├── Facilidad de uso
+    │   └── Navegación sencilla
+    │
+    ├── Seguridad
+    │   ├── Autenticación
+    │   └── Protección de datos
+    │
+    ├── Disponibilidad
+    │   └── Acceso a funcionalidades principales
+    │
+    └── Escalabilidad
+        └── Crecimiento
+```
+
+### Quality Scenarios
+
+| Atributo de calidad | Escenario | Medida |
+|---|---|---|
+| Rendimiento | Cuando un pasajero consulta los viajes disponibles, ROUTB procesa la solicitud y muestra los resultados. | El 95 % de las solicitudes debe responder en menos de 2 segundos bajo condiciones normales. |
+| Usabilidad | Cuando un pasajero desea reservar un viaje disponible, el sistema permite realizar la reserva mediante un proceso sencillo y comprensible. | La reserva debe poder completarse en un máximo de 3 pasos principales. |
+| Seguridad | Cuando un usuario no autorizado intenta acceder a un recurso protegido, ROUTB rechaza la solicitud. | El 100 % de los endpoints protegidos debe validar la autenticación y autorización. |
+| Disponibilidad | Cuando un estudiante accede a la plataforma para consultar o reservar un viaje, las funcionalidades principales deben estar disponibles. | El sistema debe mantener una disponibilidad mínima del 99 % mensual. |
+| Escalabilidad | Aumento progresivo de usuarios, viajes y reservas durante periodos de alta demanda. | Soportar 100 usuarios concurrentes sin errores ni interrupciones del servicio. |
+
+## Stakeholders
 
 | Stakeholder                               | Interés / expectativa                                                                                           |
 | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
@@ -66,76 +103,72 @@ El sistema también contempla un panel administrativo destinado a la gestión de
 | **Universidad / comunidad universitaria** | Contar con una plataforma orientada a facilitar la movilidad colaborativa entre estudiantes verificados.        |
 
 
-# Architecture Constraints {#section-architecture-constraints}
+# Architecture Constraints
 Technical Constraints
 
-- Aplicación móvil multiplataforma para Android e iOS.
-- Uso de Flutter para la aplicación móvil.
-- Uso de FastAPI/Python para el backend.
-- Uso de una base de datos relacional.
-- Autenticación mediante correo institucional verificado.
-- Uso de JWT para la autenticación de sesiones.
+- Uso de Flutter para la aplicación móvil, ya que permite
+  cubrir Android e iOS con una sola base de código y se
+  ajusta al tiempo y recursos limitados del equipo.
+- Uso de FastAPI/Python para el backend, por ser un framework
+  ligero y rápido de implementar, acorde con la experiencia
+  del equipo y el tiempo disponible en el semestre.
+- Uso de una base de datos relacional, dado que la información
+  del dominio (usuarios, recorridos, cupos, solicitudes) tiene
+  relaciones claras entre sí que se ajustan bien a este modelo.
+- Uso de JWT para la autenticación de sesiones, al ser un
+  estándar para autenticación sin estado en APIs REST, lo que
+  facilita la escalabilidad del backend.
 
 Integration Constraints
 
-- Integración con el servicio de correo institucional.
 - Integración con un proveedor externo de mapas y
-  geolocalización.
-- Integración con un servicio de notificaciones push.
+  geolocalización, ya que el equipo no cuenta con los recursos
+  para desarrollar un motor de mapas propio.
+- Integración con un servicio de notificaciones push, necesario
+  para informar a los usuarios sobre cambios en sus recorridos
+  o solicitudes sin depender de que tengan la app abierta.
 
 Business and Scope Constraints
 
-- El acceso está restringido a estudiantes verificados
-  mediante correo institucional.
-- ROUTB no gestiona pagos ni transacciones comerciales.
-- ROUTB no actúa como operador de transporte.
-- La verificación de antecedentes o idoneidad de los
-  conductores está fuera del alcance del sistema.
+- ROUTB no gestiona pagos ni transacciones comerciales, dado que
+  el transporte compartido se basa en acuerdos informales entre
+  estudiantes y no en un servicio comercial regulado.
+- ROUTB no actúa como operador de transporte, ya que los
+  conductores son estudiantes que comparten su propio vehículo
+  y no una flota contratada por la plataforma.
+- La verificación de antecedentes o idoneidad de los conductores
+  está fuera del alcance del sistema, porque implicaría acceso a
+  bases de datos oficiales y procesos legales que exceden las
+  posibilidades de un proyecto académico.
+- El desarrollo debe ajustarse al cronograma académico del
+  semestre, con entregas incrementales por semana, lo cual
+  limita el alcance funcional que el equipo puede completar en
+  el tiempo disponible.
 
-# Context and Scope {#section-context-and-scope}
-                 Estudiante Conductor
-                         │
-                         │ Publica recorridos,
-                         │ gestiona solicitudes
-                         ▼
-                 ┌─────────────────┐
-                 │                 │
-Estudiante ─────▶│     ROUTB       │◀───── Administrador
-Pasajero         │                 │
-                 │ Plataforma de   │
-                 │ movilidad       │
-                 │ colaborativa    │
-                 └───────┬─────────┘
-                         │
-              ┌──────────┼──────────┐
-              ▼          ▼          ▼
-           Correo      Servicio    Servicio
-        institucional  de mapas   de notificaciones
+# Context and Scope
+```mermaid
+flowchart TB
+    C[Estudiante Conductor] -->|Publica recorridos y gestiona solicitudes| R[ROUTB]
+    P[Estudiante Pasajero] -->|Consulta recorridos y solicita cupos| R
+    A[Administrador] -->|Supervisa usuarios, reportes e incidencias| R
+    R --> E[Correo institucional]
+    R --> M[Servicio de mapas]
+    R --> N[Servicio de notificaciones]
+```
 ROUTB es una plataforma de movilidad colaborativa dirigida a estudiantes universitarios. El sistema permite a estudiantes conductores publicar recorridos y gestionar los cupos disponibles, mientras que los estudiantes pasajeros pueden consultar recorridos, solicitar uno o varios cupos y gestionar sus viajes. Los administradores utilizan la plataforma para supervisar usuarios, reportes, estadísticas e incidencias.
 
-## Business Context {#_business_context}
+## Business Context
 
-┌──────────────────┐
-│ Usuario          │
-│ móvil            │
-└────────┬─────────┘
-         │ HTTPS
-         ▼
-┌──────────────────┐
-│      ROUTB       │
-└────────┬─────────┘
-         │
-    ┌────┼──────────────┐
-    │    │              │
-    │ HTTPS/API     Push
-    ▼    ▼              ▼
-Correo  Mapas      Notificaciones
+```mermaid
+flowchart TB
+    U[Usuario móvil] -->|HTTPS| R[ROUTB]
 
+    R -->|HTTPS / API| C[Correo]
+    R -->|HTTPS / API| M[Mapas]
+    R -->|Push| N[Notificaciones]
+```
 
-
-
-
-## Technical Context {#_technical_context}
+## Technical Context
 
 | Entrada / Salida                 | Origen / Destino                       | Canal                           |
 | -------------------------------- | -------------------------------------- | ------------------------------- |
@@ -143,16 +176,15 @@ Correo  Mapas      Notificaciones
 | Solicitudes de recorridos        | Usuario → ROUTB                        | HTTPS                           |
 | Información de recorridos        | ROUTB → Usuario                        | HTTPS                           |
 | Ubicaciones                      | Usuario ↔ ROUTB                        | HTTPS / servicio de mapas       |
-| Verificación de correo           | ROUTB ↔ correo institucional           | HTTPS / servicio de correo      |
 | Notificaciones                   | ROUTB → usuario                        | Servicio de notificaciones push |
 | Datos de mapas                   | Servicio de mapas → ROUTB / aplicación | API                             |
 
 
-# Solution Strategy {#section-solution-strategy}
+# Solution Strategy
 
-# Building Block View {#section-building-block-view}
+# Building Block View
 
-## Whitebox Overall System {#_whitebox_overall_system}
+## Whitebox Overall System
 
 ***\<Overview Diagram\>***
 
