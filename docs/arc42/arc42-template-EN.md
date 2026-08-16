@@ -146,38 +146,114 @@ Restricciones comerciales y de alcance
   el tiempo disponible.
 
 # Contexto y alcance
-```mermaid
-flowchart TB
-    C[Estudiante Conductor] -->|Publica recorridos y gestiona solicitudes| R[ROUTB]
-    P[Estudiante Pasajero] -->|Consulta recorridos y solicita cupos| R
-    A[Administrador] -->|Supervisa usuarios, reportes e incidencias| R
-    R --> E[Correo institucional]
-    R --> M[Servicio de mapas]
-    R --> N[Servicio de notificaciones]
-```
+
 ROUTB es una plataforma de movilidad colaborativa dirigida a estudiantes universitarios. El sistema permite a estudiantes conductores publicar recorridos y gestionar los cupos disponibles, mientras que los estudiantes pasajeros pueden consultar recorridos, solicitar uno o varios cupos y gestionar sus viajes. Los administradores utilizan la plataforma para supervisar usuarios, reportes, estadísticas e incidencias.
 
 ## Contexto empresarial
 
-```mermaid
-flowchart TB
-    U[Usuario móvil] -->|HTTPS| R[ROUTB]
+Representa la relación entre la plataforma y los principales actores involucrados en la movilidad colaborativa universitaria.
 
-    R -->|HTTPS / API| C[Correo]
-    R -->|HTTPS / API| M[Mapas]
-    R -->|Push| N[Notificaciones]
+```mermaid
+flowchart LR
+
+    C["Estudiante<br/>Conductor"]
+    P["Estudiante<br/>Pasajero"]
+    U["Universidad /<br/>Comunidad universitaria"]
+    A["Administrador"]
+
+    R["ROUTB<br/><br/>Plataforma de movilidad<br/>colaborativa"]
+
+    C -->|"Publica recorridos<br/>y ofrece cupos"| R
+    P -->|"Busca recorridos<br/>y solicita cupos"| R
+    A -->|"Gestiona usuarios,<br/>reportes e incidencias"| R
+    U -.->|"Entorno institucional"| R
+
+    R -->|"Facilita la coordinación<br/>de viajes"| C
+    R -->|"Facilita el acceso<br/>a transporte"| P
+
+    classDef actor fill:#111827,stroke:#a855f7,color:#ffffff,stroke-width:2px
+    classDef system fill:#064e3b,stroke:#2dd4bf,color:#ffffff,stroke-width:3px
+    classDef institution fill:#111827,stroke:#60a5fa,color:#ffffff,stroke-width:2px
+
+    class C,P,A actor
+    class R system
+    class U institution
+
+    linkStyle default stroke:#d1d5db,stroke-width:2px,color:#ffffff
+```
+| Interfaz                                  | Relación con ROUTB                                                            |
+| ----------------------------------------- | ----------------------------------------------------------------------------- |
+| **Estudiante conductor**                  | Ofrece recorridos, administra cupos y gestiona solicitudes.                   |
+| **Estudiante pasajero**                   | Consulta recorridos, solicita cupos y gestiona sus viajes.                    |
+| **Administrador**                         | Supervisa usuarios, reportes, estadísticas e incidencias.                     |
+| **Universidad / comunidad universitaria** | Representa el entorno institucional y la población objetivo de la plataforma. |
+
+
+## Contexto tecnico
+
+Representa los principales sistemas y canales mediante los cuales ROUTB recibe, procesa, almacena e intercambia información.
+
+```mermaid
+flowchart LR
+
+    U["Usuario"]
+
+    APP["Aplicación móvil<br/>Flutter"]
+
+    R["ROUTB<br/>Backend FastAPI"]
+
+    DB[("PostgreSQL")]
+
+    MAP["Servicio externo<br/>Mapas y geolocalización"]
+
+    PUSH["Servicio externo<br/>Notificaciones Push"]
+
+
+    U -->|"Interacción"| APP
+    APP -->|"HTTPS / REST"| R
+
+    R -->|"SQL"| DB
+
+    R -->|"HTTPS / API"| MAP
+    R -->|"HTTPS / API"| PUSH
+
+    PUSH -->|"Push"| APP
+
+
+    classDef user fill:#111827,stroke:#a855f7,color:#fff,stroke-width:2px
+    classDef app fill:#111827,stroke:#a855f7,color:#fff,stroke-width:2px
+    classDef system fill:#111827,stroke:#2dd4bf,color:#fff,stroke-width:2px
+    classDef database fill:#111827,stroke:#60a5fa,color:#fff,stroke-width:2px
+    classDef external fill:#111827,stroke:#f59e0b,color:#fff,stroke-width:2px
+
+    class U user
+    class APP app
+    class R system
+    class DB database
+    class MAP,PUSH external
 ```
 
-## Contexto técnico
+| Interfaz                          | Canal            | Propósito                                                                        |
+| --------------------------------- | ---------------- | -------------------------------------------------------------------------------- |
+| **Usuario ↔ Aplicación móvil**    | Interfaz gráfica | Registro, autenticación, consulta y gestión de recorridos, solicitudes y viajes. |
+| **Flutter ↔ FastAPI**             | HTTPS / REST     | Intercambio de información entre la aplicación móvil y el backend.               |
+| **FastAPI ↔ PostgreSQL**          | SQL              | Persistencia y consulta de usuarios, recorridos, solicitudes, cupos e historial. |
+| **FastAPI ↔ Servicio de mapas**   | HTTPS / API      | Consulta de mapas, ubicaciones y geolocalización.                                |
+| **FastAPI ↔ Notificaciones Push** | HTTPS / API      | Envío de notificaciones relacionadas con recorridos y solicitudes.               |
+| **Notificaciones Push → Flutter** | Push             | Entrega de notificaciones al dispositivo del usuario.                            |
 
-| Entrada / Salida                 | Origen / Destino                       | Canal                           |
-| -------------------------------- | -------------------------------------- | ------------------------------- |
-| Credenciales y datos de registro | Usuario → ROUTB                        | HTTPS                           |
-| Solicitudes de recorridos        | Usuario → ROUTB                        | HTTPS                           |
-| Información de recorridos        | ROUTB → Usuario                        | HTTPS                           |
-| Ubicaciones                      | Usuario ↔ ROUTB                        | HTTPS / servicio de mapas       |
-| Notificaciones                   | ROUTB → usuario                        | Servicio de notificaciones push |
-| Datos de mapas                   | Servicio de mapas → ROUTB / aplicación | API                             |
+
+| Entrada / Salida                 | Origen / Destino          | Canal                       |
+| -------------------------------- | ------------------------- | --------------------------- |
+| Credenciales y datos de registro | Usuario → ROUTB           | HTTPS / REST                |
+| Solicitudes de recorridos        | Usuario → ROUTB           | HTTPS / REST                |
+| Información de recorridos        | ROUTB → Usuario           | HTTPS / REST                |
+| Gestión de cupos y solicitudes   | Usuario ↔ ROUTB           | HTTPS / REST                |
+| Ubicaciones                      | Usuario ↔ ROUTB           | HTTPS / REST + API de mapas |
+| Datos de mapas                   | Servicio de mapas → ROUTB | HTTPS / API                 |
+| Datos persistentes               | ROUTB ↔ PostgreSQL        | SQL                         |
+| Notificaciones                   | ROUTB → Usuario           | Servicio Push               |
+
 
 
 # Solution Strategy
