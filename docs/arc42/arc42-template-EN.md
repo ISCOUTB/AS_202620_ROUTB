@@ -1,6 +1,6 @@
 ---
-date: August 2026
-title: "![arc42](images/arc42-logo.png) ROUTB"
+date: Agosto 2026
+title: "ROUTB"
 ---
 
 # 
@@ -15,7 +15,7 @@ Template Version 9.0-EN. (based upon AsciiDoc version), July 2025
 Created, maintained and © by Dr. Peter Hruschka, Dr. Gernot Starke and
 contributors. See <https://arc42.org>.
 
-# Introduction and Goals
+# Introducción y objetivos
 
 ROUTB es una plataforma diseñada para facilitar y gestionar el transporte compartido entre los estudiantes de la Universidad Tecnológica de Bolívar. El sistema busca centralizar la información relacionada con estudiantes conductores, rutas disponibles y cupos libres, permitiendo a los estudiantes consultar las opciones de transporte y reservar un cupo antes del viaje.
 
@@ -33,7 +33,7 @@ Desarrollar una plataforma que permita gestionar y coordinar el transporte compa
 - Reducir los tiempos de espera de los estudiantes.
 - Mejorar la organización y coordinación de los viajes compartidos.
 
-## Requirements Overview
+## Descripción general de los requisitos
 
 ROUTB es una plataforma de movilidad colaborativa dirigida a estudiantes universitarios. El sistema permite a los estudiantes conductores publicar recorridos indicando su origen, destino, horario y cantidad de cupos disponibles, mientras que los estudiantes pasajeros pueden buscar recorridos según sus necesidades y solicitar uno o varios cupos.
 
@@ -41,7 +41,7 @@ Entre las principales funcionalidades del sistema se encuentran la gestión de p
 
 El sistema también contempla un panel administrativo destinado a la gestión de usuarios, reportes, estadísticas e incidencias.
 
-## Quality Goals
+## Objetivos de calidad
 
 | Prioridad | Objetivo de calidad | Descripción                                                                                                                      |
 | --------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
@@ -54,7 +54,7 @@ El sistema también contempla un panel administrativo destinado a la gestión de
 | 7         | **Privacidad**      | Los datos personales deben tratarse de acuerdo con la Ley 1581 de 2012 y las políticas de protección de datos aplicables.        |
 | 8         | **Usabilidad**      | Las acciones principales deben poder realizarse en un máximo de tres pasos.                                                      |
 
-### Utility Tree
+### Árbol de utilidad
 
 El siguiente árbol de utilidad representa los principales atributos de calidad de ROUTB y sus respectivos subatributos:
 
@@ -82,7 +82,7 @@ ROUTB
         └── Crecimiento
 ```
 
-### Quality Scenarios
+### Escenarios de calidad
 
 | Atributo de calidad | Escenario | Medida |
 |---|---|---|
@@ -92,7 +92,7 @@ ROUTB
 | Disponibilidad | Cuando un estudiante accede a la plataforma para consultar o reservar un viaje, las funcionalidades principales deben estar disponibles. | El sistema debe mantener una disponibilidad mínima del 99 % mensual. |
 | Escalabilidad | Aumento progresivo de usuarios, viajes y reservas durante periodos de alta demanda. | Soportar 100 usuarios concurrentes sin errores ni interrupciones del servicio. |
 
-## Stakeholders
+## Stakeholders / Interesados
 
 | Stakeholder                               | Interés / expectativa                                                                                           |
 | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
@@ -103,8 +103,8 @@ ROUTB
 | **Universidad / comunidad universitaria** | Contar con una plataforma orientada a facilitar la movilidad colaborativa entre estudiantes verificados.        |
 
 
-# Architecture Constraints
-Technical Constraints
+# Restricciones de arquitectura
+Restricciones técnicas
 
 - Uso de Flutter para la aplicación móvil, ya que permite
   cubrir Android e iOS con una sola base de código y se
@@ -119,7 +119,7 @@ Technical Constraints
   estándar para autenticación sin estado en APIs REST, lo que
   facilita la escalabilidad del backend.
 
-Integration Constraints
+Restricciones de integración
 
 - Integración con un proveedor externo de mapas y
   geolocalización, ya que el equipo no cuenta con los recursos
@@ -128,7 +128,7 @@ Integration Constraints
   para informar a los usuarios sobre cambios en sus recorridos
   o solicitudes sin depender de que tengan la app abierta.
 
-Business and Scope Constraints
+Restricciones comerciales y de alcance
 
 - ROUTB no gestiona pagos ni transacciones comerciales, dado que
   el transporte compartido se basa en acuerdos informales entre
@@ -145,7 +145,7 @@ Business and Scope Constraints
   limita el alcance funcional que el equipo puede completar en
   el tiempo disponible.
 
-# Context and Scope
+# Contexto y alcance
 ```mermaid
 flowchart TB
     C[Estudiante Conductor] -->|Publica recorridos y gestiona solicitudes| R[ROUTB]
@@ -157,7 +157,7 @@ flowchart TB
 ```
 ROUTB es una plataforma de movilidad colaborativa dirigida a estudiantes universitarios. El sistema permite a estudiantes conductores publicar recorridos y gestionar los cupos disponibles, mientras que los estudiantes pasajeros pueden consultar recorridos, solicitar uno o varios cupos y gestionar sus viajes. Los administradores utilizan la plataforma para supervisar usuarios, reportes, estadísticas e incidencias.
 
-## Business Context
+## Contexto empresarial
 
 ```mermaid
 flowchart TB
@@ -168,7 +168,7 @@ flowchart TB
     R -->|Push| N[Notificaciones]
 ```
 
-## Technical Context
+## Contexto técnico
 
 | Entrada / Salida                 | Origen / Destino                       | Canal                           |
 | -------------------------------- | -------------------------------------- | ------------------------------- |
