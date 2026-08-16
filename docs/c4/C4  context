@@ -1,43 +1,12 @@
-                         ┌─────────────────────────┐
-                         │  Estudiante Conductor   │
-                         │                         │
-                         │ Publica recorridos,     │
-                         │ gestiona cupos y        │
-                         │ solicitudes.            │
-                         └────────────┬────────────┘
-                                      │
-                                      │
-                                      ▼
-┌────────────────────────┐    ┌──────────────────────────────┐
-│ Estudiante Pasajero    │───▶│                              │
-│                        │    │            ROUTB             │
-│ Busca recorridos,      │    │                              │
-│ solicita cupos y       │    │ Plataforma de movilidad      │
-│ gestiona sus viajes.   │    │ colaborativa para estudiantes│
-└────────────────────────┘    │                              │
-                              └──────────────┬───────────────┘
-                                             │
-                                             │
-                         ┌───────────────────┼───────────────────┐
-                         │                   │                   │
-                         ▼                   ▼                   ▼
-                ┌────────────────┐  ┌──────────────────┐  ┌──────────────────┐
-                │ Correo         │  │ Servicio de      │  │ Servicio de      │
-                │ institucional  │  │ mapas y          │  │ notificaciones   │
-                │                │  │ geolocalización  │  │ push             │
-                │ Verificación   │  │                  │  │                  │
-                │ de identidad   │  │ Mapas y          │  │ Avisos sobre     │
-                └────────────────┘  │ ubicaciones      │  │ eventos del      │
-                                    └──────────────────┘  │ sistema          │
-                                                         └──────────────────┘
+ ```mermaid
+flowchart TB
+    C[Estudiante Conductor] -->|Publica recorridos<br/>Gestiona cupos y solicitudes| R[ROUTB]
 
-                         ┌─────────────────────────┐
-                         │      Administrador      │
-                         │                         │
-                         │ Gestiona usuarios,      │
-                         │ reportes, estadísticas  │
-                         │ e incidencias.          │
-                         └────────────┬────────────┘
-                                      │
-                                      ▼
-                                   ROUTB
+    P[Estudiante Pasajero] -->|Busca recorridos<br/>Solicita cupos<br/>Gestiona sus viajes| R
+
+    A[Administrador] -->|Gestiona usuarios<br/>Reportes, estadísticas<br/>e incidencias| R
+
+    R --> E[Correo institucional<br/>Verificación de identidad]
+    R --> M[Servicio de mapas y geolocalización<br/>Mapas y ubicaciones]
+    R --> N[Servicio de notificaciones Push<br/>Avisos sobre eventos del sistema]
+```
