@@ -1,43 +1,40 @@
-                 ┌──────────────────┐
-                 │ Estudiante       │
-                 │ Conductor        │
-                 │                  │
-                 │ Publica recorridos│
-                 │ gestiona cupos y │
-                 │ solicitudes.     │
-                 └────────┬─────────┘
-                          │
-                          ▼
+                    ┌──────────────────────────┐
+                    │  Estudiante Conductor    │
+                    │                          │
+                    │  • Publica recorridos    │
+                    │  • Gestiona cupos        │
+                    │  • Gestiona solicitudes  │
+                    └────────────┬─────────────┘
+                                 │
+                                 ▼
+    ┌────────────────────┐   ┌──────────────────────────────┐
+    │ Estudiante         │──▶│         ROUTB                │
+    │ Pasajero           │   │                              │
+    │                    │   │  Plataforma de Movilidad     │
+    │ • Busca recorridos │   │  Colaborativa para           │
+    │ • Solicita cupos   │   │  Estudiantes                 │
+    │ • Gestiona viajes  │   └──────────────┬───────────────┘
+    └────────────────────┘                  │
+                                  ┌─────────┴──────────────┐
+                                  │                        │
+                                  ▼                        ▼
+                         ┌─────────────────┐   ┌──────────────────────┐
+                         │ Servicio de     │   │ Servicio de          │
+                         │ Mapas y         │   │ Notificaciones Push  │
+                         │ Geolocalización │   │                      │
+                         │                 │   │ • Avisos de eventos  │
+                         │ • Mapas         │   │ • Notificaciones     │
+                         │ • Ubicaciones   │   │   del sistema        │
+                         └─────────────────┘   └──────────────────────┘
 
-┌──────────────────┐     ┌──────────────────────────────┐
-│ Estudiante       │────▶│            ROUTB             │
-│ Pasajero         │     │ Plataforma de movilidad     │
-│                  │     │ colaborativa para estudiantes│
-│ Busca recorridos,│     └──────────────┬───────────────┘
-│ solicita cupos y │                    │
-│ gestiona sus     │                    │
-│ viajes.          │                    │
-└──────────────────┘                    │
-                              ┌─────────┼──────────────┐
-                              │         │              │
-                              ▼         ▼              ▼
-                       ┌──────────┐ ┌──────────┐ ┌──────────────┐
-                       │ Correo   │ │ Servicio │ │ Servicio de  │
-                       │institucional│ │ de mapas │ │notificaciones│
-                       │          │ │ y        │ │ Push         │
-                       │Verificación│ │geolocalización│ │Avisos sobre │
-                       │de identidad│ │Mapas y   │ │eventos del   │
-                       └──────────┘ │ubicaciones│ │sistema       │
-                                    └──────────┘ └──────────────┘
-
-                 ┌──────────────────┐
-                 │ Administrador    │
-                 │                  │
-                 │ Gestiona usuarios│
-                 │ reportes,        │
-                 │ estadísticas     │
-                 │ e incidencias.   │
-                 └────────┬─────────┘
-                          │
-                          ▼
-                       ROUTB
+                    ┌──────────────────────────┐
+                    │   Administrador          │
+                    │                          │
+                    │  • Gestiona usuarios     │
+                    │  • Reportes              │
+                    │  • Estadísticas          │
+                    │  • Gestiona incidencias  │
+                    └────────────┬─────────────┘
+                                 │
+                                 ▼
+                              ROUTB
