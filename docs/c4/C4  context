@@ -1,0 +1,43 @@
+                         ┌─────────────────────────┐
+                         │  Estudiante Conductor   │
+                         │                         │
+                         │ Publica recorridos,     │
+                         │ gestiona cupos y        │
+                         │ solicitudes.            │
+                         └────────────┬────────────┘
+                                      │
+                                      │
+                                      ▼
+┌────────────────────────┐    ┌──────────────────────────────┐
+│ Estudiante Pasajero    │───▶│                              │
+│                        │    │            ROUTB             │
+│ Busca recorridos,      │    │                              │
+│ solicita cupos y       │    │ Plataforma de movilidad      │
+│ gestiona sus viajes.   │    │ colaborativa para estudiantes│
+└────────────────────────┘    │                              │
+                              └──────────────┬───────────────┘
+                                             │
+                                             │
+                         ┌───────────────────┼───────────────────┐
+                         │                   │                   │
+                         ▼                   ▼                   ▼
+                ┌────────────────┐  ┌──────────────────┐  ┌──────────────────┐
+                │ Correo         │  │ Servicio de      │  │ Servicio de      │
+                │ institucional  │  │ mapas y          │  │ notificaciones   │
+                │                │  │ geolocalización  │  │ push             │
+                │ Verificación   │  │                  │  │                  │
+                │ de identidad   │  │ Mapas y          │  │ Avisos sobre     │
+                └────────────────┘  │ ubicaciones      │  │ eventos del      │
+                                    └──────────────────┘  │ sistema          │
+                                                         └──────────────────┘
+
+                         ┌─────────────────────────┐
+                         │      Administrador      │
+                         │                         │
+                         │ Gestiona usuarios,      │
+                         │ reportes, estadísticas  │
+                         │ e incidencias.          │
+                         └────────────┬────────────┘
+                                      │
+                                      ▼
+                                   ROUTB
