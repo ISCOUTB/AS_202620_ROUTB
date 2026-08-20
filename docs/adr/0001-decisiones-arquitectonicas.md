@@ -51,3 +51,17 @@ Se elige este enfoque porque:
 - Se requiere definir y respetar límites claros entre módulos (por ejemplo, evitar dependencias circulares o accesos directos entre módulos que rompan el aislamiento).
 - Al ser un único desplegable, un error grave en un módulo puede afectar la disponibilidad de toda la aplicación.
 - Se necesita disciplina del equipo para no degradar la modularidad con el tiempo ("monolito modular" puede convertirse en "monolito enredado" si no se cuida el diseño).
+
+## Matriz de decisión
+
+Comparación de los tres estilos arquitectónicos contra los escenarios de calidad definidos en el árbol de utilidad del proyecto.
+
+| Criterio (árbol de utilidad) | Monolito modular | Arquitectura por capas | Microservicios |
+|---|---|---|---|
+| Rendimiento (respuesta < 2 s) | Favorece: sin latencia de red entre módulos | Neutral: sin latencia de red, pero el acoplamiento interno puede degradar con el crecimiento | Perjudica: latencia de red entre servicios |
+| Seguridad (100 % endpoints validados) | Favorece: autenticación centralizada, fácil de auditar | Favorece: centralizada en la capa correspondiente | Perjudica: requiere replicar o coordinar autenticación entre servicios |
+| Disponibilidad (99 % mensual) | Neutral: un fallo grave puede afectar todo el desplegable | Neutral: mismo riesgo que el monolito modular | Favorece: aislamiento de fallos por servicio, pero mayor complejidad operativa para lograrlo |
+| Escalabilidad (100 usuarios concurrentes) | Favorece: suficiente para el alcance actual; permite extraer módulos a futuro si crece | Perjudica: el acoplamiento por capas dificulta escalar partes específicas | Favorece: escalado independiente por servicio, mayor rango a futuro |
+| Mantenibilidad (módulos independientes por dominio) | Favorece: módulos por dominio con responsabilidades claras, aíslan cambios y pruebas | Perjudica: una misma funcionalidad queda repartida entre capas, dificultando el aislamiento de cambios | Favorece: aislamiento total entre servicios, pero con sobrecarga operativa alta |
+
+**Resultado:** el monolito modular obtiene el mejor balance entre los criterios priorizados por el equipo, sin sacrificar de forma crítica escalabilidad ni disponibilidad para el tamaño esperado del sistema.
