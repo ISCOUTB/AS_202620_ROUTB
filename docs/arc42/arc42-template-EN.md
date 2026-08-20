@@ -45,7 +45,7 @@ El sistema también contempla un panel administrativo destinado a la gestión de
 
 | Prioridad | Objetivo de calidad | Descripción                                                                                                                      |
 | --------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| 1         | **Rendimiento**     | Las búsquedas y el *matching* deben responder en menos de 2 segundos bajo condiciones normales.                                  |
+| 1         | **Rendimiento**     | Las búsquedas deben responder en menos de 2 segundos bajo condiciones normales.                                  |
 | 2         | **Seguridad**       | Las contraseñas deben almacenarse mediante hashing con salt y las comunicaciones deben utilizar HTTPS.                           |
 | 3         | **Disponibilidad**  | El sistema debe alcanzar una disponibilidad mínima del 99 % durante las franjas de mayor demanda.                                |
 | 4         | **Escalabilidad**   | La arquitectura debe permitir el crecimiento del número de usuarios y recorridos sin degradar significativamente el rendimiento. |
@@ -257,6 +257,49 @@ flowchart LR
 
 
 # Solution Strategy
+
+## Decisiones tecnológicas
+
+| Tecnología | Rol en la arquitectura | Justificación |
+| --- | --- | --- |
+| **Flutter** | Framework para el cliente móvil (Android/iOS) | Permite un único código base multiplataforma, cumpliendo el requisito de portabilidad (RNF-006) con menor esfuerzo de desarrollo para un equipo reducido de 4 integrantes. |
+| **FastAPI (Python)** | Framework del backend / API REST | Alto rendimiento para operaciones asíncronas (relevante para el matching y las búsquedas, RNF-001), tipado y validación de datos integrados, y curva de aprendizaje adecuada para un proyecto académico. |
+| **PostgreSQL** | Sistema gestor de base de datos relacional | Modelo relacional adecuado para las entidades del dominio (usuarios, recorridos, cupos, solicitudes) y sus relaciones; soporta las consultas geoespaciales necesarias para el matching de rutas (extensión PostGIS). |
+| **JWT** | Autenticación y gestión de sesiones | Mecanismo *stateless* que simplifica la escalabilidad horizontal del backend (RNF-005) y se integra naturalmente con FastAPI. |
+| **HTTPS** | Protección de las comunicaciones cliente-servidor | Requisito directo de seguridad (RNF-002). |
+| **API de mapas y geolocalización** (Google Maps API / OpenStreetMap) | Visualización de rutas y cálculo de coincidencias | Se trata como una dependencia externa integrada mediante una interfaz propia, evitando acoplar el dominio de negocio al proveedor específico. |
+| **Servicio de notificaciones push** (p. ej. Firebase Cloud Messaging) | Notificaciones a usuarios | Integración externa desacoplada mediante un adaptador, permitiendo sustituir el proveedor sin afectar el core del sistema. |
+
+## Decisiones de descomposición y organización del sistema
+
+La solución se organiza en torno a cuatro grandes bloques, que se detallarán en la vista de bloques de construcción (sección 5):
+
+- **Aplicación móvil (Flutter):** capa de presentación e interacción con el usuario (conductor, pasajero, administrador).
+- **Backend / API (FastAPI):** contiene la lógica de negocio — autenticación, gestión de recorridos y cupos, motor de matching, reputación y estadísticas — expuesta como API REST.
+- **Persistencia de datos (PostgreSQL):** almacenamiento de usuarios, recorridos, solicitudes, historial y reputación.
+- **Integraciones externas:** correo institucional (verificación de identidad), servicio de mapas/geolocalización y servicio de notificaciones push. Estas se tratan como dependencias externas, aisladas del dominio mediante interfaces de integración, de modo que puedan reemplazarse sin impactar la lógica central del negocio.
+
+Esta separación busca mantener el sistema modular y comprensible para los cuatro integrantes del equipo, permitiendo que distintos miembros trabajen en paralelo sobre el cliente, el backend y las integraciones sin generar dependencias cruzadas fuertes
+
+## Enfoque para alcanzar los objetivos de calidad clave
+
+| Objetivo de calidad (prioridad) | Estrategia arquitectónica |
+| --- | --- |
+| Rendimiento (1) | Búsquedas optimizadas con consultas geoespaciales indexadas en PostgreSQL/PostGIS; operaciones críticas de búsqueda diseñadas para responder en menos de 2 segundos (RNF-001). |
+| Seguridad (2) | Hashing de contraseñas con salt, autenticación basada en JWT, y HTTPS obligatorio en toda comunicación cliente-servidor (RNF-002). |
+| Disponibilidad (3) | Backend sin estado (stateless, gracias a JWT) que facilita el despliegue de múltiples instancias durante las franjas de mayor demanda. |
+| Escalabilidad (4) | Arquitectura desacoplada en capas (cliente / API / persistencia / integraciones externas) que permite escalar el backend horizontalmente a medida que crece la cantidad de usuarios y recorridos por semestre. |
+| Portabilidad (5) | Un único código base en Flutter para Android e iOS. |
+| Mantenibilidad (6) | Backend organizado en módulos por dominio (autenticación, recorridos, búsqueda, reputación, administración), documentado y con responsabilidades claras entre los miembros del equipo. |
+| Privacidad (7) | Verificación de identidad exclusivamente vía correo institucional y tratamiento de datos personales conforme a la Ley 1581 de 2012. |
+| Usabilidad (8) | Diseño mobile-first con flujos de máximo 3 pasos para las acciones principales (publicar, buscar, solicitar un cupo). |
+
+## Decisiones organizacionales
+
+- El desarrollo se distribuye entre los cuatro integrantes del equipo según los bloques definidos (cliente móvil, backend/API, persistencia, integraciones), minimizando el trabajo simultáneo sobre un mismo componente.
+- Al ser un proyecto académico de un semestre, se prioriza una arquitectura simple y bien documentada por sobre patrones más complejos (p. ej. microservicios), reservando la posibilidad de evolucionar hacia una arquitectura más distribuida si el sistema creciera más allá del alcance actual.
+- Las integraciones externas (mapas, correo institucional, notificaciones) se aíslan explícitamente del dominio de negocio para poder desarrollarlas, probarlas y sustituirlas de forma independiente.
+
 
 # Building Block View
 
