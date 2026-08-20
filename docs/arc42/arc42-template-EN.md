@@ -288,9 +288,9 @@ Esta separación busca mantener el sistema modular y comprensible para los cuatr
 | Rendimiento (1) | Búsquedas optimizadas con consultas geoespaciales indexadas en PostgreSQL/PostGIS; operaciones críticas de búsqueda diseñadas para responder en menos de 2 segundos. |
 | Seguridad (2) | Hashing de contraseñas con salt, autenticación basada en JWT, y HTTPS obligatorio en toda comunicación cliente-servidor. |
 | Disponibilidad (3) | Backend sin estado (stateless, gracias a JWT) que facilita el despliegue de múltiples instancias durante las franjas de mayor demanda. |
-| Escalabilidad (4) | Arquitectura desacoplada en capas (cliente / API / persistencia / integraciones externas) que permite escalar el backend horizontalmente a medida que crece la cantidad de usuarios y recorridos por semestre. |
+| Escalabilidad (4) | El monolito modular permite que, si un módulo concentra mayor carga (por ejemplo, búsqueda de recorridos), pueda optimizarse o incluso extraerse a futuro como servicio independiente sin rediseñar el resto del sistema. Ver [ADR 0001](adr/0001-decisiones-arquitectonicas.md). |
 | Portabilidad (5) | Un único código base en Flutter para Android e iOS. |
-| Mantenibilidad (6) | Backend organizado en módulos por dominio (autenticación, recorridos, búsqueda, reputación, administración), documentado y con responsabilidades claras entre los miembros del equipo. |
+| Mantenibilidad (6) | El backend se organiza como monolito modular, dividido en módulos independientes por dominio (autenticación, recorridos, búsqueda, reputación, administración), lo que permite a los desarrolladores del equipo trabajar en paralelo sobre distintos módulos, aislar pruebas y localizar cambios sin afectar el resto del sistema. Ver [ADR 0001](adr/0001-decisiones-arquitectonicas.md). |
 | Privacidad (7) | Tratamiento de datos personales conforme a la Ley 1581 de 2012. |
 | Usabilidad (8) | Diseño mobile-first con flujos de máximo 3 pasos para las acciones principales (publicar, buscar, solicitar un cupo). |
 
