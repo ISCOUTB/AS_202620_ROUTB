@@ -262,11 +262,11 @@ flowchart LR
 
 | Tecnología | Rol en la arquitectura | Justificación |
 | --- | --- | --- |
-| **Flutter** | Framework para el cliente móvil (Android/iOS) | Permite un único código base multiplataforma, cumpliendo el requisito de portabilidad (RNF-006) con menor esfuerzo de desarrollo para un equipo reducido de 4 integrantes. |
-| **FastAPI (Python)** | Framework del backend / API REST | Alto rendimiento para operaciones asíncronas (relevante para el matching y las búsquedas, RNF-001), tipado y validación de datos integrados, y curva de aprendizaje adecuada para un proyecto académico. |
-| **PostgreSQL** | Modelo relacional adecuado para las entidades del dominio (usuarios, recorridos, cupos, solicitudes) y sus relaciones; soporta las consultas de localización necesarias para la búsqueda de recorridos. |
-| **JWT** | Autenticación y gestión de sesiones | Mecanismo *stateless* que simplifica la escalabilidad horizontal del backend (RNF-005) y se integra naturalmente con FastAPI. |
-| **HTTPS** | Protección de las comunicaciones cliente-servidor | Requisito directo de seguridad (RNF-002). |
+| **Flutter** | Framework para el cliente móvil (Android/iOS) | Permite un único código base multiplataforma, cumpliendo el requisito de portabilidad con menor esfuerzo de desarrollo para un equipo reducido de 4 integrantes. |
+| **FastAPI (Python)** | Framework del backend / API REST | Alto rendimiento para operaciones asíncronas, tipado y validación de datos integrados, y curva de aprendizaje adecuada para un proyecto académico. |
+| **PostgreSQL** | Base de datos relacional |Modelo relacional adecuado para las entidades del dominio (usuarios, recorridos, cupos, solicitudes) y sus relaciones; soporta las consultas de localización necesarias para la búsqueda de recorridos. |
+| **JWT** | Autenticación y gestión de sesiones | Mecanismo *stateless* que simplifica la escalabilidad horizontal del backend y se integra naturalmente con FastAPI. |
+| **HTTPS** | Protección de las comunicaciones cliente-servidor | Requisito directo de seguridad. |
 | **API de mapas y geolocalización** (Google Maps API / OpenStreetMap) | Visualización de rutas y cálculo de coincidencias | Se trata como una dependencia externa integrada mediante una interfaz propia, evitando acoplar el dominio de negocio al proveedor específico. |
 | **Servicio de notificaciones push** (p. ej. Firebase Cloud Messaging) | Notificaciones a usuarios | Integración externa desacoplada mediante un adaptador, permitiendo sustituir el proveedor sin afectar el core del sistema. |
 
@@ -285,13 +285,13 @@ Esta separación busca mantener el sistema modular y comprensible para los cuatr
 
 | Objetivo de calidad (prioridad) | Estrategia arquitectónica |
 | --- | --- |
-| Rendimiento (1) | Búsquedas optimizadas con consultas geoespaciales indexadas en PostgreSQL/PostGIS; operaciones críticas de búsqueda diseñadas para responder en menos de 2 segundos (RNF-001). |
-| Seguridad (2) | Hashing de contraseñas con salt, autenticación basada en JWT, y HTTPS obligatorio en toda comunicación cliente-servidor (RNF-002). |
+| Rendimiento (1) | Búsquedas optimizadas con consultas geoespaciales indexadas en PostgreSQL/PostGIS; operaciones críticas de búsqueda diseñadas para responder en menos de 2 segundos. |
+| Seguridad (2) | Hashing de contraseñas con salt, autenticación basada en JWT, y HTTPS obligatorio en toda comunicación cliente-servidor. |
 | Disponibilidad (3) | Backend sin estado (stateless, gracias a JWT) que facilita el despliegue de múltiples instancias durante las franjas de mayor demanda. |
 | Escalabilidad (4) | Arquitectura desacoplada en capas (cliente / API / persistencia / integraciones externas) que permite escalar el backend horizontalmente a medida que crece la cantidad de usuarios y recorridos por semestre. |
 | Portabilidad (5) | Un único código base en Flutter para Android e iOS. |
 | Mantenibilidad (6) | Backend organizado en módulos por dominio (autenticación, recorridos, búsqueda, reputación, administración), documentado y con responsabilidades claras entre los miembros del equipo. |
-| Privacidad (7) | tratamiento de datos personales conforme a la Ley 1581 de 2012. |
+| Privacidad (7) | Tratamiento de datos personales conforme a la Ley 1581 de 2012. |
 | Usabilidad (8) | Diseño mobile-first con flujos de máximo 3 pasos para las acciones principales (publicar, buscar, solicitar un cupo). |
 
 ## Decisiones organizacionales
