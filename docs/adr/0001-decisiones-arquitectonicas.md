@@ -6,7 +6,7 @@ Propuesto
 
 ## Contexto
 
-ROUTB es una plataforma de movilidad colaborativa para estudiantes universitarios. El sistema debe soportar funcionalidades como registro/login, publicación y búsqueda de recorridos, gestión de cupos y solicitudes, notificaciones, historial, reputación y un panel administrativo con estadísticas.
+ROUTB es una plataforma de movilidad colaborativa para estudiantes universitarios, desarrollada por un equipo de cuatro integrantes dentro del alcance de un proyecto académico. El sistema debe soportar funcionalidades como registro/login, publicación y búsqueda de recorridos, gestión de cupos y solicitudes, notificaciones, historial, reputación y un panel administrativo con estadísticas.
 
 Era necesario definir la estrategia general de organización del backend antes de avanzar con el diseño detallado, considerando el tamaño del equipo, el tiempo disponible, la necesidad de trabajo paralelo entre los integrantes y el alcance real del proyecto (una comunidad universitaria, sin procesamiento de pagos ni operación a gran escala).
 
