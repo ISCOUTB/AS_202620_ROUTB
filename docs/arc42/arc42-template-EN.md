@@ -301,163 +301,173 @@ Esta separación busca mantener el sistema modular y comprensible para los cuatr
 - Las integraciones externas (mapas, notificaciones) se aíslan explícitamente del dominio de negocio para poder desarrollarlas, probarlas y sustituirlas de forma independiente.
 
 
-## 5. Building Block View
+# 5. Building Block View
 
 ## 5.1 Whitebox del sistema completo
 
-***Overview Diagram: (pendiente — insertar diagrama de bloques del sistema)***
+**Overview Diagram:** *(pendiente — insertar diagrama de bloques del sistema)*
 
-Motivation:
+**Motivation:** *(pendiente — explicación en texto)*
 
-:   *(pendiente — explicación en texto)*
+**Contained Building Blocks:** *(pendiente — descripción de los building blocks contenidos, cajas negras)*
 
-Contained Building Blocks
+**Important Interfaces:** *(pendiente — descripción de las interfaces importantes)*
 
-:   *(pendiente — descripción de los building blocks contenidos, cajas negras)*
+### Building block 1 — *(pendiente: nombre)*
 
-Important Interfaces
+- *Propósito / Responsabilidad:* pendiente
+- *Interfaz(ces):* pendiente
+- *(Opcional) Características de calidad/rendimiento:* pendiente
+- *(Opcional) Ubicación de directorio/archivo:* pendiente
+- *(Opcional) Requisitos cumplidos:* pendiente
+- *(Opcional) Problemas/riesgos abiertos:* pendiente
 
-:   *\<Description of important interfaces\>*
+### Building block 2 — *(pendiente: nombre)*
 
-### \<Name black box 1\> {#_name_black_box_1}
+*(pendiente — usar la misma plantilla del building block 1)*
 
-*\<Purpose/Responsibility\>*
+### Building block n — *(pendiente: nombre)*
 
-*\<Interface(s)\>*
+*(pendiente — usar la misma plantilla del building block 1)*
 
-*\<(Optional) Quality/Performance Characteristics\>*
+### Interfaces
 
-*\<(Optional) Directory/File Location\>*
+*(pendiente — una subsección por cada interfaz relevante)*
 
-*\<(Optional) Fulfilled Requirements\>*
+## 5.2 Nivel 2
 
-*\<(optional) Open Issues/Problems/Risks\>*
+*(pendiente — un whitebox por cada building block de nivel 1 que se desee detallar)*
 
-### \<Name black box 2\> {#_name_black_box_2}
+## 5.3 Nivel 3
 
-*\<black box template\>*
+*(pendiente — un whitebox por cada building block de nivel 2 que se desee detallar)*
 
-### \<Name black box n\> {#_name_black_box_n}
+---
 
-*\<black box template\>*
+# 6. Runtime View
 
-### \<Name interface 1\> {#_name_interface_1}
+*(pendiente — un escenario de ejecución por cada flujo relevante: por ejemplo, "publicar un recorrido", "buscar y reservar un cupo", "autenticación de usuario")*
 
-...​
+## 6.1 Escenario de runtime 1 — *(pendiente: nombre)*
 
-### \<Name interface m\> {#_name_interface_m}
+- *(pendiente — diagrama de secuencia o descripción textual del escenario)*
+- *(pendiente — descripción de los aspectos relevantes de las interacciones entre los building blocks representados)*
 
-## Level 2 {#_level_2}
+## 6.2 Escenario de runtime 2 — *(pendiente: nombre)*
 
-### White Box *\<building block 1\>* {#_white_box_building_block_1}
+*(pendiente)*
 
-*\<white box template\>*
+## 6.n Escenario de runtime n — *(pendiente: nombre)*
 
-### White Box *\<building block 2\>* {#_white_box_building_block_2}
+*(pendiente)*
 
-*\<white box template\>*
+---
 
-...​
+# 7. Deployment View
 
-### White Box *\<building block m\>* {#_white_box_building_block_m}
+## 7.1 Infraestructura — Nivel 1
 
-*\<white box template\>*
+**Overview Diagram:** *(pendiente — insertar diagrama de despliegue)*
 
-## Level 3 {#_level_3}
+**Motivation:** *(pendiente — explicación en texto)*
 
-### White Box \<\_building block x.1\_\> {#_white_box_building_block_x_1}
+**Quality and/or Performance Features:** *(pendiente — explicación en texto)*
 
-*\<white box template\>*
+**Mapping of Building Blocks to Infrastructure:** *(pendiente — descripción de la asignación de building blocks a la infraestructura)*
 
-### White Box \<\_building block x.2\_\> {#_white_box_building_block_x_2}
+## 7.2 Infraestructura — Nivel 2
 
-*\<white box template\>*
+### Elemento de infraestructura 1 — *(pendiente: nombre)*
 
-### White Box \<\_building block y.1\_\> {#_white_box_building_block_y_1}
+*(pendiente — diagrama + explicación)*
 
-*\<white box template\>*
+### Elemento de infraestructura 2 — *(pendiente: nombre)*
 
-# Runtime View {#section-runtime-view}
+*(pendiente — diagrama + explicación)*
 
-## \<Runtime Scenario 1\> {#_runtime_scenario_1}
+### Elemento de infraestructura n — *(pendiente: nombre)*
 
--   *\<insert runtime diagram or textual description of the scenario\>*
+*(pendiente — diagrama + explicación)*
 
--   *\<insert description of the notable aspects of the interactions
-    between the building block instances depicted in this diagram.\>*
+---
 
-## \<Runtime Scenario 2\> {#_runtime_scenario_2}
+# 8. Cross-cutting Concepts
 
-## ...​
+*(pendiente — un subapartado por cada concepto transversal: por ejemplo, seguridad, manejo de errores, internacionalización, persistencia)*
 
-## \<Runtime Scenario n\> {#_runtime_scenario_n}
+## 8.1 Concepto 1 — *(pendiente: nombre)*
 
-# Deployment View {#section-deployment-view}
+*(pendiente — explicación)*
 
-## Infrastructure Level 1 {#_infrastructure_level_1}
+## 8.2 Concepto 2 — *(pendiente: nombre)*
 
-***\<Overview Diagram\>***
+*(pendiente — explicación)*
 
-Motivation
+## 8.n Concepto n — *(pendiente: nombre)*
 
-:   *\<explanation in text form\>*
+*(pendiente — explicación)*
 
-Quality and/or Performance Features
+---
 
-:   *\<explanation in text form\>*
+# 9. Architecture Decisions
 
-Mapping of Building Blocks to Infrastructure
+*(pendiente — enlazar aquí los ADR del proyecto, p. ej. [ADR 0001](adr/0001-decisiones-arquitectonicas.md))*
 
-:   *\<description of the mapping\>*
+---
 
-## Infrastructure Level 2 {#_infrastructure_level_2}
+# 10. Quality Requirements
 
-### *\<Infrastructure Element 1\>* {#_infrastructure_element_1}
+## 10.1 Quality Requirements Overview — Árbol de utilidad
 
-*\<diagram + explanation\>*
+El siguiente árbol de utilidad representa los principales atributos de calidad de ROUTB y sus respectivos subatributos:
 
-### *\<Infrastructure Element 2\>* {#_infrastructure_element_2}
+```text
+ROUTB
+│
+└── Calidad del sistema
+    │
+    ├── Rendimiento
+    │   ├── Tiempo de respuesta
+    │   └── Actualización de información en tiempo real
+    │
+    ├── Usabilidad
+    │   ├── Facilidad de uso
+    │   └── Navegación sencilla
+    │
+    ├── Seguridad
+    │   ├── Autenticación
+    │   └── Protección de datos
+    │
+    ├── Disponibilidad
+    │   └── Acceso a funcionalidades principales
+    │
+    └── Escalabilidad
+        └── Crecimiento
+```
 
-*\<diagram + explanation\>*
+> *(pendiente — completar el árbol con Portabilidad, Mantenibilidad y Privacidad, y añadir los valores de Impacto y Riesgo de cada hoja.)*
 
-...​
+## 10.2 Quality Scenarios
 
-### *\<Infrastructure Element n\>* {#_infrastructure_element_n}
+| Atributo de calidad | Fuente del estímulo | Estímulo | Artefacto | Entorno | Respuesta | Medida de respuesta |
+|---|---|---|---|---|---|---|
+| **Rendimiento** | Pasajero | Consulta los viajes disponibles | ROUTB | Condiciones normales de operación | El sistema procesa la solicitud y muestra los resultados | El 95 % de las solicitudes responde en menos de 2 segundos |
+| **Usabilidad** | Pasajero | Desea reservar un viaje disponible | ROUTB | Uso normal de la aplicación móvil | El sistema permite completar la reserva mediante un proceso sencillo | La reserva se completa en un máximo de 3 pasos principales |
+| **Seguridad** | Usuario no autorizado | Intenta acceder a un recurso protegido | ROUTB | En cualquier momento | ROUTB rechaza la solicitud | El 100 % de los endpoints protegidos valida autenticación y autorización |
+| **Disponibilidad** | Estudiante | Accede a la plataforma para consultar o reservar un viaje | ROUTB | Franjas de mayor demanda | Las funcionalidades principales permanecen disponibles | Disponibilidad mínima del 99 % mensual |
+| **Escalabilidad** | Usuarios del sistema | Aumento progresivo de usuarios, viajes y reservas | ROUTB | Periodos de alta demanda | El sistema mantiene su operación normal | Soporta hasta 100 usuarios concurrentes sin errores ni interrupciones |
 
-*\<diagram + explanation\>*
+---
 
-# Cross-cutting Concepts {#section-concepts}
+# 11. Risks and Technical Debts
 
-## *\<Concept 1\>* {#_concept_1}
+*(pendiente — listar riesgos identificados y deuda técnica asumida, con su plan de mitigación)*
 
-*\<explanation\>*
+---
 
-## *\<Concept 2\>* {#_concept_2}
+# 12. Glossary
 
-*\<explanation\>*
-
-...​
-
-## *\<Concept n\>* {#_concept_n}
-
-*\<explanation\>*
-
-# Architecture Decisions {#section-design-decisions}
-
-# Quality Requirements {#section-quality-scenarios}
-
-## Quality Requirements Overview {#_quality_requirements_overview}
-
-## Quality Scenarios {#_quality_scenarios}
-
-# Risks and Technical Debts {#section-technical-risks}
-
-# Glossary {#section-glossary}
-
-+----------------------+-----------------------------------------------+
-| Term                 | Definition                                    |
-+======================+===============================================+
-| *\<Term-1\>*         | *\<definition-1\>*                            |
-+----------------------+-----------------------------------------------+
-| *\<Term-2\>*         | *\<definition-2\>*                            |
-+----------------------+-----------------------------------------------+
+| Término | Definición |
+|---|---|
+| *(pendiente: término 1)* | *(pendiente: definición 1)* |
+| *(pendiente: término 2)* | *(pendiente: definición 2)* |
