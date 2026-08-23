@@ -9,46 +9,15 @@ La aplicación permite consultar a estudiantes conductores y rutas disponibles, 
 
 El objetivo es reducir los tiempos de espera y mejorar la coordinación entre estudiantes conductores y pasajeros, facilitando la organización del transporte dentro de la comunidad universitaria.
 
----
-
-## Problema
-
-Actualmente, muchos estudiantes de la Universidad Tecnológica de Bolívar presentan dificultades para encontrar transporte hacia o desde la universidad.
-
-Algunos de los problemas mas frecuentes son:
-
-- Buscar transporte por diferentes medios.
-- No conocer qué conductores tienen cupos disponibles.
-- Esperar sin saber cuándo saldrá un vehículo.
-- Confusión cuando un estudiante aparta un cupo y este no es respetado.
-- Falta de organización entre conductores y pasajeros.
+La descripción completa del problema se encuentra en [Problema](docs/problema.md).
 
 ---
 
-## Objetivo General
-
-Desarrollar una plataforma que permita gestionar y coordinar el transporte compartido entre estudiantes de la Universidad Tecnológica de Bolívar.
-
----
-
-## Objetivos Específicos
-
-- Consultar conductores disponibles.
-- Mostrar rutas disponibles.
-- Visualizar los cupos libres.
-- Permitir reservar un cupo.
-- Reducir los tiempos de espera.
-- Mejorar la organización de los viajes.
-
----
-
-## Usuarios
-
-La plataforma está dirigida a:
-
-- Estudiantes pasajeros.
-- Estudiantes conductores.
-- Administradores.
+## Equipo de Desarrollo
+- Diego Baron 
+- Junior Orozco 
+- Keiner Mendivil 
+- Julian Manjarrez 
 
 ---
 
@@ -59,10 +28,28 @@ La plataforma está dirigida a:
 - **PostgreSQL** — Gestión de la base de datos.
 - **Git / GitHub** — Control de versiones.
 
----
+## Instalación
 
-## Equipo de Desarrollo
-- Diego Baron 
-- Junior Orozco 
-- Keiner Mendivil 
-- Julian Manjarrez 
+Para instalar la aplicación, sigue estos pasos en tu terminal:
+
+1. Clona el repo: `git clone https://github.com/ISCOUTB/AS_202620_ROUTB.git`
+
+2. Navega al directorio del proyecto: `cd AS_202620_ROUTB`
+
+3. Navega al directorio del backend: `cd backend`
+
+4. Crea un entorno virtual: `python -m venv .venv`
+
+5. Activa el entorno virtual: `.venv\Scripts\Activate`
+
+6. Instala las dependencias: `pip install -r requirements.txt`
+
+## Ejecución
+
+Para ejecutar la aplicación, sigue estos pasos:
+
+1. Inicia el servidor: `uvicorn app.main:app --reload`
+
+2. Ejecuta las pruebas: `pytest`
+
+
