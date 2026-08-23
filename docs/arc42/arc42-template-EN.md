@@ -301,19 +301,19 @@ Esta separación busca mantener el sistema modular y comprensible para los cuatr
 - Las integraciones externas (mapas, notificaciones) se aíslan explícitamente del dominio de negocio para poder desarrollarlas, probarlas y sustituirlas de forma independiente.
 
 
-# Building Block View
+## 5. Building Block View
 
-## Whitebox Overall System
+## 5.1 Whitebox del sistema completo
 
-***\<Overview Diagram\>***
+***Overview Diagram: (pendiente — insertar diagrama de bloques del sistema)***
 
-Motivation
+Motivation:
 
-:   *\<text explanation\>*
+:   *(pendiente — explicación en texto)*
 
 Contained Building Blocks
 
-:   *\<Description of contained building block (black boxes)\>*
+:   *(pendiente — descripción de los building blocks contenidos, cajas negras)*
 
 Important Interfaces
 
