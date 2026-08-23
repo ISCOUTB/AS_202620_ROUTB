@@ -28,6 +28,28 @@ La descripción completa del problema se encuentra en [Problema](docs/problema.m
 - **PostgreSQL** — Gestión de la base de datos.
 - **Git / GitHub** — Control de versiones.
 
-## Proyecto ejecutable
+## Instalación
+
+Para instalar la aplicación, sigue estos pasos en tu terminal:
+
+1. Clona el repo: `git clone https://github.com/ISCOUTB/AS_202620_ROUTB.git`
+
+2. Navega al directorio del proyecto: `cd AS_202620_ROUTB`
+
+3. Navega al directorio del backend: `cd backend`
+
+4. Crea un entorno virtual: `python -m venv .venv`
+
+5. Activa el entorno virtual: `.venv\Scripts\Activate`
+
+6. Instala las dependencias: `pip install -r requirements.txt`
+
+## Ejecución
+
+Para ejecutar la aplicación, sigue estos pasos:
+
+1. Inicia el servidor: `uvicorn app.main:app --reload`
+
+2. Ejecuta las pruebas: `pytest`
 
 
