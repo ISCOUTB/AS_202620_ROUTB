@@ -24,18 +24,17 @@ Se elige este enfoque porque:
 
 ## Alternativas consideradas
 
-### Arquitectura de microservicios
-
-- **Ventajas:** escalabilidad independiente por servicio, despliegues independientes, aislamiento de fallos.
-- **Desventajas:** alta complejidad operativa (orquestación, comunicación entre servicios, monitoreo distribuido), sobrecarga innecesaria para un equipo de cuatro personas y un proyecto de alcance académico, mayor tiempo de configuración inicial que resta tiempo al desarrollo de funcionalidades.
-- **Motivo de descarte:** la complejidad no se justifica frente al tamaño del equipo, el tiempo disponible y el volumen de usuarios esperado.
-
 ### Arquitectura por capas
  
 - **Ventajas:** separación clara de responsabilidades por capa (presentación, lógica de negocio, acceso a datos), enfoque conocido y sencillo de implementar, buena curva de aprendizaje para el equipo.
 - **Desventajas:** la organización por capas horizontales (en lugar de por funcionalidad) dificulta el trabajo paralelo de los cuatro integrantes, ya que una misma funcionalidad (por ejemplo, gestión de cupos) queda repartida entre varias capas y distintos desarrolladores terminan tocando los mismos archivos; además tiende a generar alto acoplamiento entre funcionalidades dentro de cada capa y dificulta el mantenimiento y las pruebas a medida que el sistema crece.
 - **Motivo de descarte:** dificulta el trabajo paralelo del equipo al no aislar las funcionalidades entre sí y compromete el mantenimiento a mediano plazo.
 
+### Arquitectura hexagonal
+
+- **Ventajas:** proporciona una separación clara entre la lógica de negocio y las dependencias externas. Facilita las pruebas de la lógica de negocio de forma aislada y reduce el acoplamiento con tecnologías como la base de datos y servicios externos.
+- **Desventajas:** requiere definir y mantener puertos, adaptadores e interfaces adicionales, aumentando la cantidad de abstracciones y código. Para un equipo pequeño y un proyecto académico, aplicarla estrictamente a todas las funcionalidades puede incrementar el tiempo de desarrollo y la complejidad inicial.
+- **Motivo de descarte:** aunque proporciona un buen desacoplamiento técnico, el nivel de abstracción adicional no se considera necesario como enfoque principal para el alcance actual de ROUTB.
 
 ## Consecuencias
 
@@ -56,12 +55,12 @@ Se elige este enfoque porque:
 
 Comparación de los tres estilos arquitectónicos contra los escenarios de calidad definidos en el árbol de utilidad del proyecto.
 
-| Criterio (árbol de utilidad) | Monolito modular | Arquitectura por capas | Microservicios |
+| Criterio (árbol de utilidad) | Monolito modular | Arquitectura por capas | Arquitectura hexagonal |
 |---|---|---|---|
-| Rendimiento | Favorece: sin latencia de red entre módulos | Neutral: sin latencia de red, pero el acoplamiento interno puede degradar con el crecimiento | Perjudica: latencia de red entre servicios |
-| Seguridad | Favorece: autenticación centralizada, fácil de auditar | Favorece: centralizada en la capa correspondiente | Perjudica: requiere replicar o coordinar autenticación entre servicios |
-| Disponibilidad | Neutral: un fallo grave puede afectar todo el desplegable | Neutral: mismo riesgo que el monolito modular | Favorece: aislamiento de fallos por servicio, pero mayor complejidad operativa para lograrlo |
-| Escalabilidad | Favorece: suficiente para el alcance actual; permite extraer módulos a futuro si crece | Perjudica: el acoplamiento por capas dificulta escalar partes específicas | Favorece: escalado independiente por servicio, mayor rango a futuro |
-| Mantenibilidad | Favorece: módulos por dominio con responsabilidades claras, aíslan cambios y pruebas | Perjudica: una misma funcionalidad queda repartida entre capas, dificultando el aislamiento de cambios | Favorece: aislamiento total entre servicios, pero con sobrecarga operativa alta |
+| Rendimiento | Favorece: sin latencia de red entre módulos | Neutral: sin latencia de red, pero el acoplamiento interno puede degradar con el crecimiento | Neutral: el uso de puertos y adaptadores añade una abstracción mínima, sin comunicación de red obligatoria |
+| Seguridad | Favorece: autenticación centralizada, fácil de auditar | Favorece: centralizada en la capa correspondiente | Favorece: permite aislar la lógica de seguridad y controlar las dependencias externas mediante puertos y adaptadores |
+| Disponibilidad | Neutral: un fallo grave puede afectar todo el desplegable | Neutral: mismo riesgo que el monolito modular | Neutral: al ser un patrón de organización interna, no proporciona aislamiento de fallos a nivel de despliegue |
+| Escalabilidad | Favorece: suficiente para el alcance actual; permite extraer módulos a futuro si crece | Perjudica: el acoplamiento por capas dificulta escalar partes específicas | Neutral: mejora el desacoplamiento interno, pero no proporciona escalabilidad independiente por sí sola |
+| Mantenibilidad | Favorece: módulos por dominio con responsabilidades claras, aíslan cambios y pruebas | Perjudica: una misma funcionalidad queda repartida entre capas, dificultando el aislamiento de cambios | Favorece: separa la lógica de negocio de la infraestructura, facilitando las pruebas y el reemplazo de dependencias |
 
 **Resultado:** el monolito modular obtiene el mejor balance entre los criterios priorizados por el equipo, sin sacrificar de forma crítica escalabilidad ni disponibilidad para el tamaño esperado del sistema.
