@@ -220,7 +220,7 @@ flowchart LR
 
 
 
-# Solution Strategy
+# Estrategia de solución
 
 ## Decisiones tecnológicas
 
