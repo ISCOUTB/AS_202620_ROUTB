@@ -265,7 +265,7 @@ Esta separación busca mantener el sistema modular y comprensible para los cuatr
 - Las integraciones externas (mapas, notificaciones) se aíslan explícitamente del dominio de negocio para poder desarrollarlas, probarlas y sustituirlas de forma independiente.
 
 
-# 5. Building Block View
+# 5. Vista de bloques de construcción
 
 ## 5.1 Whitebox del sistema completo
 
@@ -308,7 +308,7 @@ Esta separación busca mantener el sistema modular y comprensible para los cuatr
 
 ---
 
-# 6. Runtime View
+# 6. Vista de ejecución
 
 *(pendiente — un escenario de ejecución por cada flujo relevante: por ejemplo, "publicar un recorrido", "buscar y reservar un cupo", "autenticación de usuario")*
 
@@ -327,7 +327,7 @@ Esta separación busca mantener el sistema modular y comprensible para los cuatr
 
 ---
 
-# 7. Deployment View
+# 7. Vista de despliegue
 
 ## 7.1 Infraestructura — Nivel 1
 
