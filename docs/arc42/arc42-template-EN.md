@@ -25,7 +25,7 @@ La plataforma surge como respuesta a las dificultades que presentan algunos estu
 
 Desarrollar una plataforma que permita gestionar y coordinar el transporte compartido entre estudiantes de la Universidad Tecnológica de Bolívar.
 
-## Objetivos específicos
+## Funcionalidades principales
 - Consultar conductores disponibles.
 - Mostrar las rutas de transporte disponibles.
 - Visualizar la cantidad de cupos libres.
@@ -43,54 +43,16 @@ El sistema también contempla un panel administrativo destinado a la gestión de
 
 ## Objetivos de calidad
 
-| Prioridad | Objetivo de calidad | Descripción                                                                                                                      |
-| --------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| 1         | **Rendimiento**     | Las búsquedas deben responder en menos de 2 segundos bajo condiciones normales.                                  |
-| 2         | **Seguridad**       | Las contraseñas deben almacenarse mediante hashing con salt y las comunicaciones deben utilizar HTTPS.                           |
-| 3         | **Disponibilidad**  | El sistema debe alcanzar una disponibilidad mínima del 99 % durante las franjas de mayor demanda.                                |
-| 4         | **Escalabilidad**   | La arquitectura debe permitir el crecimiento del número de usuarios y recorridos sin degradar significativamente el rendimiento. |
-| 5         | **Portabilidad**    | La aplicación debe funcionar de manera equivalente en Android e iOS.                                                             |
-| 6         | **Mantenibilidad**  | El sistema debe utilizar una arquitectura modular y documentada que facilite su evolución.                                       |
-| 7         | **Privacidad**      | Los datos personales deben tratarse de acuerdo con la Ley 1581 de 2012 y las políticas de protección de datos aplicables.        |
-| 8         | **Usabilidad**      | Las acciones principales deben poder realizarse en un máximo de tres pasos.                                                      |
-
-### Árbol de utilidad
-
-El siguiente árbol de utilidad representa los principales atributos de calidad de ROUTB y sus respectivos subatributos:
-
-```text
-ROUTB
-│
-└── Calidad del sistema
-    │
-    ├── Rendimiento
-    │   ├── Tiempo de respuesta
-    │   └── Actualización de información en tiempo real
-    │
-    ├── Usabilidad
-    │   ├── Facilidad de uso
-    │   └── Navegación sencilla
-    │
-    ├── Seguridad
-    │   ├── Autenticación
-    │   └── Protección de datos
-    │
-    ├── Disponibilidad
-    │   └── Acceso a funcionalidades principales
-    │
-    └── Escalabilidad
-        └── Crecimiento
-```
-
-### Escenarios de calidad
-
-| Atributo de calidad | Escenario | Medida |
-|---|---|---|
-| Rendimiento | Cuando un pasajero consulta los viajes disponibles, ROUTB procesa la solicitud y muestra los resultados. | El 95 % de las solicitudes debe responder en menos de 2 segundos bajo condiciones normales. |
-| Usabilidad | Cuando un pasajero desea reservar un viaje disponible, el sistema permite realizar la reserva mediante un proceso sencillo y comprensible. | La reserva debe poder completarse en un máximo de 3 pasos principales. |
-| Seguridad | Cuando un usuario no autorizado intenta acceder a un recurso protegido, ROUTB rechaza la solicitud. | El 100 % de los endpoints protegidos debe validar la autenticación y autorización. |
-| Disponibilidad | Cuando un estudiante accede a la plataforma para consultar o reservar un viaje, las funcionalidades principales deben estar disponibles. | El sistema debe mantener una disponibilidad mínima del 99 % mensual. |
-| Escalabilidad | Aumento progresivo de usuarios, viajes y reservas durante periodos de alta demanda. | Soportar 100 usuarios concurrentes sin errores ni interrupciones del servicio. |
+| Prioridad | Objetivo de calidad | Descripción                                                                                                                      | Interesado |
+| --------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| 1         | **Rendimiento**     | Las búsquedas deben responder en menos de 2 segundos bajo condiciones normales.                                                  | Estudiantes (principalmente pasajeros) |
+| 2         | **Seguridad**       | Las contraseñas deben almacenarse mediante hashing con salt y las comunicaciones deben utilizar HTTPS.                           | Estudiantes (conductores y pasajeros) |
+| 3         | **Disponibilidad**  | El sistema debe alcanzar una disponibilidad mínima del 99 % durante las franjas de mayor demanda.                                | Estudiantes (usuarios activos) |
+| 4         | **Escalabilidad**   | La arquitectura debe permitir el crecimiento del número de usuarios y recorridos sin degradar significativamente el rendimiento. | Equipo de desarrollo |
+| 5         | **Portabilidad**    | La aplicación debe funcionar de manera equivalente en Android e iOS.                                                             | Estudiantes (usuarios móviles) |
+| 6         | **Mantenibilidad**  | El sistema debe utilizar una arquitectura modular y documentada que facilite su evolución.                                       | Equipo de desarrollo |
+| 7         | **Privacidad**      | Los datos personales deben tratarse de acuerdo con la Ley 1581 de 2012 y las políticas de protección de datos aplicables.        | Universidad / comunidad universitaria |
+| 8         | **Usabilidad**      | Las acciones principales deben poder realizarse en un máximo de tres pasos.                                                      | Estudiantes (pasajeros) |
 
 ## Stakeholders / Interesados
 
@@ -100,50 +62,72 @@ ROUTB
 | **Estudiante pasajero**                   | Encontrar recorridos compatibles, solicitar cupos, conocer el estado de sus solicitudes y gestionar sus viajes. |
 | **Administrador**                         | Gestionar usuarios, reportes, estadísticas e incidencias y supervisar el funcionamiento de la plataforma.       |
 | **Equipo de desarrollo**                  | Mantener una arquitectura modular, mantenible y documentada que permita evolucionar el sistema.                 |
-| **Universidad / comunidad universitaria** | Contar con una plataforma orientada a facilitar la movilidad colaborativa entre estudiantes verificados.        |
 
 
 # Restricciones de arquitectura
-Restricciones técnicas
 
-- Uso de Flutter para la aplicación móvil, ya que permite
+Las restricciones se agrupan en categorías organizativas, técnicas, de integración, legales/normativas y comerciales/de alcance. Cada una indica explícitamente su justificación («dado que…»).
+
+## Restricciones organizativas
+
+- El equipo de desarrollo está compuesto por 4 integrantes, dado que
+  es el tamaño fijado para el proyecto académico, lo que condiciona
+  la cantidad de trabajo paralelo posible y favorece una arquitectura
+  con módulos claramente separables (ver ADR 0001).
+- El desarrollo debe ajustarse al cronograma académico del semestre,
+  con entregas incrementales por semana, dado que esto limita el
+  alcance funcional que el equipo puede completar en el tiempo
+  disponible y obliga a priorizar una arquitectura simple sobre
+  una más compleja.
+
+## Restricciones técnicas
+
+- Uso de Flutter para la aplicación móvil, dado que permite
   cubrir Android e iOS con una sola base de código y se
   ajusta al tiempo y recursos limitados del equipo.
-- Uso de FastAPI/Python para el backend, por ser un framework
+- Uso de FastAPI/Python para el backend, dado que es un framework
   ligero y rápido de implementar, acorde con la experiencia
   del equipo y el tiempo disponible en el semestre.
 - Uso de una base de datos relacional, dado que la información
   del dominio (usuarios, recorridos, cupos, solicitudes) tiene
   relaciones claras entre sí que se ajustan bien a este modelo.
-- Uso de JWT para la autenticación de sesiones, al ser un
+- Uso de JWT para la autenticación de sesiones, dado que es un
   estándar para autenticación sin estado en APIs REST, lo que
   facilita la escalabilidad del backend.
 
-Restricciones de integración
+## Restricciones de integración
 
 - Integración con un proveedor externo de mapas y
-  geolocalización, ya que el equipo no cuenta con los recursos
+  geolocalización, dado que el equipo no cuenta con los recursos
   para desarrollar un motor de mapas propio.
-- Integración con un servicio de notificaciones push, necesario
-  para informar a los usuarios sobre cambios en sus recorridos
-  o solicitudes sin depender de que tengan la app abierta.
+- Integración con un servicio de notificaciones push, dado que
+  es necesario informar a los usuarios sobre cambios en sus
+  recorridos o solicitudes sin depender de que tengan la app abierta.
 
-Restricciones comerciales y de alcance
+## Restricciones legales y normativas
 
+- Los datos personales de los estudiantes deben tratarse conforme
+  a la Ley 1581 de 2012 (Colombia) y las políticas de protección
+  de datos aplicables, dado que el sistema almacena y procesa
+  información identificable de estudiantes.
 - ROUTB no gestiona pagos ni transacciones comerciales, dado que
-  el transporte compartido se basa en acuerdos informales entre
-  estudiantes y no en un servicio comercial regulado.
-- ROUTB no actúa como operador de transporte, ya que los
-  conductores son estudiantes que comparten su propio vehículo
-  y no una flota contratada por la plataforma.
+  asumir ese rol implicaría cumplir la regulación financiera y de
+  medios de pago aplicable, lo cual excede el alcance de un
+  proyecto académico.
 - La verificación de antecedentes o idoneidad de los conductores
-  está fuera del alcance del sistema, porque implicaría acceso a
+  está fuera del alcance del sistema, dado que implicaría acceso a
   bases de datos oficiales y procesos legales que exceden las
   posibilidades de un proyecto académico.
-- El desarrollo debe ajustarse al cronograma académico del
-  semestre, con entregas incrementales por semana, lo cual
-  limita el alcance funcional que el equipo puede completar en
-  el tiempo disponible.
+
+## Restricciones comerciales y de alcance
+
+- ROUTB no actúa como operador de transporte, dado que los
+  conductores son estudiantes que comparten su propio vehículo
+  y no una flota contratada por la plataforma.
+- El transporte compartido se basa en acuerdos informales entre
+  estudiantes, dado que no existe una relación comercial regulada
+  entre las partes ni participación de la plataforma en el cobro
+  del servicio.
 
 # Contexto y alcance
 
@@ -173,11 +157,8 @@ flowchart LR
 
     classDef actor fill:#111827,stroke:#a855f7,color:#ffffff,stroke-width:2px
     classDef system fill:#064e3b,stroke:#2dd4bf,color:#ffffff,stroke-width:3px
-    classDef institution fill:#111827,stroke:#60a5fa,color:#ffffff,stroke-width:2px
-
     class C,P,A actor
     class R system
-    class U institution
 
     linkStyle default stroke:#d1d5db,stroke-width:2px,color:#ffffff
 ```
@@ -186,7 +167,6 @@ flowchart LR
 | **Estudiante conductor**                  | Ofrece recorridos, administra cupos y gestiona solicitudes.                   |
 | **Estudiante pasajero**                   | Consulta recorridos, solicita cupos y gestiona sus viajes.                    |
 | **Administrador**                         | Supervisa usuarios, reportes, estadísticas e incidencias.                     |
-| **Universidad / comunidad universitaria** | Representa el entorno institucional y la población objetivo de la plataforma. |
 
 
 ## Contexto tecnico
@@ -198,49 +178,33 @@ flowchart LR
 
     U["Usuario"]
 
-    APP["Aplicación móvil<br/>Flutter"]
-
-    R["ROUTB<br/>Backend FastAPI"]
-
-    DB[("PostgreSQL")]
+    R["ROUTB<br/>Plataforma de movilidad<br/>colaborativa"]
 
     MAP["Servicio externo<br/>Mapas y geolocalización"]
 
     PUSH["Servicio externo<br/>Notificaciones Push"]
 
 
-    U -->|"Interacción"| APP
-    APP -->|"HTTPS / REST"| R
-
-    R -->|"SQL"| DB
+    U -->|"Interacción"| R
 
     R -->|"HTTPS / API"| MAP
     R -->|"HTTPS / API"| PUSH
 
-    PUSH -->|"Push"| APP
-
 
     classDef user fill:#111827,stroke:#a855f7,color:#fff,stroke-width:2px
-    classDef app fill:#111827,stroke:#a855f7,color:#fff,stroke-width:2px
     classDef system fill:#111827,stroke:#2dd4bf,color:#fff,stroke-width:2px
-    classDef database fill:#111827,stroke:#60a5fa,color:#fff,stroke-width:2px
     classDef external fill:#111827,stroke:#f59e0b,color:#fff,stroke-width:2px
 
     class U user
-    class APP app
     class R system
-    class DB database
     class MAP,PUSH external
 ```
 
 | Interfaz                          | Canal            | Propósito                                                                        |
 | --------------------------------- | ---------------- | -------------------------------------------------------------------------------- |
-| **Usuario ↔ Aplicación móvil**    | Interfaz gráfica | Registro, autenticación, consulta y gestión de recorridos, solicitudes y viajes. |
-| **Flutter ↔ FastAPI**             | HTTPS / REST     | Intercambio de información entre la aplicación móvil y el backend.               |
-| **FastAPI ↔ PostgreSQL**          | SQL              | Persistencia y consulta de usuarios, recorridos, solicitudes, cupos e historial. |
-| **FastAPI ↔ Servicio de mapas**   | HTTPS / API      | Consulta de mapas, ubicaciones y geolocalización.                                |
-| **FastAPI ↔ Notificaciones Push** | HTTPS / API      | Envío de notificaciones relacionadas con recorridos y solicitudes.               |
-| **Notificaciones Push → Flutter** | Push             | Entrega de notificaciones al dispositivo del usuario.                            |
+| **Usuario ↔ ROUTB**               | Interfaz cliente | Registro, autenticación, consulta y gestión de recorridos, solicitudes y viajes. |
+| **ROUTB ↔ Servicio de mapas**     | HTTPS / API      | Consulta de mapas, ubicaciones y geolocalización.                                |
+| **ROUTB ↔ Notificaciones Push**   | HTTPS / API      | Envío de notificaciones relacionadas con recorridos y solicitudes.               |
 
 
 | Entrada / Salida                 | Origen / Destino          | Canal                       |
@@ -251,12 +215,12 @@ flowchart LR
 | Gestión de cupos y solicitudes   | Usuario ↔ ROUTB           | HTTPS / REST                |
 | Ubicaciones                      | Usuario ↔ ROUTB           | HTTPS / REST + API de mapas |
 | Datos de mapas                   | Servicio de mapas → ROUTB | HTTPS / API                 |
-| Datos persistentes               | ROUTB ↔ PostgreSQL        | SQL                         |
+| Datos persistentes               | ROUTB ↔ Persistencia        | SQL                         |
 | Notificaciones                   | ROUTB → Usuario           | Servicio Push               |
 
 
 
-# Solution Strategy
+# Estrategia de solución
 
 ## Decisiones tecnológicas
 
@@ -288,9 +252,9 @@ Esta separación busca mantener el sistema modular y comprensible para los cuatr
 | Rendimiento (1) | Búsquedas optimizadas con consultas geoespaciales indexadas en PostgreSQL/PostGIS; operaciones críticas de búsqueda diseñadas para responder en menos de 2 segundos. |
 | Seguridad (2) | Hashing de contraseñas con salt, autenticación basada en JWT, y HTTPS obligatorio en toda comunicación cliente-servidor. |
 | Disponibilidad (3) | Backend sin estado (stateless, gracias a JWT) que facilita el despliegue de múltiples instancias durante las franjas de mayor demanda. |
-| Escalabilidad (4) | El monolito modular permite que, si un módulo concentra mayor carga (por ejemplo, búsqueda de recorridos), pueda optimizarse o incluso extraerse a futuro como servicio independiente sin rediseñar el resto del sistema. Ver [ADR 0001](adr/0001-decisiones-arquitectonicas.md). |
+| Escalabilidad (4) | El monolito modular permite que, si un módulo concentra mayor carga (por ejemplo, búsqueda de recorridos), pueda optimizarse o incluso extraerse a futuro como servicio independiente sin rediseñar el resto del sistema. Ver [ADR 0001](../adr/0001-usar-monolito-modular.md). |
 | Portabilidad (5) | Un único código base en Flutter para Android e iOS. |
-| Mantenibilidad (6) | El backend se organiza como monolito modular, dividido en módulos independientes por dominio (autenticación, recorridos, búsqueda, reputación, administración), lo que permite a los desarrolladores del equipo trabajar en paralelo sobre distintos módulos, aislar pruebas y localizar cambios sin afectar el resto del sistema. Ver [ADR 0001](adr/0001-decisiones-arquitectonicas.md). |
+| Mantenibilidad (6) | El backend se organiza como monolito modular, dividido en módulos independientes por dominio (autenticación, recorridos, búsqueda, reputación, administración), lo que permite a los desarrolladores del equipo trabajar en paralelo sobre distintos módulos, aislar pruebas y localizar cambios sin afectar el resto del sistema. Ver [ADR 0001](../adr/0001-usar-monolito-modular.md). |
 | Privacidad (7) | Tratamiento de datos personales conforme a la Ley 1581 de 2012. |
 | Usabilidad (8) | Diseño mobile-first con flujos de máximo 3 pasos para las acciones principales (publicar, buscar, solicitar un cupo). |
 
@@ -301,163 +265,200 @@ Esta separación busca mantener el sistema modular y comprensible para los cuatr
 - Las integraciones externas (mapas, notificaciones) se aíslan explícitamente del dominio de negocio para poder desarrollarlas, probarlas y sustituirlas de forma independiente.
 
 
-# Building Block View
+# 5. Vista de bloques de construcción
 
-## Whitebox Overall System
+## 5.1 Whitebox del sistema completo
 
-***\<Overview Diagram\>***
+**Diagrama general:** *(pendiente — insertar diagrama de bloques del sistema)*
 
-Motivation
+**Motivación:** *(pendiente — explicación en texto)*
 
-:   *\<text explanation\>*
+**Bloques de construcción contenidos:** *(pendiente — descripción de los bloques de construcción contenidos, cajas negras)*
 
-Contained Building Blocks
+**Interfaces importantes:** *(pendiente — descripción de las interfaces importantes)*
 
-:   *\<Description of contained building block (black boxes)\>*
+### Building block 1 — *(pendiente: nombre)*
 
-Important Interfaces
+- *Propósito / Responsabilidad:* pendiente
+- *Interfaz(ces):* pendiente
+- *(Opcional) Características de calidad/rendimiento:* pendiente
+- *(Opcional) Ubicación de directorio/archivo:* pendiente
+- *(Opcional) Requisitos cumplidos:* pendiente
+- *(Opcional) Problemas/riesgos abiertos:* pendiente
 
-:   *\<Description of important interfaces\>*
+### Building block 2 — *(pendiente: nombre)*
 
-### \<Name black box 1\> {#_name_black_box_1}
+*(pendiente — usar la misma plantilla del building block 1)*
 
-*\<Purpose/Responsibility\>*
+### Building block n — *(pendiente: nombre)*
 
-*\<Interface(s)\>*
+*(pendiente — usar la misma plantilla del building block 1)*
 
-*\<(Optional) Quality/Performance Characteristics\>*
+### Interfaces
 
-*\<(Optional) Directory/File Location\>*
+*(pendiente — una subsección por cada interfaz relevante)*
 
-*\<(Optional) Fulfilled Requirements\>*
+## 5.2 Nivel 2
 
-*\<(optional) Open Issues/Problems/Risks\>*
+*(pendiente — un whitebox por cada building block de nivel 1 que se desee detallar)*
 
-### \<Name black box 2\> {#_name_black_box_2}
+## 5.3 Nivel 3
 
-*\<black box template\>*
+*(pendiente — un whitebox por cada building block de nivel 2 que se desee detallar)*
 
-### \<Name black box n\> {#_name_black_box_n}
+---
 
-*\<black box template\>*
+# 6. Vista de ejecución
 
-### \<Name interface 1\> {#_name_interface_1}
+*(pendiente — un escenario de ejecución por cada flujo relevante: por ejemplo, "publicar un recorrido", "buscar y reservar un cupo", "autenticación de usuario")*
 
-...​
+## 6.1 Escenario de runtime 1 — *(pendiente: nombre)*
 
-### \<Name interface m\> {#_name_interface_m}
+- *(pendiente — diagrama de secuencia o descripción textual del escenario)*
+- *(pendiente — descripción de los aspectos relevantes de las interacciones entre los building blocks representados)*
 
-## Level 2 {#_level_2}
+## 6.2 Escenario de runtime 2 — *(pendiente: nombre)*
 
-### White Box *\<building block 1\>* {#_white_box_building_block_1}
+*(pendiente)*
 
-*\<white box template\>*
+## 6.n Escenario de runtime n — *(pendiente: nombre)*
 
-### White Box *\<building block 2\>* {#_white_box_building_block_2}
+*(pendiente)*
 
-*\<white box template\>*
+---
 
-...​
+# 7. Vista de despliegue
 
-### White Box *\<building block m\>* {#_white_box_building_block_m}
+## 7.1 Infraestructura — Nivel 1
 
-*\<white box template\>*
+**Diagrama general:** *(pendiente — insertar diagrama de despliegue)*
 
-## Level 3 {#_level_3}
+**Motivación:** *(pendiente — explicación en texto)*
 
-### White Box \<\_building block x.1\_\> {#_white_box_building_block_x_1}
+**Características de calidad y/o rendimiento:** *(pendiente — explicación en texto)*
 
-*\<white box template\>*
+**Mapeo de Building Blocks a Infraestructura:** *(pendiente — descripción de la asignación de building blocks a la infraestructura)*
 
-### White Box \<\_building block x.2\_\> {#_white_box_building_block_x_2}
+## 7.2 Infraestructura — Nivel 2
 
-*\<white box template\>*
+### Elemento de infraestructura 1 — *(pendiente: nombre)*
 
-### White Box \<\_building block y.1\_\> {#_white_box_building_block_y_1}
+*(pendiente — diagrama + explicación)*
 
-*\<white box template\>*
+### Elemento de infraestructura 2 — *(pendiente: nombre)*
 
-# Runtime View {#section-runtime-view}
+*(pendiente — diagrama + explicación)*
 
-## \<Runtime Scenario 1\> {#_runtime_scenario_1}
+### Elemento de infraestructura n — *(pendiente: nombre)*
 
--   *\<insert runtime diagram or textual description of the scenario\>*
+*(pendiente — diagrama + explicación)*
 
--   *\<insert description of the notable aspects of the interactions
-    between the building block instances depicted in this diagram.\>*
+---
 
-## \<Runtime Scenario 2\> {#_runtime_scenario_2}
+# 8. Conceptos transversales
 
-## ...​
+*(pendiente — un subapartado por cada concepto transversal: por ejemplo, seguridad, manejo de errores, internacionalización, persistencia)*
 
-## \<Runtime Scenario n\> {#_runtime_scenario_n}
+## 8.1 Concepto 1 — *(pendiente: nombre)*
 
-# Deployment View {#section-deployment-view}
+*(pendiente — explicación)*
 
-## Infrastructure Level 1 {#_infrastructure_level_1}
+## 8.2 Concepto 2 — *(pendiente: nombre)*
 
-***\<Overview Diagram\>***
+*(pendiente — explicación)*
 
-Motivation
+## 8.n Concepto n — *(pendiente: nombre)*
 
-:   *\<explanation in text form\>*
+*(pendiente — explicación)*
 
-Quality and/or Performance Features
+---
 
-:   *\<explanation in text form\>*
+# 9. Decisiones arquitectónicas
 
-Mapping of Building Blocks to Infrastructure
+Se documentan las decisiones arquitectónicas principales del proyecto en los siguientes ADR:
 
-:   *\<description of the mapping\>*
+- [ADR 0001](../adr/0001-usar-monolito-modular.md)
 
-## Infrastructure Level 2 {#_infrastructure_level_2}
+---
 
-### *\<Infrastructure Element 1\>* {#_infrastructure_element_1}
+# 10. Requisitos de calidad
 
-*\<diagram + explanation\>*
+## 10.1 Resumen de los requisitos de calidad — Árbol de utilidad
 
-### *\<Infrastructure Element 2\>* {#_infrastructure_element_2}
+El siguiente árbol de utilidad representa los principales atributos de calidad de ROUTB y sus respectivos subatributos:
 
-*\<diagram + explanation\>*
+```mermaid
+flowchart LR
+    U["Utilidad<br/>ROUTB"]
 
-...​
+    REND["Rendimiento"]
+    SEG["Seguridad"]
+    DISP["Disponibilidad"]
+    ESC["Escalabilidad"]
+    POR["Portabilidad"]
+    MANT["Mantenibilidad"]
+    PRIV["Privacidad"]
+    USA["Usabilidad"]
 
-### *\<Infrastructure Element n\>* {#_infrastructure_element_n}
+    U --> REND
+    U --> SEG
+    U --> DISP
+    U --> ESC
+    U --> POR
+    U --> MANT
+    U --> PRIV
+    U --> USA
 
-*\<diagram + explanation\>*
+    REND --> REND1["Tiempo de búsqueda"]
+    REND1 --> REND1O["Objetivo: ≤ 2 s"]
+    REND --> REND2["Cupos en tiempo real"]
+    REND2 --> REND2O["Actualiza al instante"]
 
-# Cross-cutting Concepts {#section-concepts}
+    SEG --> SEG1["Credenciales"]
+    SEG1 --> SEG1O["Hashing con salt"]
+    SEG --> SEG2["Comunicación"]
+    SEG2 --> SEG2O["Cifrado HTTPS"]
 
-## *\<Concept 1\>* {#_concept_1}
+    DISP --> DISP1["Franjas de alta demanda"]
+    DISP1 --> DISP1O["Objetivo: ≥ 99 %"]
 
-*\<explanation\>*
+    ESC --> ESC1["Crecimiento de usuarios"]
+    ESC1 --> ESC1O["Rendimiento estable"]
 
-## *\<Concept 2\>* {#_concept_2}
+    POR --> POR1["Compatibilidad"]
+    POR1 --> POR1O["Igual en Android/iOS"]
 
-*\<explanation\>*
+    MANT --> MANT1["Modularidad del backend"]
+    MANT1 --> MANT1O["Cambios aislados"]
 
-...​
+    PRIV --> PRIV1["Datos personales"]
+    PRIV1 --> PRIV1O["Cumple Ley 1581 de 2012"]
 
-## *\<Concept n\>* {#_concept_n}
+    USA --> USA1["Acciones principales"]
+    USA1 --> USA1O["Máximo 3 pasos"]
+```
 
-*\<explanation\>*
+## 10.2 Escenarios de calidad
 
-# Architecture Decisions {#section-design-decisions}
+| Atributo de calidad | Fuente del estímulo | Estímulo | Artefacto | Entorno | Respuesta | Medida de respuesta |
+|---|---|---|---|---|---|---|
+| **Rendimiento** | Pasajero | Consulta los viajes disponibles | ROUTB | Condiciones normales de operación | El sistema procesa la solicitud y muestra los resultados | El 95 % de las solicitudes responde en menos de 2 segundos |
+| **Usabilidad** | Pasajero | Desea reservar un viaje disponible | ROUTB | Uso normal de la aplicación móvil | El sistema permite completar la reserva mediante un proceso sencillo | La reserva se completa en un máximo de 3 pasos principales |
+| **Seguridad** | Atacante | Intenta interceptar las comunicaciones o acceder a las contraseñas almacenadas | ROUTB | En cualquier momento | Las contraseñas permanecen protegidas mediante hashing con salt y las comunicaciones viajan cifradas | El 100 % de las contraseñas se almacena con hashing y salt, y el 100 % del tráfico usa HTTPS |
+| **Disponibilidad** | Estudiante | Accede a la plataforma para consultar o reservar un viaje | ROUTB | Franjas de mayor demanda | Las funcionalidades principales permanecen disponibles | Disponibilidad mínima del 99 % durante las franjas de mayor demanda |
+| **Escalabilidad** | Usuarios del sistema | Aumento progresivo de usuarios, viajes y reservas | ROUTB | Periodos de alta demanda | El sistema mantiene su operación normal | Soporta hasta 100 usuarios concurrentes sin errores ni interrupciones |
 
-# Quality Requirements {#section-quality-scenarios}
+---
 
-## Quality Requirements Overview {#_quality_requirements_overview}
+# 11. Riesgos y deuda técnica
 
-## Quality Scenarios {#_quality_scenarios}
+*(pendiente — listar riesgos identificados y deuda técnica asumida, con su plan de mitigación)*
 
-# Risks and Technical Debts {#section-technical-risks}
+---
 
-# Glossary {#section-glossary}
+# 12. Glosario
 
-+----------------------+-----------------------------------------------+
-| Term                 | Definition                                    |
-+======================+===============================================+
-| *\<Term-1\>*         | *\<definition-1\>*                            |
-+----------------------+-----------------------------------------------+
-| *\<Term-2\>*         | *\<definition-2\>*                            |
-+----------------------+-----------------------------------------------+
+| Término | Definición |
+|---|---|
+| *(pendiente: término 1)* | *(pendiente: definición 1)* |
+| *(pendiente: término 2)* | *(pendiente: definición 2)* |
