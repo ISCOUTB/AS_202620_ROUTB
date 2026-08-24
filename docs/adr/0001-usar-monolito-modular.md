@@ -2,7 +2,7 @@
 
 ## Estado
 
-Propuesto
+Aceptado
 
 ## Contexto
 
@@ -24,19 +24,20 @@ Se elige este enfoque porque:
 
 ## Alternativas consideradas
 
-### Arquitectura por capas
- 
-- **Ventajas:** separación clara de responsabilidades por capa (presentación, lógica de negocio, acceso a datos), enfoque conocido y sencillo de implementar, buena curva de aprendizaje para el equipo.
-- **Desventajas:** la organización por capas horizontales (en lugar de por funcionalidad) dificulta el trabajo paralelo de los cuatro integrantes, ya que una misma funcionalidad (por ejemplo, gestión de cupos) queda repartida entre varias capas y distintos desarrolladores terminan tocando los mismos archivos; además tiende a generar alto acoplamiento entre funcionalidades dentro de cada capa y dificulta el mantenimiento y las pruebas a medida que el sistema crece.
-- **Motivo de descarte:** dificulta el trabajo paralelo del equipo al no aislar las funcionalidades entre sí y compromete el mantenimiento a mediano plazo.
-
-### Arquitectura hexagonal
+### Arquitectura hexagonal (segunda opción)
 
 - **Ventajas:** proporciona una separación clara entre la lógica de negocio y las dependencias externas. Facilita las pruebas de la lógica de negocio de forma aislada y reduce el acoplamiento con tecnologías como la base de datos y servicios externos.
 - **Desventajas:** requiere definir y mantener puertos, adaptadores e interfaces adicionales, aumentando la cantidad de abstracciones y código. Para un equipo pequeño y un proyecto académico, aplicarla estrictamente a todas las funcionalidades puede incrementar el tiempo de desarrollo y la complejidad inicial.
 - **Motivo de descarte:** aunque proporciona un buen desacoplamiento técnico, el nivel de abstracción adicional no se considera necesario como enfoque principal para el alcance actual de ROUTB.
 
-## Consecuencias
+### Arquitectura por capas (tercera opción)
+ 
+- **Ventajas:** separación clara de responsabilidades por capa (presentación, lógica de negocio, acceso a datos), enfoque conocido y sencillo de implementar, buena curva de aprendizaje para el equipo.
+- **Desventajas:** la organización por capas horizontales (en lugar de por funcionalidad) dificulta el trabajo paralelo de los cuatro integrantes, ya que una misma funcionalidad (por ejemplo, gestión de cupos) queda repartida entre varias capas y distintos desarrolladores terminan tocando los mismos archivos; además tiende a generar alto acoplamiento entre funcionalidades dentro de cada capa y dificulta el mantenimiento y las pruebas a medida que el sistema crece.
+- **Motivo de descarte:** dificulta el trabajo paralelo del equipo al no aislar las funcionalidades entre sí y compromete el mantenimiento a mediano plazo.
+
+
+## Consecuencias del monolito modular
 
 **Positivas:**
 
@@ -51,6 +52,18 @@ Se elige este enfoque porque:
 - Al ser un único desplegable, un error grave en un módulo puede afectar la disponibilidad de toda la aplicación.
 - Se necesita disciplina del equipo para no degradar la modularidad con el tiempo ("monolito modular" puede convertirse en "monolito enredado" si no se cuida el diseño).
 
+## Trazabilidad
+
+
+| Aspecto / Requisito | Elementos C4 relevantes | Artefactos / documentación | Pruebas / evidencia existente |
+|---|---|---|---|
+| Organización del backend (monolito modular) | Backend / API, bloques de construcción (módulos: auth, users, trips, requests, notifications, admin) | [ADR 0001](0001-usar-monolito-modular.md) | Estructura de código en backend/app/ |
+| Gestión de disponibilidad de cupos | Building blocks: trips, requests, users; API de búsqueda y gestión de cupos | [Escenarios de calidad](../arc42/arc42-template-EN.md#escenarios-de-calidad) | No hay pruebas automatizadas específicas aún. |
+| Autenticación y protección de datos | Módulo auth; políticas de seguridad | [Seguridad](../arc42/arc42-template-EN.md#objetivos-de-calidad) | No hay pruebas automáticas de seguridad aún.| No hay pruebas automáticas de seguridad aún. |
+
+
+---
+
 ## Matriz de decisión
 
 Comparación de los tres estilos arquitectónicos contra los escenarios de calidad definidos en el árbol de utilidad del proyecto.
@@ -61,6 +74,9 @@ Comparación de los tres estilos arquitectónicos contra los escenarios de calid
 | Seguridad | Favorece: autenticación centralizada, fácil de auditar | Favorece: centralizada en la capa correspondiente | Favorece: permite aislar la lógica de seguridad y controlar las dependencias externas mediante puertos y adaptadores |
 | Disponibilidad | Neutral: un fallo grave puede afectar todo el desplegable | Neutral: mismo riesgo que el monolito modular | Neutral: al ser un patrón de organización interna, no proporciona aislamiento de fallos a nivel de despliegue |
 | Escalabilidad | Favorece: suficiente para el alcance actual; permite extraer módulos a futuro si crece | Perjudica: el acoplamiento por capas dificulta escalar partes específicas | Neutral: mejora el desacoplamiento interno, pero no proporciona escalabilidad independiente por sí sola |
+| Portabilidad | Neutral: la portabilidad depende del framework del cliente (Flutter), no de la organización del backend | Neutral: mismo motivo; el patrón de capas no incide en el comportamiento del cliente móvil | Neutral: mismo motivo; el patrón de puertos y adaptadores no incide en el comportamiento del cliente móvil |
 | Mantenibilidad | Favorece: módulos por dominio con responsabilidades claras, aíslan cambios y pruebas | Perjudica: una misma funcionalidad queda repartida entre capas, dificultando el aislamiento de cambios | Favorece: separa la lógica de negocio de la infraestructura, facilitando las pruebas y el reemplazo de dependencias |
+| Privacidad | Favorece: un módulo dedicado al tratamiento de datos personales facilita concentrar y auditar el cumplimiento de la Ley 1581 | Neutral: el tratamiento de datos personales queda disperso entre la capa de persistencia y la de negocio, dificultando su aislamiento | Favorece: los adaptadores permiten controlar explícitamente qué datos personales salen hacia servicios o proveedores externos |
+| Usabilidad | Neutral: la usabilidad depende del diseño de la interfaz móvil, no de la organización del backend | Neutral: mismo motivo | Neutral: mismo motivo |
 
-**Resultado:** el monolito modular obtiene el mejor balance entre los criterios priorizados por el equipo, sin sacrificar de forma crítica escalabilidad ni disponibilidad para el tamaño esperado del sistema.
+**Resultado:** En esta matriz comparativa podemos observar que la arquitectura de monolito modular obtiene el mejor balance entre los criterios priorizados por el equipo, sin sacrificar de forma crítica escalabilidad ni disponibilidad para el tamaño esperado del sistema.

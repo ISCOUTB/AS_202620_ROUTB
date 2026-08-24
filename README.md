@@ -50,6 +50,6 @@ Para ejecutar la aplicación, sigue estos pasos:
 
 1. Inicia el servidor: `uvicorn app.main:app --reload`
 
-2. Ejecuta las pruebas: `pytest`
+2. Ejecuta las pruebas ya automatizadas: `pytest`
 
 
