@@ -366,7 +366,7 @@ Cada módulo expone sus funciones internamente y comparte el acceso a la base de
 
 # 9. Decisiones arquitectónicas
 
-Se documentan las decisiones arquitectónicas principales del proyecto en los siguientes ADR:
+Las decisiones arquitectónicas más importantes que impactan significativamente la estructura, el mantenimiento y la escalabilidad del sistema ROUTB se documentan en los siguientes ADR junto con sus respectivas deciciones tomadas hasta la fecha.:
 
 | ADR | Estado | Decisión |
 |---|---|---|
@@ -375,6 +375,8 @@ Se documentan las decisiones arquitectónicas principales del proyecto en los si
 ---
 
 # 10. Requisitos de calidad
+
+Esta sección documenta los atributos de calidad fundamentales para la correcta operación y evolución de ROUTB. Además, se priorizan las metas del sistema con el Árbol de Utilidad y se definen escenarios concretos para evaluar la arquitectura.
 
 ## 10.1 Resumen de los requisitos de calidad — Árbol de utilidad
 
