@@ -271,28 +271,71 @@ Esta separación busca mantener el sistema modular y comprensible para los cuatr
 
 **Diagrama general:** *(pendiente — insertar diagrama de bloques del sistema)*
 
-**Motivación:** *(pendiente — explicación en texto)*
+Motivación
 
-**Bloques de construcción contenidos:** *(pendiente — descripción de los bloques de construcción contenidos, cajas negras)*
+: ROUTB se organiza en cuatro bloques principales para separar claramente la interacción con el usuario, la lógica de negocio, la persistencia de datos y las dependencias con servicios de terceros, facilitando el trabajo paralelo del equipo y el mantenimiento del sistema.
 
-**Interfaces importantes:** *(pendiente — descripción de las interfaces importantes)*
+Contained Building Blocks
 
-### Building block 1 — *(pendiente: nombre)*
+: Aplicación móvil, Backend/API, Base de datos, Integraciones externas (ver descripción de cada uno abajo).
 
-- *Propósito / Responsabilidad:* pendiente
-- *Interfaz(ces):* pendiente
-- *(Opcional) Características de calidad/rendimiento:* pendiente
-- *(Opcional) Ubicación de directorio/archivo:* pendiente
-- *(Opcional) Requisitos cumplidos:* pendiente
-- *(Opcional) Problemas/riesgos abiertos:* pendiente
+Important Interfaces
 
-### Building block 2 — *(pendiente: nombre)*
+: API REST sobre HTTPS entre la aplicación móvil y el backend; protocolo SQL entre el backend y la base de datos; APIs REST/SDK de terceros entre el backend y las integraciones externas (mapas, notificaciones push).
 
-*(pendiente — usar la misma plantilla del building block 1)*
+### Aplicación móvil {#_aplicacion_movil}
 
-### Building block n — *(pendiente: nombre)*
+*Interfaz de usuario para conductores, pasajeros y administradores. Permite registrarse, publicar y buscar recorridos, solicitar cupos, calificar viajes y recibir notificaciones.*
 
-*(pendiente — usar la misma plantilla del building block 1)*
+*Interfaz: consume la API REST del backend mediante HTTPS.*
+
+*Construida con Flutter, para Android e iOS a partir de un único código base.*
+
+*Cumple: RF de registro/login, publicación y búsqueda de recorridos, solicitud de cupos, calificación; RNF-006 (portabilidad), RNF-008 (usabilidad).*
+
+### Backend / API {#_backend_api}
+
+*Contiene la lógica de negocio del sistema: autenticación, gestión de recorridos y cupos, búsqueda de recorridos compatibles, reputación y administración. Expone sus funciones como una API REST.*
+
+*Interfaz: API REST sobre HTTPS hacia la aplicación móvil; conexión SQL hacia la base de datos; llamadas salientes a las integraciones externas.*
+
+*Construido con FastAPI (Python).*
+
+*Cumple: RNF-001 (rendimiento), RNF-002 (seguridad), RNF-005 (disponibilidad/escalabilidad).*
+
+*Ver descomposición interna en "Level 2" más abajo.*
+
+### Base de datos {#_base_de_datos}
+
+*Almacena de forma persistente la información de usuarios, recorridos, solicitudes de cupo, historial de viajes y reputación.*
+
+*Interfaz: accedida únicamente por el Backend/API mediante SQL; ningún otro bloque accede directamente a ella.*
+
+*Motor: PostgreSQL (con extensión PostGIS para las consultas geoespaciales de búsqueda de recorridos).*
+
+### Integraciones externas {#_integraciones_externas}
+
+*Conjunto de servicios de terceros consumidos por el backend, aislados mediante interfaces de integración propias para poder sustituirlos sin afectar la lógica de negocio.*
+
+*Contiene: servicio de mapas/geolocalización (visualización de rutas), y servicio de notificaciones push (avisos a los usuarios).*
+
+*Interfaz: cada integración se comunica mediante su propia API/SDK; el backend accede a ellas a través de un adaptador interno por servicio.*
+
+## Level 2 {#_level_2}
+
+### White Box *Backend / API* {#_white_box_backend_api}
+
+El backend se descompone en los siguientes módulos, organizados por dominio de responsabilidad:
+
+- **Módulo de Autenticación:** registro, inicio de sesión y emisión/validación de tokens JWT.
+- **Módulo de Recorridos:** publicación, edición y cancelación de recorridos por parte de los conductores; gestión de cupos disponibles.
+- **Módulo de Búsqueda:** consulta de recorridos compatibles con el origen/destino/horario buscado por un pasajero, usando las capacidades geoespaciales de PostgreSQL/PostGIS.
+- **Módulo de Solicitudes:** flujo de solicitud, aceptación o rechazo de un cupo entre pasajero y conductor.
+- **Módulo de Reputación:** registro de calificaciones y comentarios posteriores a un viaje, y cálculo del puntaje de reputación de cada usuario.
+- **Módulo de Administración:** gestión de usuarios, moderación de contenido y generación de estadísticas de uso para los administradores del sistema.
+- **Módulo de Integraciones:** adaptadores hacia el servicio de mapas y el servicio de notificaciones push, aislando al resto de los módulos de los detalles de cada proveedor externo.
+
+Cada módulo expone sus funciones internamente y comparte el acceso a la base de datos a través de una capa de persistencia común, evitando que distintos módulos implementen accesos redundantes o inconsistentes a las mismas tablas.
 
 ### Interfaces
 
