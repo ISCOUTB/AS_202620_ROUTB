@@ -3,29 +3,17 @@ date: Agosto 2026
 title: "ROUTB"
 ---
 
-# 
-
-**About arc42**
-
-arc42, the template for documentation of software and system
-architecture.
-
-Template Version 9.0-EN. (based upon AsciiDoc version), July 2025
-
-Created, maintained and © by Dr. Peter Hruschka, Dr. Gernot Starke and
-contributors. See <https://arc42.org>.
-
-# Introducción y objetivos
+# 1. Introducción y objetivos
 
 ROUTB es una plataforma diseñada para facilitar y gestionar el transporte compartido entre los estudiantes de la Universidad Tecnológica de Bolívar. El sistema busca centralizar la información relacionada con estudiantes conductores, rutas disponibles y cupos libres, permitiendo a los estudiantes consultar las opciones de transporte y reservar un cupo antes del viaje.
 
 La plataforma surge como respuesta a las dificultades que presentan algunos estudiantes para encontrar y coordinar transporte hacia o desde la universidad, especialmente debido a la falta de información sobre conductores disponibles, cupos y horarios de salida.
 
-## Objetivo general
+## 1.1 Objetivo general
 
 Desarrollar una plataforma que permita gestionar y coordinar el transporte compartido entre estudiantes de la Universidad Tecnológica de Bolívar.
 
-## Funcionalidades principales
+## 1.2 Funcionalidades principales
 - Consultar conductores disponibles.
 - Mostrar las rutas de transporte disponibles.
 - Visualizar la cantidad de cupos libres.
@@ -33,7 +21,7 @@ Desarrollar una plataforma que permita gestionar y coordinar el transporte compa
 - Reducir los tiempos de espera de los estudiantes.
 - Mejorar la organización y coordinación de los viajes compartidos.
 
-## Descripción general de los requisitos
+## 1.3 Descripción general de los requisitos
 
 ROUTB es una plataforma de movilidad colaborativa dirigida a estudiantes universitarios. El sistema permite a los estudiantes conductores publicar recorridos indicando su origen, destino, horario y cantidad de cupos disponibles, mientras que los estudiantes pasajeros pueden buscar recorridos según sus necesidades y solicitar uno o varios cupos.
 
@@ -41,7 +29,7 @@ Entre las principales funcionalidades del sistema se encuentran la gestión de p
 
 El sistema también contempla un panel administrativo destinado a la gestión de usuarios, reportes, estadísticas e incidencias.
 
-## Objetivos de calidad
+## 1.4 Objetivos de calidad
 
 | Prioridad | Objetivo de calidad | Descripción                                                                                                                      | Interesado |
 | --------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ---------- |
@@ -54,7 +42,7 @@ El sistema también contempla un panel administrativo destinado a la gestión de
 | 7         | **Privacidad**      | Los datos personales deben tratarse de acuerdo con la Ley 1581 de 2012 y las políticas de protección de datos aplicables.        | Universidad / comunidad universitaria |
 | 8         | **Usabilidad**      | Las acciones principales deben poder realizarse en un máximo de tres pasos.                                                      | Estudiantes (pasajeros) |
 
-## Stakeholders / Interesados
+## 1.5 Stakeholders / Interesados
 
 | Stakeholder                               | Interés / expectativa                                                                                           |
 | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
@@ -64,11 +52,11 @@ El sistema también contempla un panel administrativo destinado a la gestión de
 | **Equipo de desarrollo**                  | Mantener una arquitectura modular, mantenible y documentada que permita evolucionar el sistema.                 |
 
 
-# Restricciones de arquitectura
+# 2. Restricciones de arquitectura
 
 Las restricciones se agrupan en categorías organizativas, técnicas, de integración, legales/normativas y comerciales/de alcance. Cada una indica explícitamente su justificación («dado que…»).
 
-## Restricciones organizativas
+## 2.1 Restricciones organizativas
 
 - El equipo de desarrollo está compuesto por 4 integrantes, dado que
   es el tamaño fijado para el proyecto académico, lo que condiciona
@@ -80,7 +68,7 @@ Las restricciones se agrupan en categorías organizativas, técnicas, de integra
   disponible y obliga a priorizar una arquitectura simple sobre
   una más compleja.
 
-## Restricciones técnicas
+## 2.2 Restricciones técnicas
 
 - Uso de Flutter para la aplicación móvil, dado que permite
   cubrir Android e iOS con una sola base de código y se
@@ -95,7 +83,7 @@ Las restricciones se agrupan en categorías organizativas, técnicas, de integra
   estándar para autenticación sin estado en APIs REST, lo que
   facilita la escalabilidad del backend.
 
-## Restricciones de integración
+## 2.3 Restricciones de integración
 
 - Integración con un proveedor externo de mapas y
   geolocalización, dado que el equipo no cuenta con los recursos
@@ -104,7 +92,7 @@ Las restricciones se agrupan en categorías organizativas, técnicas, de integra
   es necesario informar a los usuarios sobre cambios en sus
   recorridos o solicitudes sin depender de que tengan la app abierta.
 
-## Restricciones legales y normativas
+## 2.4 Restricciones legales y normativas
 
 - Los datos personales de los estudiantes deben tratarse conforme
   a la Ley 1581 de 2012 (Colombia) y las políticas de protección
@@ -119,7 +107,7 @@ Las restricciones se agrupan en categorías organizativas, técnicas, de integra
   bases de datos oficiales y procesos legales que exceden las
   posibilidades de un proyecto académico.
 
-## Restricciones comerciales y de alcance
+## 2.5 Restricciones comerciales y de alcance
 
 - ROUTB no actúa como operador de transporte, dado que los
   conductores son estudiantes que comparten su propio vehículo
@@ -129,11 +117,12 @@ Las restricciones se agrupan en categorías organizativas, técnicas, de integra
   entre las partes ni participación de la plataforma en el cobro
   del servicio.
 
-# Contexto y alcance
+
+# 3. Contexto y alcance
 
 ROUTB es una plataforma de movilidad colaborativa dirigida a estudiantes universitarios. El sistema permite a estudiantes conductores publicar recorridos y gestionar los cupos disponibles, mientras que los estudiantes pasajeros pueden consultar recorridos, solicitar uno o varios cupos y gestionar sus viajes. Los administradores utilizan la plataforma para supervisar usuarios, reportes, estadísticas e incidencias.
 
-## Contexto empresarial
+## 3.1 Contexto empresarial
 
 Representa la relación entre la plataforma y los principales actores involucrados en la movilidad colaborativa universitaria.
 
@@ -169,7 +158,7 @@ flowchart LR
 | **Administrador**                         | Supervisa usuarios, reportes, estadísticas e incidencias.                     |
 
 
-## Contexto tecnico
+## 3.2 Contexto tecnico
 
 Representa los principales sistemas y canales mediante los cuales ROUTB recibe, procesa, almacena e intercambia información.
 
@@ -219,10 +208,9 @@ flowchart LR
 | Notificaciones                   | ROUTB → Usuario           | Servicio Push               |
 
 
+# 4. Estrategia de solución
 
-# Estrategia de solución
-
-## Decisiones tecnológicas
+## 4.1 Decisiones tecnológicas
 
 | Tecnología | Rol en la arquitectura | Justificación |
 | --- | --- | --- |
@@ -234,7 +222,7 @@ flowchart LR
 | **API de mapas y geolocalización** (Google Maps API / OpenStreetMap) | Visualización de rutas y cálculo de coincidencias | Se trata como una dependencia externa integrada mediante una interfaz propia, evitando acoplar el dominio de negocio al proveedor específico. |
 | **Servicio de notificaciones push** (p. ej. Firebase Cloud Messaging) | Notificaciones a usuarios | Integración externa desacoplada mediante un adaptador, permitiendo sustituir el proveedor sin afectar el core del sistema. |
 
-## Decisiones de descomposición y organización del sistema
+## 4.2 Decisiones de descomposición y organización del sistema
 
 La solución se organiza en torno a cuatro grandes bloques, que se detallarán en la vista de bloques de construcción (sección 5):
 
@@ -245,7 +233,7 @@ La solución se organiza en torno a cuatro grandes bloques, que se detallarán e
 
 Esta separación busca mantener el sistema modular y comprensible para los cuatro integrantes del equipo, permitiendo que distintos miembros trabajen en paralelo sobre el cliente, el backend y las integraciones sin generar dependencias cruzadas fuertes
 
-## Enfoque para alcanzar los objetivos de calidad clave
+## 4.3 Enfoque para alcanzar los objetivos de calidad clave
 
 | Objetivo de calidad (prioridad) | Estrategia arquitectónica |
 | --- | --- |
@@ -258,7 +246,7 @@ Esta separación busca mantener el sistema modular y comprensible para los cuatr
 | Privacidad (7) | Tratamiento de datos personales conforme a la Ley 1581 de 2012. |
 | Usabilidad (8) | Diseño mobile-first con flujos de máximo 3 pasos para las acciones principales (publicar, buscar, solicitar un cupo). |
 
-## Decisiones organizacionales
+## 4.4 Decisiones organizacionales
 
 - El desarrollo se distribuye entre los cuatro integrantes del equipo según los bloques definidos (cliente móvil, backend/API, persistencia, integraciones), minimizando el trabajo simultáneo sobre un mismo componente.
 - Al ser un proyecto académico de un semestre, se prioriza una arquitectura simple y bien documentada por sobre patrones más complejos (p. ej. microservicios), reservando la posibilidad de evolucionar hacia una arquitectura más distribuida si el sistema creciera más allá del alcance actual.
@@ -267,102 +255,62 @@ Esta separación busca mantener el sistema modular y comprensible para los cuatr
 
 # 5. Vista de bloques de construcción
 
-## 5.1 Whitebox del sistema completo
+## 5.1 Nivel 1: Whitebox del sistema completo
 
-**Diagrama general:** *(pendiente — insertar diagrama de bloques del sistema)*
+**Diagrama general:**
 
-Motivación
+[Diagrama C4](../c4/context.md)
 
-: ROUTB se organiza en cuatro bloques principales para separar claramente la interacción con el usuario, la lógica de negocio, la persistencia de datos y las dependencias con servicios de terceros, facilitando el trabajo paralelo del equipo y el mantenimiento del sistema.
+**Motivación:**
+ROUTB se organiza en cuatro bloques principales para separar claramente la interacción con el usuario, la lógica de negocio, la persistencia de datos y las dependencias con servicios de terceros. Esta separación facilita el trabajo paralelo del equipo, el aislamiento de fallos y el mantenimiento a largo plazo del sistema.
 
-Contained Building Blocks
+**Bloques de Construcción:**
 
-: Aplicación móvil, Backend/API, Base de datos, Integraciones externas (ver descripción de cada uno abajo).
+| Nombre | Descripción |
+| :--- | :--- |
+| **Aplicación Móvil** | Interfaz de usuario para conductores, pasajeros y administradores. Permite registrarse, publicar y buscar recorridos, solicitar cupos, calificar viajes y recibir notificaciones. Construida con Flutter para Android e iOS. |
+| **Backend / API (Monolito Modular)** | Contiene la lógica de negocio central del sistema. Implementado en Python usando FastAPI y Uvicorn. Se encarga de la autenticación, gestión de recorridos, emparejamiento geoespacial y administración general. |
+| **Base de Datos** | Almacena de forma persistente la información de usuarios, recorridos, solicitudes, historial de viajes y reputación. Utiliza PostgreSQL con la extensión PostGIS para las consultas geoespaciales. |
+| **Integraciones Externas** | Conjunto de servicios de terceros consumidos por el backend. Incluye el servicio de mapas/geolocalización y el servicio de envío de notificaciones push. |
 
-Important Interfaces
+**Interfaces Importantes:**
+*   API REST sobre HTTPS entre la aplicación móvil y el Backend.
+*   Protocolo SQL TCP/IP entre el Backend y la Base de Datos.
+*   APIs REST/SDK de terceros entre el Backend y las Integraciones Externas (mapas, notificaciones push).
 
-: API REST sobre HTTPS entre la aplicación móvil y el backend; protocolo SQL entre el backend y la base de datos; APIs REST/SDK de terceros entre el backend y las integraciones externas (mapas, notificaciones push).
+---
 
-### Aplicación móvil {#_aplicacion_movil}
+## 5.2 Nivel 2: Whitebox del Backend
 
-*Interfaz de usuario para conductores, pasajeros y administradores. Permite registrarse, publicar y buscar recorridos, solicitar cupos, calificar viajes y recibir notificaciones.*
+**Diagrama de Nivel 2:**
 
-*Interfaz: consume la API REST del backend mediante HTTPS.*
+[Diagrama C4](../c4/context.md)
 
-*Construida con Flutter, para Android e iOS a partir de un único código base.*
+**Motivación:**
+Se adoptó un modelo de **Monolito Modular** como estrategia arquitectónica [ADR 0001](../adr/0001-usar-monolito-modular.md).
 
-*Cumple: RF de registro/login, publicación y búsqueda de recorridos, solicitud de cupos, calificación; RNF-006 (portabilidad), RNF-008 (usabilidad).*
+**Bloques de Construcción (Módulos Internos):**
 
-### Backend / API {#_backend_api}
-
-*Contiene la lógica de negocio del sistema: autenticación, gestión de recorridos y cupos, búsqueda de recorridos compatibles, reputación y administración. Expone sus funciones como una API REST.*
-
-*Interfaz: API REST sobre HTTPS hacia la aplicación móvil; conexión SQL hacia la base de datos; llamadas salientes a las integraciones externas.*
-
-*Construido con FastAPI (Python).*
-
-*Cumple: RNF-001 (rendimiento), RNF-002 (seguridad), RNF-005 (disponibilidad/escalabilidad).*
-
-*Ver descomposición interna en "Level 2" más abajo.*
-
-### Base de datos {#_base_de_datos}
-
-*Almacena de forma persistente la información de usuarios, recorridos, solicitudes de cupo, historial de viajes y reputación.*
-
-*Interfaz: accedida únicamente por el Backend/API mediante SQL; ningún otro bloque accede directamente a ella.*
-
-*Motor: PostgreSQL (con extensión PostGIS para las consultas geoespaciales de búsqueda de recorridos).*
-
-### Integraciones externas {#_integraciones_externas}
-
-*Conjunto de servicios de terceros consumidos por el backend, aislados mediante interfaces de integración propias para poder sustituirlos sin afectar la lógica de negocio.*
-
-*Contiene: servicio de mapas/geolocalización (visualización de rutas), y servicio de notificaciones push (avisos a los usuarios).*
-
-*Interfaz: cada integración se comunica mediante su propia API/SDK; el backend accede a ellas a través de un adaptador interno por servicio.*
-
-## Level 2 {#_level_2}
-
-### White Box *Backend / API* {#_white_box_backend_api}
-
-El backend se descompone en los siguientes módulos, organizados por dominio de responsabilidad:
-
-- **Módulo de Autenticación:** registro, inicio de sesión y emisión/validación de tokens JWT.
-- **Módulo de Recorridos:** publicación, edición y cancelación de recorridos por parte de los conductores; gestión de cupos disponibles.
-- **Módulo de Búsqueda:** consulta de recorridos compatibles con el origen/destino/horario buscado por un pasajero, usando las capacidades geoespaciales de PostgreSQL/PostGIS.
-- **Módulo de Solicitudes:** flujo de solicitud, aceptación o rechazo de un cupo entre pasajero y conductor.
-- **Módulo de Reputación:** registro de calificaciones y comentarios posteriores a un viaje, y cálculo del puntaje de reputación de cada usuario.
-- **Módulo de Administración:** gestión de usuarios, moderación de contenido y generación de estadísticas de uso para los administradores del sistema.
-- **Módulo de Integraciones:** adaptadores hacia el servicio de mapas y el servicio de notificaciones push, aislando al resto de los módulos de los detalles de cada proveedor externo.
+| Módulo | Propósito y Responsabilidades |
+| :--- | :--- |
+| **`auth`** | Gestión de autenticación, registro, inicio de sesión y emisión/validación de tokens de seguridad (JWT). |
+| **`users`** | Administración de perfiles de usuario, preferencias y cálculo del puntaje de reputación mediante calificaciones históricas. |
+| **`trips`** | Gestión de los recorridos: publicación, edición, cancelación y búsqueda de recorridos compatibles usando rutas y horarios. |
+| **`requests`** | Control del ciclo de vida de la solicitud de cupos (creación, aceptación, rechazo o cancelación) entre pasajero y conductor. |
+| **`notifications`** | Adaptadores y lógica para la generación de alertas del sistema y consumo del proveedor externo de notificaciones push. |
+| **`admin`** | Funciones administrativas para moderación de usuarios, resolución de incidencias y estadísticas. |
+| **`shared`** | Código transversal o común utilizado por múltiples módulos (ej. manejo de errores global, utilidades compartidas, conexión a BD), asegurando que los módulos de negocio no se acoplen entre sí. |
 
 Cada módulo expone sus funciones internamente y comparte el acceso a la base de datos a través de una capa de persistencia común, evitando que distintos módulos implementen accesos redundantes o inconsistentes a las mismas tablas.
-
-### Interfaces
-
-*(pendiente — una subsección por cada interfaz relevante)*
-
-## 5.2 Nivel 2
-
-*(pendiente — un whitebox por cada building block de nivel 1 que se desee detallar)*
-
-## 5.3 Nivel 3
-
-*(pendiente — un whitebox por cada building block de nivel 2 que se desee detallar)*
 
 ---
 
 # 6. Vista de ejecución
 
-*(pendiente — un escenario de ejecución por cada flujo relevante: por ejemplo, "publicar un recorrido", "buscar y reservar un cupo", "autenticación de usuario")*
-
 ## 6.1 Escenario de runtime 1 — *(pendiente: nombre)*
 
 - *(pendiente — diagrama de secuencia o descripción textual del escenario)*
 - *(pendiente — descripción de los aspectos relevantes de las interacciones entre los building blocks representados)*
-
-## 6.2 Escenario de runtime 2 — *(pendiente: nombre)*
-
-*(pendiente)*
 
 ## 6.n Escenario de runtime n — *(pendiente: nombre)*
 
@@ -420,7 +368,9 @@ Cada módulo expone sus funciones internamente y comparte el acceso a la base de
 
 Se documentan las decisiones arquitectónicas principales del proyecto en los siguientes ADR:
 
-- [ADR 0001](../adr/0001-usar-monolito-modular.md)
+| ADR | Estado | Decisión |
+|---|---|---|
+| [ADR 0001](../adr/0001-usar-monolito-modular.md) | Aceptado | Adoptar un monolito modular como estrategia arquitectónica inicial. |
 
 ---
 
@@ -503,5 +453,11 @@ flowchart LR
 
 | Término | Definición |
 |---|---|
-| *(pendiente: término 1)* | *(pendiente: definición 1)* |
-| *(pendiente: término 2)* | *(pendiente: definición 2)* |
+| **Estudiante conductor** | Usuario del sistema que ofrece transporte publicando recorridos con detalles de origen, destino, horario y cantidad de cupos disponibles. |
+| **Estudiante pasajero** | Usuario del sistema que busca opciones de transporte según sus necesidades y solicita cupos en los recorridos publicados. |
+| **Viaje** | Trayecto de viaje publicado en la plataforma, el cual incluye información de origen, destino, horario de salida y disponibilidad. |
+| **Cupo** | Espacio libre disponible en el vehículo de un estudiante conductor que puede ser ocupado por un pasajero. |
+| **Reserva** | Acción mediante la cual un estudiante pasajero solicita y asegura un cupo en un recorrido específico antes de que se realice el viaje. |
+| **Transporte compartido** | Práctica de movilidad colaborativa en la que varios estudiantes viajan juntos en un mismo vehículo hacia o desde la universidad. |
+| **Destino** | Punto final del recorrido publicado, que generalmente corresponde a una sede de la universidad o una zona estratégica de la ciudad. |
+| **Punto de recogida** | Ubicación específica y acordada donde el estudiante conductor recogerá al estudiante pasajero para iniciar el trayecto. |
