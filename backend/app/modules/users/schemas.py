@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 class UserCreate(BaseModel):
     # Field(..., min_length=1) obliga a que el string tenga al menos 1 caracter real
@@ -8,10 +8,9 @@ class UserCreate(BaseModel):
     password: str = Field(..., min_length=1)
 
 class UserResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
     id: int
     name: str
     last_name: str
     phone: str
-
-    class Config:
-        from_attributes = True

@@ -209,13 +209,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           backgroundColor: const Color(0xFF4F6FFF),
                           foregroundColor: Colors.white,
                           disabledBackgroundColor:
-                              const Color(0xFF4F6FFF).withOpacity(0.6),
+                              const Color(0xFF4F6FFF).withValues(alpha: 0.6),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),
                           elevation: 4,
                           shadowColor:
-                              const Color(0xFF4F6FFF).withOpacity(0.4),
+                              const Color(0xFF4F6FFF).withValues(alpha: 0.4),
                         ),
                         child: _isLoading
                             ? const SizedBox(
