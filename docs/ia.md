@@ -7,10 +7,13 @@ Este documento registra el uso de herramientas de Inteligencia Artificial durant
 ## Herramientas utilizadas
 
 | Herramienta | Uso |
-|---|---|
+| --- | --- |
 | ChatGPT (OpenAI) | Apoyo en la elaboración, revisión y mejora de documentación arquitectónica, decisiones de arquitectura y estructura inicial del proyecto. |
 | Claude (Anthropic) | Apoyo en la elaboración, revisión y mejora de documentación arquitectónica, decisiones de arquitectura y estructura inicial del proyecto. |
 | GitHub Copilot | Apoyo en la implementación del backend, incluyendo la creación de módulos y la organización de la estructura inicial. |
+| Gemini | Apoyo en la estructuración, redacción y estandarización de la documentación técnica del proyecto. |
+| Antigravity | Apoyo en la codificación e implementación inicial del frontend, incluyendo el diseño funcional del flujo de autenticación y validaciones. |
+
 
 ## Registro
 
@@ -46,6 +49,17 @@ Este documento registra el uso de herramientas de Inteligencia Artificial durant
 - **Qué se rechazó:** Se rechazó adoptar la arquitectura por capas y la arquitectura hexagonal como estilos principales del backend. También se rechazó añadir lógica de negocio completa al esqueleto ejecutable, ya que en esta etapa su propósito era evidenciar y validar la estructura arquitectónica inicial.
 Justificación: Las herramientas fueron utilizadas con propósitos diferentes. Claude sirvió como apoyo para el análisis de las alternativas arquitectónicas y la elaboración de la documentación, mientras que GitHub Copilot se utilizó principalmente para apoyar la implementación del esqueleto ejecutable. Las propuestas obtenidas fueron revisadas por el equipo y solo se aceptaron aquellas que correspondían con las prioridades de calidad, el alcance y las decisiones arquitectónicas definidas para ROUTB.
 - **Fecha:** 2026-08-23
+
+### Semana 4
+
+- **Actividad realizada:** Documentación de las Secciones 5, 6, 9, 10 y 12 de arc42, automatización de la separación de la documentación de un solo archivo a 12 archivos independientes, validación del diagrama C4 (Nivel 2) e implementación del flujo inicial de vistas de la aplicación móvil.
+- **Herramientas utilizadas:** Gemini y Antigravity.
+- **Contexto proporcionado:** Borradores de componentes, un documento base consolidado y diagramas, junto con requerimientos funcionales y de experiencia de usuario para el flujo de autenticación móvil.
+- **Respuesta que se obtuvo:** Organización tabulada de la estructura del sistema, redacción de introducciones para requisitos de calidad, generación de los 12 archivos markdown separados, código funcional de las pantallas con validaciones y redacción de escenarios de ejecución estructurados por capas con diagramas.
+- **Qué se aceptó:** El formato en tablas, la inclusión explícita de las integraciones externas, la división modular de la documentación en múltiples archivos, el código de las vistas móviles y el modelo conceptual por capas para los escenarios de ejecución.
+- **Qué se rechazó:** Versiones preliminares incompletas donde faltaban componentes externos y descripciones de escenarios basadas únicamente en listas mecánicas sin profundidad técnica.
+- **Justificación:** Las herramientas se utilizaron para construir el flujo inicial de autenticación móvil, estandarizar la documentación técnica y automatizar la organización del proyecto en archivos individuales, asegurando total coherencia entre el diseño teórico y el código implementado.
+- **Fecha:** 2026-08-30.
 
 ## Observaciones
 
