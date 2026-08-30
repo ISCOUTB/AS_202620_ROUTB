@@ -52,14 +52,14 @@ Justificación: Las herramientas fueron utilizadas con propósitos diferentes. C
 
 ### Semana 4
 
-* **Actividad realizada:** Documentación de las Secciones 5, 6, 9, 10 y 12 de arc42, validación del diagrama C4 (Nivel 2) e implementación del flujo inicial de vistas de la aplicación móvil.
-* **Herramientas utilizadas:** Gemini y Antigravity.
-* **Contexto proporcionado:** Borradores de componentes y diagramas, junto con requerimientos funcionales y de experiencia de usuario para el flujo de autenticación móvil.
-* **Respuesta que se obtuvo:** Organización tabulada de la estructura del sistema, redacción de introducciones para requisitos de calidad, código funcional de las pantallas con validaciones y redacción de escenarios de ejecución estructurados por capas con diagramas.
-* **Qué se aceptó:** El formato en tablas, la inclusión explícita de las integraciones externas, el código de las vistas móviles y el modelo conceptual por capas para los escenarios de ejecución.
-* **Qué se rechazó:** Versiones preliminares incompletas donde faltaban componentes externos y descripciones de escenarios basadas únicamente en listas mecánicas sin profundidad técnica.
-* **Justificación:** Las herramientas se utilizaron para construir el flujo inicial de autenticación móvil y estandarizar la documentación técnica, asegurando total coherencia entre el diseño teórico y el código implementado.
-* **Fecha:** 2026-08-29.
+- **Actividad realizada:** Documentación de las Secciones 5, 6, 9, 10 y 12 de arc42, automatización de la separación de la documentación de un solo archivo a 12 archivos independientes, validación del diagrama C4 (Nivel 2) e implementación del flujo inicial de vistas de la aplicación móvil.
+- **Herramientas utilizadas:** Gemini y Antigravity.
+- **Contexto proporcionado:** Borradores de componentes, un documento base consolidado y diagramas, junto con requerimientos funcionales y de experiencia de usuario para el flujo de autenticación móvil.
+- **Respuesta que se obtuvo:** Organización tabulada de la estructura del sistema, redacción de introducciones para requisitos de calidad, generación de los 12 archivos markdown separados, código funcional de las pantallas con validaciones y redacción de escenarios de ejecución estructurados por capas con diagramas.
+- **Qué se aceptó:** El formato en tablas, la inclusión explícita de las integraciones externas, la división modular de la documentación en múltiples archivos, el código de las vistas móviles y el modelo conceptual por capas para los escenarios de ejecución.
+- **Qué se rechazó:** Versiones preliminares incompletas donde faltaban componentes externos y descripciones de escenarios basadas únicamente en listas mecánicas sin profundidad técnica.
+- **Justificación:** Las herramientas se utilizaron para construir el flujo inicial de autenticación móvil, estandarizar la documentación técnica y automatizar la organización del proyecto en archivos individuales, asegurando total coherencia entre el diseño teórico y el código implementado.
+- **Fecha:** 2026-08-30.
 
 ## Observaciones
 
