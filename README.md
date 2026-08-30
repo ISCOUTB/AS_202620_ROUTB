@@ -85,7 +85,7 @@ flutter pub get
 
 ## Ejecución
 
-### Arranque del Backend en un solo comando
+### Arranque del Backend con un solo comando
 
 Desde la carpeta `backend`, con el entorno virtual activo, inicia el servidor:
 
@@ -93,7 +93,7 @@ Desde la carpeta `backend`, con el entorno virtual activo, inicia el servidor:
 uvicorn app.main:app --reload
 ```
 
-### Arranque del Frontend en un solo comando
+### Arranque del Frontend con un solo comando
 
 Desde la carpeta `frontend`, con un emulador abierto, un celular conectado o un navegador disponible, inicia la aplicación:
 
