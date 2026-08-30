@@ -1,3 +1,12 @@
+---
+date: Agosto 2026
+title: "ROUTB"
+---
+
+<div align="center">
+  <img src="images/logo.png" width="250" alt="Logo ROUTB" />
+</div>
+
 # 1. Introducción y objetivos
 
 ROUTB es una plataforma diseñada para facilitar y gestionar el transporte compartido entre los estudiantes de la Universidad Tecnológica de Bolívar. El sistema busca centralizar la información relacionada con estudiantes conductores, rutas disponibles y cupos libres, permitiendo a los estudiantes consultar las opciones de transporte y reservar un cupo antes del viaje.
