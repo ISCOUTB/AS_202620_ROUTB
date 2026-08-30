@@ -2,9 +2,9 @@
 
 ```mermaid
 flowchart TD
-    EC["Estudiante Conductor<br/>[Persona]<br/><br/>• Publica recorridos<br/>• Gestiona cupos<br/>• Gestiona solicitudes"]
-    EP["Estudiante Pasajero<br/>[Persona]<br/><br/>• Busca recorridos<br/>• Solicita cupos<br/>• Gestiona viajes"]
-    ADM["Administrador<br/>[Persona]<br/><br/>• Gestiona usuarios<br/>• Reportes<br/>• Estadísticas<br/>• Gestiona incidencias"]
+    EC["Estudiante Conductor<br/>[Persona]<br/>"]
+    EP["Estudiante Pasajero<br/>[Persona]<br/>"]
+    ADM["Administrador<br/>[Persona]<br/>"]
     R["ROUTB<br/>[Sistema]<br/><br/>Plataforma de Movilidad<br/>Colaborativa para<br/>Estudiantes"]
     MAP["Servicio de<br/>Mapas y<br/>Geolocalización<br/>[Sistema Externo]<br/><br/>• Mapas<br/>• Ubicaciones"]
     PUSH["Servicio de<br/>Notificaciones Push<br/>[Sistema Externo]<br/><br/>• Avisos de eventos<br/>• Notificaciones<br/>del sistema"]
