@@ -95,7 +95,7 @@ uvicorn app.main:app --reload
 
 ### Arranque del Frontend en un solo comando
 
-Desde la carpeta `frontend`, con un emulador abierto o un celular conectado, inicia la aplicación:
+Desde la carpeta `frontend`, con un emulador abierto, un celular conectado o un navegador disponible, inicia la aplicación:
 
 ```bash
 flutter run
