@@ -1,6 +1,6 @@
 # Aspectos del proyecto
 
-Cada aspecto se enlaza con el escenario de calidad que lo motiva ([arc42-template-EN.md](arc42/arc42-template-EN.md)) y con su evidencia de arquitectura.
+Cada aspecto se enlaza con el escenario de calidad que lo motiva y con su evidencia de arquitectura.
 
 | ID | Aspecto | Requisito | C4 | ADR | Código | Pruebas | Evidencia |
 |---|---|---|---|---|---|---|---|
