@@ -116,4 +116,4 @@ pytest
 El recorrido de validación del flujo de autenticación se encuentra implementado y ejecutado en la nube mediante Integración Continua.
 
 - **Archivo de prueba:** `backend/tests/test_registro.py`
-- **Evidencia de ejecución (Success):** [Enlace a GitHub Actions Run #33330283493](https://github.com/ISCOUTB/AS_202620_ROUTB/actions/runs/33330283493)
+- **Evidencia de ejecución (Success):** [Enlace a GitHub Actions Run #33334594339](https://github.com/ISCOUTB/AS_202620_ROUTB/actions/runs/33334594339)
