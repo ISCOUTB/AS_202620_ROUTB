@@ -61,6 +61,17 @@ Justificación: Las herramientas fueron utilizadas con propósitos diferentes. C
 - **Justificación:** Las herramientas se utilizaron para construir el flujo inicial de autenticación móvil, estandarizar la documentación técnica y automatizar la organización del proyecto en archivos individuales, asegurando total coherencia entre el diseño teórico y el código implementado.
 - **Fecha:** 2026-08-30.
 
+### Semana 5
+
+- **Actividad realizada:** Configuración inicial de SonarCloud, definición del reto de disponibilidad y concurrencia de cupos, implementación del flujo de recorridos y reservas en el backend, creación del ADR del reto 0003 y actualización de la trazabilidad entre requisitos, C4, código, pruebas y evidencia.
+- **Herramientas utilizadas:** GitHub Copilot.
+- **Contexto proporcionado:** Se trabajó con el repositorio de ROUTB, su documentación arquitectónica, el flujo existente del backend y los criterios de calidad definidos para la gestión de recorridos y cupos. El análisis se centró en fortalecer el comportamiento del sistema ante solicitudes simultáneas y en respaldar la solución con evidencia técnica y mediciones comparables.
+- **Respuesta que se obtuvo:** Se propuso priorizar el control de concurrencia de cupos. Se configuraron los archivos de análisis de SonarCloud, se creó el módulo `trips` con endpoints para crear, consultar y reservar recorridos, y se implementó una actualización atómica de la disponibilidad para evitar la sobreventa.
+- **Qué se aceptó:** Se aceptó el reto de disponibilidad y concurrencia porque se relaciona directamente con el objetivo principal de ROUTB. También se aceptaron el modelo de recorridos, el servicio de reservas, la prueba de 20 intentos sobre 4 cupos, el ADR 0003 y las actualizaciones de los requisitos de calidad y del contexto C4.
+- **Qué se rechazó:** Se rechazó modificar los diagramas existentes del C4, alterar el workflow original del backend CI o incluir detalles técnicos internos de la implementación en la explicación arquitectónica.
+- **Justificación:** El cambio fue revisado contra la arquitectura existente y se mantuvo dentro de los límites del contenedor API Backend, la base de datos y el módulo `trips`. La prueba confirmó 4 reservas exitosas de 20 intentos, 0 cupos restantes y un tiempo de respuesta inferior a 2 segundos. También se midió la línea base sobre la versión anterior, donde los 20 intentos no servian porque el endpoint no existía.
+- **Fecha:** 2026-09-05.
+
 ## Observaciones
 
 La Inteligencia Artificial se utiliza como una herramienta de apoyo durante el desarrollo y la documentación del proyecto. Las respuestas generadas no se incorporan automáticamente: son revisadas, contrastadas con el contexto y los requisitos del proyecto y, cuando corresponde, modificadas o rechazadas por el equipo.

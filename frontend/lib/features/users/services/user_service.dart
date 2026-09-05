@@ -1,5 +1,8 @@
 import 'package:http/http.dart' as http;
+
 import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
 
 class UserService {
   Future<bool> registerUser({
@@ -9,7 +12,7 @@ class UserService {
     required String password,
   }) async {
     final url = Uri.parse('http://127.0.0.1:8000/users/');
-    
+
     try {
       final response = await http.post(
         url,
@@ -23,14 +26,14 @@ class UserService {
       );
 
       if (response.statusCode == 200) {
-        print('Usuario registrado con éxito: ${response.body}');
+        debugPrint('Usuario registrado con éxito: ${response.body}');
         return true;
       } else {
-        print('Error en el registro: ${response.statusCode}');
+        debugPrint('Error en el registro: ${response.statusCode}');
         return false;
       }
     } catch (e) {
-      print('Error de conexión: $e');
+      debugPrint('Error de conexión: $e');
       return false;
     }
   }

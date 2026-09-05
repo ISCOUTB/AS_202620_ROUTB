@@ -1,5 +1,6 @@
 import pytest
 from app.core.database import engine, Base
+from app.modules.trips.models import Trip
 
 @pytest.fixture(scope="session", autouse=True)
 def crear_tablas():
