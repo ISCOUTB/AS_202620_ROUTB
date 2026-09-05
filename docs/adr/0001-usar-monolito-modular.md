@@ -57,8 +57,8 @@ Se elige este enfoque porque:
 
 | Aspecto / Requisito | Elementos C4 relevantes | Artefactos / documentación | Pruebas / evidencia existente |
 |---|---|---|---|
-| Organización del backend (monolito modular) | Backend / API, bloques de construcción (módulos: auth, users, trips, requests, notifications, admin) | [Backend](../arc42/05_vista_de_bloques_de_construccion.md) | Estructura de código en backend/app/ |
-| Gestión de disponibilidad de cupos | Building blocks: trips, requests, users; API de búsqueda y gestión de cupos | [Escenarios de calidad](../arc42/10_requisitos-de-calidad.md#102-escenarios-de-calidad); [ADR 0003](0003-control-atomico-de-cupos.md) | [Pruebas de cupos](../../backend/tests/test_cupos.py) |
+| Organización del backend (monolito modular) | Backend / API, bloques de construcción (módulos: auth, users, trips, requests, notifications, admin) | [ADR 0001](0001-usar-monolito-modular.md) | Estructura de código en backend/app/ |
+| Gestión de disponibilidad de cupos | Building blocks: trips, requests, users; API de búsqueda y gestión de cupos | [Escenarios de calidad](../arc42/10_requisitos_de_calidad.md#102-escenarios-de-calidad) | No hay pruebas automatizadas específicas aún. |
 | Autenticación y protección de datos | Módulo auth; políticas de seguridad | [Seguridad](../arc42/10_requisitos_de_calidad.md#102-escenarios-de-calidad) | No hay pruebas automáticas de seguridad aún.| No hay pruebas automáticas de seguridad aún. |
 
 
