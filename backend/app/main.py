@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from app.core.database import engine, Base
 from app.modules.users.router import router as users_router
+from app.modules.trips.router import router as trips_router
 from fastapi.middleware.cors import CORSMiddleware
 
 
@@ -19,6 +20,7 @@ app.add_middleware(
 )
 
 app.include_router(users_router, prefix="/users", tags=["users"])
+app.include_router(trips_router, prefix="/trips", tags=["trips"])
 
 @app.get("/health")
 def health():
