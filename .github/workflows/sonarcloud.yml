@@ -2,9 +2,9 @@ name: SonarCloud ROUTB
 
 on:
   push:
-    branches: [master]
+    branches: [master, Changes]
   pull_request:
-    branches: [master]
+    branches: [master, Changes]
   workflow_dispatch:
 
 jobs:
