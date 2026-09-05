@@ -34,7 +34,7 @@ ROUTB se organiza en cuatro bloques principales para separar claramente la inter
 **Motivación:**
 Se adoptó un modelo de **Monolito Modular** como estrategia arquitectónica [ADR 0001](../adr/0001-usar-monolito-modular.md).
 
-**Bloques de Construcción (Módulos Internos):**
+**Bloques de Construcción (Módulos):**
 
 | Módulo | Propósito y Responsabilidades |
 | :--- | :--- |
@@ -47,5 +47,32 @@ Se adoptó un modelo de **Monolito Modular** como estrategia arquitectónica [AD
 | **`shared`** | Código transversal o común utilizado por múltiples módulos (ej. manejo de errores global, utilidades compartidas, conexión a BD), asegurando que los módulos de negocio no se acoplen entre sí. |
 
 Cada módulo expone sus funciones internamente y comparte el acceso a la base de datos a través de una capa de persistencia común, evitando que distintos módulos implementen accesos redundantes o inconsistentes a las mismas tablas.
+
+---
+
+## 5.3 Nivel 3: Whitebox de los módulos del Backend
+
+**Diagrama de Nivel 3:**
+
+[Diagrama C4](../c4/context.md)
+
+**Motivación:**
+
+La arquitectura interna por capas [ADR 0002](../adr/0002-usar-arquitectura-interna-por-capas.md)
+define una estructura uniforme dentro de cada módulo del monolito. Esta
+separación permite organizar las responsabilidades de presentación, validación,
+lógica de negocio y persistencia sin perder los límites funcionales establecidos
+en el nivel 2.
+
+**Bloques de Construcción (módulos internos):**
+
+| Módulo interno | Propósito y Responsabilidades |
+| :--- | :--- |
+| **`router.py`** | Capa de presentación/API. Define los endpoints FastAPI y recibe las peticiones HTTP. |
+| **`schemas.py`** | Capa de validación. Define los modelos de transferencia de datos para validar los datos de entrada y salida. |
+| **`service.py`** | Capa de lógica de negocio. Contiene las reglas de negocio y orquesta las operaciones del módulo. |
+| **`models.py`** | Capa de persistencia. Define las entidades del dominio mapeadas a las tablas de la base de datos. |
+
+El flujo de información atraviesa las capas de forma estrictamente unidireccional, desde la presentación hasta los modelos. Esta separación garantiza que la lógica de negocio se mantenga aislada tanto de las peticiones HTTP como de la base de datos.
 
 ---
