@@ -19,25 +19,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Validate SonarCloud credentials
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: |
-          if [ -z "$SONAR_TOKEN" ]; then
-            echo "SONAR_TOKEN is missing or unavailable for this workflow."
-            exit 1
-          fi
-
-          status="$(curl --silent --show-error --output /dev/null \
-            --write-out '%{http_code}' \
-            --user "$SONAR_TOKEN:" \
-            https://sonarcloud.io/api/authentication/validate)"
-
-          if [ "$status" != "200" ]; then
-            echo "SONAR_TOKEN was rejected by SonarCloud (HTTP $status)."
-            exit 1
-          fi
-
       - name: SonarCloud scan
         uses: SonarSource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602
         env:
