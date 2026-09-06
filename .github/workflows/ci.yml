@@ -42,4 +42,7 @@ jobs:
         working-directory: backend
         run: pytest
         env:
-          DATABASE_URL: postgresql://test:test@localhost:5432/routb_test
+          DATABASE_URL_TEST: postgresql://test:test@localhost:5432/routb_test
+          JWT_SECRET_KEY: ci-test-secret-key
+          JWT_ALGORITHM: HS256
+          JWT_EXPIRE_MINUTES: "60"

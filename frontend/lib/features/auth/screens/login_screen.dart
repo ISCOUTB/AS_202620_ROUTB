@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../../features/home/screens/home_screen.dart';
-import '../../../features/users/screens/register_screen.dart';
+
+import '../../home/screens/dashboard_screen.dart';
+import 'role_selection_screen.dart';
+import '../services/auth_api.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -12,230 +14,161 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _phoneController = TextEditingController();
-  final _passwordController = TextEditingController();
-
-  bool _obscurePassword = true;
+  final _phone = TextEditingController();
+  final _password = TextEditingController();
+  final _authApi = AuthApi();
+  bool _obscure = true;
   bool _isLoading = false;
 
   @override
   void dispose() {
-    _phoneController.dispose();
-    _passwordController.dispose();
+    _phone.dispose();
+    _password.dispose();
     super.dispose();
   }
 
-  Future<void> _handleLogin() async {
+  Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
-
     setState(() => _isLoading = true);
-
-    // Simula llamada a API
-    await Future.delayed(const Duration(seconds: 1));
-
+    AuthenticatedUser? account;
+    String? error;
+    try {
+      account = await _authApi.login(
+        phone: _phone.text.trim(),
+        password: _password.text,
+      );
+    } on AuthApiException catch (exception) {
+      error = exception.message;
+    } catch (_) {
+      error = 'No se pudo conectar con el servidor';
+    }
     if (!mounted) return;
     setState(() => _isLoading = false);
-
+    if (error != null || account == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error ?? 'Credenciales inválidas')),
+      );
+      return;
+    }
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (_) => const HomeScreen()),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FF),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 40),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Logo
-                Image.asset(
-                  'assets/images/logo.png',
-                  width: 130,
-                  height: 130,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Inicia sesión para continuar',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[500],
-                  ),
-                ),
-                const SizedBox(height: 40),
-
-                // Formulario
-                Form(
-                  key: _formKey,
-                  child: Column(
-                    children: [
-                      // Teléfono
-                      TextFormField(
-                        controller: _phoneController,
-                        keyboardType: TextInputType.phone,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        decoration: _inputDecoration(
-                          label: 'Teléfono',
-                          hint: 'Ej: 3001234567',
-                          icon: Icons.phone_rounded,
-                        ),
-                        validator: (val) {
-                          if (val == null || val.trim().isEmpty) {
-                            return 'El teléfono es obligatorio';
-                          }
-                          if (val.trim().length < 7 || val.trim().length > 15) {
-                            return 'Ingresa un número de teléfono válido';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 18),
-
-                      // Contraseña
-                      TextFormField(
-                        controller: _passwordController,
-                        obscureText: _obscurePassword,
-                        decoration: _inputDecoration(
-                          label: 'Contraseña',
-                          hint: '••••••••',
-                          icon: Icons.lock_rounded,
-                          suffix: IconButton(
-                            icon: Icon(
-                              _obscurePassword
-                                  ? Icons.visibility_off_rounded
-                                  : Icons.visibility_rounded,
-                              color: Colors.grey[400],
-                            ),
-                            onPressed: () => setState(
-                                () => _obscurePassword = !_obscurePassword),
-                          ),
-                        ),
-                        validator: (val) {
-                          if (val == null || val.trim().isEmpty) {
-                            return 'La contraseña es obligatoria';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 32),
-
-                      // Botón principal
-                      SizedBox(
-                        width: double.infinity,
-                        height: 52,
-                        child: ElevatedButton(
-                          onPressed: _isLoading ? null : _handleLogin,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF4F6FFF),
-                            foregroundColor: Colors.white,
-                            disabledBackgroundColor:
-                                const Color(0xFF4F6FFF).withValues(alpha: 0.6),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            elevation: 4,
-                            shadowColor:
-                                const Color(0xFF4F6FFF).withValues(alpha: 0.4),
-                          ),
-                          child: _isLoading
-                              ? const SizedBox(
-                                  width: 22,
-                                  height: 22,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.5,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Text(
-                                  'Iniciar Sesión',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Registro
-                TextButton(
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const RegisterScreen()),
-                  ),
-                  child: RichText(
-                    textAlign: TextAlign.center,
-                    text: TextSpan(
-                      style: TextStyle(fontSize: 14, color: Colors.grey[500]),
-                      children: const [
-                        TextSpan(text: '¿No tienes cuenta? '),
-                        TextSpan(
-                          text: 'Regístrate aquí',
-                          style: TextStyle(
-                            color: Color(0xFF4F6FFF),
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+      MaterialPageRoute(
+        builder: (_) => DashboardScreen(
+          role: account!.role,
+          userName: account.name,
         ),
       ),
     );
   }
 
-  InputDecoration _inputDecoration({
-    required String label,
-    required String hint,
-    required IconData icon,
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        backgroundColor: const Color(0xFFF4F7FF),
+        body: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Image.asset(
+                      'assets/images/logo.png',
+                      width: 130,
+                      height: 130,
+                      fit: BoxFit.contain,
+                    ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Iniciar sesión',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 30,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF1A2035),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text('Continúa tu viaje con ROUTB', textAlign: TextAlign.center),
+                    const SizedBox(height: 32),
+                    TextFormField(
+                      controller: _phone,
+                      keyboardType: TextInputType.phone,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      decoration: _decoration(
+                        'Número de teléfono',
+                        Icons.phone,
+                        prefixText: '+57 ',
+                      ),
+                      validator: (value) => value == null || value.length < 7
+                          ? 'Ingresa un teléfono válido'
+                          : null,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _password,
+                      obscureText: _obscure,
+                      decoration: _decoration(
+                        'Contraseña',
+                        Icons.lock,
+                        suffix: IconButton(
+                          onPressed: () => setState(() => _obscure = !_obscure),
+                          icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility),
+                        ),
+                      ),
+                      validator: (value) => value == null || value.isEmpty
+                          ? 'La contraseña es obligatoria'
+                          : null,
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      height: 52,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _login,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF5271FF),
+                          foregroundColor: Colors.white,
+                        ),
+                        child: _isLoading
+                            ? const CircularProgressIndicator(color: Colors.white)
+                            : const Text('Ingresar'),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextButton(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const RoleSelectionScreen(),
+                        ),
+                      ),
+                      child: const Text('¿No tienes cuenta? Regístrate'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+  InputDecoration _decoration(
+    String label,
+    IconData icon, {
+    String? prefixText,
     Widget? suffix,
-  }) {
-    return InputDecoration(
-      labelText: label,
-      hintText: hint,
-      prefixIcon: Icon(icon, color: const Color(0xFF4F6FFF)),
-      suffixIcon: suffix,
-      filled: true,
-      fillColor: Colors.white,
-      labelStyle: const TextStyle(color: Color(0xFF1A1F3C)),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: Colors.grey.shade200),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: Colors.grey.shade200),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Color(0xFF4F6FFF), width: 1.8),
-      ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Colors.redAccent),
-      ),
-      focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Colors.redAccent, width: 1.8),
-      ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-    );
-  }
+  }) =>
+      InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, color: const Color(0xFF5271FF)),
+        prefixText: prefixText,
+        suffixIcon: suffix,
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide.none,
+        ),
+      );
 }

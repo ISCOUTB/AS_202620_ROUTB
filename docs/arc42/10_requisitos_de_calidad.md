@@ -62,7 +62,7 @@ flowchart LR
 
 | Atributo de calidad | Fuente del estímulo | Estímulo | Artefacto | Entorno | Respuesta | Medida de respuesta |
 |---|---|---|---|---|---|---|
-| **Rendimiento** | Pasajero | Consulta los viajes disponibles | ROUTB | Condiciones normales de operación | El sistema procesa la solicitud y muestra los resultados | El 95 % de las solicitudes responde en menos de 2 segundos |
+| **Rendimiento** | Pasajero | Consulta los viajes disponibles | ROUTB | Condiciones normales de operación | El sistema procesa la solicitud y muestra los resultados | El 95 % de las solicitudes responde en menos de 3,99 segundos |
 | **Usabilidad** | Pasajero | Desea reservar un viaje disponible | ROUTB | Uso normal de la aplicación móvil | El sistema permite completar la reserva mediante un proceso sencillo | La reserva se completa en un máximo de 3 pasos principales |
 | **Seguridad** | Atacante | Intenta interceptar las comunicaciones o acceder a las contraseñas almacenadas | ROUTB | En cualquier momento | Las contraseñas permanecen protegidas mediante hashing con salt y las comunicaciones viajan cifradas | El 100 % de las contraseñas se almacena con hashing y salt, y el 100 % del tráfico usa HTTPS |
 | **Disponibilidad** | Estudiante | Accede a la plataforma para consultar o reservar un viaje | ROUTB | Franjas de mayor demanda | Las funcionalidades principales permanecen disponibles | Disponibilidad mínima del 99 % durante las franjas de mayor demanda |
@@ -111,7 +111,7 @@ producir valores negativos ni inconsistencias.
 | Solicitudes procesadas | 0 de 20 (`404`) | 20 de 20 | 20 de 20 | Cumple |
 | Reservas exitosas | No aplicaba | 4 de 20 | Exactamente 4 | Cumple |
 | Cupos restantes | No verificable | 0 | 0, sin valores negativos | Cumple |
-| Tiempo de respuesta del 95 % de las solicitudes | No aplicaba | 0,2281 s | < 2 s | Cumple |
+| Tiempo de respuesta del 95 % de las solicitudes | No aplicaba | 0,2281 s | < 3,99 s | Cumple |
 
 La ejecución produjo dos pruebas exitosas: el flujo normal de creación,
 consulta y reserva, y el escenario de 20 intentos sobre 4 cupos. El resultado

@@ -24,9 +24,8 @@ Se implementa un módulo `trips` con:
 - `GET /trips/{trip_id}` para consultar la disponibilidad;
 - `POST /trips/{trip_id}/reservations` para reservar un cupo.
 
-La reserva se realiza mediante una actualización SQL atómica condicionada a
-`available_seats > 0`. Solo la transacción que logra actualizar una fila
-consume un cupo; las demás reciben `409 Conflict`.
+ La reserva se realiza mediante una actualización atómica en base de datos condicionada a la existencia de cupos disponibles. 
+ Solo la transacción que logra actualizar el registro consume un cupo; las demás reciben un error de conflicto.
 
 ## Alternativas consideradas
 
@@ -37,7 +36,7 @@ cualquiera lo actualice, generando sobreventa bajo concurrencia.
 
 ### Bloqueo explícito de la fila
 
-`SELECT ... FOR UPDATE` también resolvería la condición, pero añade una
+Un enfoque de bloqueo pesimista también resolvería la condición, pero añade una
 operación y un bloqueo explícito que no son necesarios para este contador.
 
 ## Consecuencias
@@ -61,4 +60,4 @@ La prueba `backend/tests/test_cupos.py` ejecuta 20 intentos concurrentes con 20 
 - exactamente 4 reservas exitosas;
 - cero cupos restantes;
 - ningún valor negativo;
-- percentil 95 de cada operación inferior a 2 segundos.
+- percentil 95 de cada operación inferior a 3,99 segundos.

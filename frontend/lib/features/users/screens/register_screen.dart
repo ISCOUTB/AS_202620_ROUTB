@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../home/screens/home_screen.dart';
+
+import '../../../core/models/user_role.dart';
+import '../../auth/services/auth_api.dart';
+import '../../home/screens/dashboard_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+  const RegisterScreen({super.key, required this.role});
+  final UserRole role;
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -11,276 +15,196 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _lastNameController = TextEditingController();
-  final _phoneController = TextEditingController();
-  final _passwordController = TextEditingController();
-
-  bool _obscurePassword = true;
-  bool _isLoading = false;
+  final _name = TextEditingController();
+  final _lastName = TextEditingController();
+  final _phone = TextEditingController();
+  final _password = TextEditingController();
+  bool _obscure = true;
+  bool _acceptedTerms = false;
+  final _authApi = AuthApi();
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _lastNameController.dispose();
-    _phoneController.dispose();
-    _passwordController.dispose();
+    _name.dispose();
+    _lastName.dispose();
+    _phone.dispose();
+    _password.dispose();
     super.dispose();
   }
 
-  Future<void> _handleRegister() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() => _isLoading = true);
-
-    // Simula llamada a API
-    await Future.delayed(const Duration(seconds: 1));
-
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Row(
-          children: [
-            Icon(Icons.check_circle_rounded, color: Colors.white),
-            SizedBox(width: 10),
-            Text(
-              '¡Registro exitoso! Bienvenido a ROUTB',
-              style: TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ],
+  Future<void> _register() async {
+    if (!_formKey.currentState!.validate() || !_acceptedTerms) return;
+    try {
+      await _authApi.register(
+        phone: _phone.text.trim(),
+        name: _name.text.trim(),
+        lastName: _lastName.text.trim(),
+        password: _password.text,
+        role: widget.role,
+      );
+      final account = await _authApi.login(
+        phone: _phone.text.trim(),
+        password: _password.text,
+      );
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => DashboardScreen(
+            role: account.role,
+            userName: account.name,
+          ),
         ),
-        backgroundColor: const Color(0xFF22C55E),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.all(16),
-        duration: const Duration(seconds: 2),
-      ),
-    );
-
-    await Future.delayed(const Duration(milliseconds: 2100));
-    if (!mounted) return;
-
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const HomeScreen()),
-    );
+      );
+      return;
+    } on AuthApiException catch (exception) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(exception.message)),
+        );
+      }
+      return;
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se pudo conectar con el servidor')),
+        );
+      }
+      return;
+    }
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FF),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_rounded,
-              color: Color(0xFF1A1F3C)),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 8),
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: const Color(0xFFF4F7FF),
+    appBar: AppBar(
+      backgroundColor: Colors.transparent,
+      leading: const BackButton(),
+    ),
+    body: SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+        child: Form(
+          key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Header
               const Text(
                 'Crear cuenta',
                 style: TextStyle(
                   fontSize: 30,
                   fontWeight: FontWeight.w800,
-                  color: Color(0xFF1A1F3C),
+                  color: Color(0xFF1A2035),
                 ),
               ),
-              const SizedBox(height: 6),
-              Text(
-                'Únete a la comunidad universitaria de ROUTB',
-                style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+              const SizedBox(height: 8),
+              const Text('Únete a la comunidad universitaria de ROUTB'),
+              const SizedBox(height: 28),
+              TextFormField(
+                controller: _name,
+                textCapitalization: TextCapitalization.words,
+                decoration: _decoration('Nombre', Icons.person),
+                validator: _required,
               ),
-              const SizedBox(height: 32),
-
-              // Formulario
-              Form(
-                key: _formKey,
-                child: Column(
-                  children: [
-                    // Nombre
-                    TextFormField(
-                      controller: _nameController,
-                      textCapitalization: TextCapitalization.words,
-                      decoration: _inputDecoration(
-                        label: 'Nombre',
-                        hint: 'Tu nombre',
-                        icon: Icons.person_rounded,
-                      ),
-                      validator: (val) {
-                        if (val == null || val.trim().isEmpty) {
-                          return 'El nombre es obligatorio';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Apellido
-                    TextFormField(
-                      controller: _lastNameController,
-                      textCapitalization: TextCapitalization.words,
-                      decoration: _inputDecoration(
-                        label: 'Apellido',
-                        hint: 'Tu apellido',
-                        icon: Icons.person_outline_rounded,
-                      ),
-                      validator: (val) {
-                        if (val == null || val.trim().isEmpty) {
-                          return 'El apellido es obligatorio';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Teléfono
-                    TextFormField(
-                      controller: _phoneController,
-                      keyboardType: TextInputType.phone,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                      ],
-                      decoration: _inputDecoration(
-                        label: 'Teléfono',
-                        hint: 'Ej: 3001234567',
-                        icon: Icons.phone_rounded,
-                      ),
-                      validator: (val) {
-                        if (val == null || val.trim().isEmpty) {
-                          return 'El teléfono es obligatorio';
-                        }
-                        if (val.trim().length < 7 || val.trim().length > 15) {
-                          return 'Ingresa un número de teléfono válido';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Contraseña
-                    TextFormField(
-                      controller: _passwordController,
-                      obscureText: _obscurePassword,
-                      decoration: _inputDecoration(
-                        label: 'Contraseña',
-                        hint: 'Mínimo 6 caracteres',
-                        icon: Icons.lock_rounded,
-                        suffix: IconButton(
-                          icon: Icon(
-                            _obscurePassword
-                                ? Icons.visibility_off_rounded
-                                : Icons.visibility_rounded,
-                            color: Colors.grey[400],
-                          ),
-                          onPressed: () => setState(
-                              () => _obscurePassword = !_obscurePassword),
+              const SizedBox(height: 14),
+              TextFormField(
+                controller: _lastName,
+                textCapitalization: TextCapitalization.words,
+                decoration: _decoration('Apellido', Icons.person_outline),
+                validator: _required,
+              ),
+              const SizedBox(height: 14),
+              TextFormField(
+                controller: _phone,
+                keyboardType: TextInputType.phone,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                onChanged: (_) => setState(() {}),
+                decoration: _decoration(
+                  'Teléfono',
+                  Icons.phone,
+                  prefixText: '+57 ',
+                  suffix: _phone.text.length >= 10
+                      ? const Icon(Icons.check_circle, color: Colors.green)
+                      : null,
+                ),
+                validator: (value) => value == null || value.length < 10
+                    ? 'Ingresa un teléfono válido'
+                    : null,
+              ),
+              const SizedBox(height: 14),
+              TextFormField(
+                controller: _password,
+                obscureText: _obscure,
+                onChanged: (_) => setState(() {}),
+                decoration: _decoration(
+                  'Contraseña',
+                  Icons.lock,
+                  suffix: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_password.text.length >= 6)
+                        const Icon(Icons.check_circle, color: Colors.green),
+                      IconButton(
+                        onPressed: () => setState(() => _obscure = !_obscure),
+                        icon: Icon(
+                          _obscure ? Icons.visibility_off : Icons.visibility,
                         ),
                       ),
-                      validator: (val) {
-                        if (val == null || val.trim().isEmpty) {
-                          return 'La contraseña es obligatoria';
-                        }
-                        if (val.trim().length < 6) {
-                          return 'Mínimo 6 caracteres';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 32),
-
-                    // Botón de registro
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: ElevatedButton(
-                        onPressed: _isLoading ? null : _handleRegister,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF4F6FFF),
-                          foregroundColor: Colors.white,
-                          disabledBackgroundColor:
-                              const Color(0xFF4F6FFF).withValues(alpha: 0.6),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          elevation: 4,
-                          shadowColor:
-                              const Color(0xFF4F6FFF).withValues(alpha: 0.4),
-                        ),
-                        child: _isLoading
-                            ? const SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Text(
-                                'Crear cuenta',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
+                ),
+                validator: (value) => value == null || value.length < 6
+                    ? 'Mínimo 6 caracteres'
+                    : null,
+              ),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                value: _acceptedTerms,
+                onChanged: (value) =>
+                    setState(() => _acceptedTerms = value ?? false),
+                title: const Text(
+                  'Acepto los términos y el uso de mis datos en la UTB',
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: _acceptedTerms ? _register : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF5271FF),
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Crear cuenta'),
+                ),
+              ),
             ],
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
 
-  InputDecoration _inputDecoration({
-    required String label,
-    required String hint,
-    required IconData icon,
+  String? _required(String? value) => value == null || value.trim().isEmpty
+      ? 'Este campo es obligatorio'
+      : null;
+
+  InputDecoration _decoration(
+    String label,
+    IconData icon, {
+    String? prefixText,
     Widget? suffix,
-  }) {
-    return InputDecoration(
-      labelText: label,
-      hintText: hint,
-      prefixIcon: Icon(icon, color: const Color(0xFF4F6FFF)),
-      suffixIcon: suffix,
-      filled: true,
-      fillColor: Colors.white,
-      labelStyle: const TextStyle(color: Color(0xFF1A1F3C)),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: Colors.grey.shade200),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: Colors.grey.shade200),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Color(0xFF4F6FFF), width: 1.8),
-      ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Colors.redAccent),
-      ),
-      focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Colors.redAccent, width: 1.8),
-      ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-    );
-  }
+  }) => InputDecoration(
+    labelText: label,
+    prefixIcon: Icon(icon, color: const Color(0xFF5271FF)),
+    prefixText: prefixText,
+    suffixIcon: suffix,
+    filled: true,
+    fillColor: Colors.white,
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(14),
+      borderSide: BorderSide.none,
+    ),
+  );
 }

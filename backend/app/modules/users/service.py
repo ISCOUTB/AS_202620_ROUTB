@@ -1,14 +1,14 @@
 from sqlalchemy.orm import Session
 from app.modules.users import models, schemas
+from app.modules.auth.service import hash_password
 
 def create_user(db: Session, user_data: schemas.UserCreate):
-    fake_hashed_password = user_data.password + "notreallyhashed"
-    
     db_user = models.User(
         name=user_data.name,
         last_name=user_data.last_name,
         phone=user_data.phone,
-        hashed_password=fake_hashed_password
+        hashed_password=hash_password(user_data.password),
+        role=user_data.role,
     )
     
     db.add(db_user)

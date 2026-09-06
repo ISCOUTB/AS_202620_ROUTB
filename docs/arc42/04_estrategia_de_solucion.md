@@ -27,7 +27,7 @@ Esta separación busca mantener el sistema modular y comprensible para los cuatr
 
 | Objetivo de calidad (prioridad) | Estrategia arquitectónica |
 | --- | --- |
-| Rendimiento (1) | Búsquedas optimizadas con consultas geoespaciales indexadas en PostgreSQL/PostGIS; operaciones críticas de búsqueda diseñadas para responder en menos de 2 segundos. |
+| Rendimiento (1) | Búsquedas optimizadas con consultas geoespaciales indexadas en PostgreSQL/PostGIS; operaciones críticas de búsqueda diseñadas para responder en menos de 3,99 segundos. |
 | Seguridad (2) | Hashing de contraseñas con salt, autenticación basada en JWT, y HTTPS obligatorio en toda comunicación cliente-servidor. |
 | Disponibilidad (3) | Backend sin estado (stateless, gracias a JWT) que facilita el despliegue de múltiples instancias durante las franjas de mayor demanda. |
 | Escalabilidad (4) | El monolito modular permite que, si un módulo concentra mayor carga (por ejemplo, búsqueda de recorridos), pueda optimizarse o incluso extraerse a futuro como servicio independiente sin rediseñar el resto del sistema. Ver [ADR 0001](../adr/0001-usar-monolito-modular.md). |
@@ -41,3 +41,6 @@ Esta separación busca mantener el sistema modular y comprensible para los cuatr
 - El desarrollo se distribuye entre los cuatro integrantes del equipo según los bloques definidos (cliente móvil, backend/API, persistencia, integraciones), minimizando el trabajo simultáneo sobre un mismo componente.
 - Al ser un proyecto académico de un semestre, se prioriza una arquitectura simple y bien documentada por sobre patrones más complejos (p. ej. microservicios), reservando la posibilidad de evolucionar hacia una arquitectura más distribuida si el sistema creciera más allá del alcance actual.
 - Las integraciones externas (mapas, notificaciones) se aíslan explícitamente del dominio de negocio para poder desarrollarlas, probarlas y sustituirlas de forma independiente.
+- Se establece el uso de un flujo de trabajo basado en ramas y control de versiones mediante Git, con el propósito de mantener los cambios organizados y facilitar la integración de los aportes de cada integrante del equipo.
+- Las decisiones relevantes de arquitectura y los cambios que afecten la estructura del sistema se documentan mediante ADRs, permitiendo mantener un registro de las alternativas consideradas, la decisión adoptada y sus consecuencias para el proyecto.
+

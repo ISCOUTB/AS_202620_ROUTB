@@ -37,7 +37,7 @@ El sistema también contempla un panel administrativo destinado a la gestión de
 
 | Prioridad | Objetivo de calidad | Descripción                                                                                                                      | Interesado |
 | --------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| 1         | **Rendimiento**     | Las búsquedas deben responder en menos de 2 segundos bajo condiciones normales.                                                  | Estudiantes (principalmente pasajeros) |
+| 1         | **Rendimiento**     | Las búsquedas deben responder en menos de 3,99 segundos bajo condiciones normales.                                                  | Estudiantes (principalmente pasajeros) |
 | 2         | **Seguridad**       | Las contraseñas deben almacenarse mediante hashing con salt y las comunicaciones deben utilizar HTTPS.                           | Estudiantes (conductores y pasajeros) |
 | 3         | **Disponibilidad**  | El sistema debe alcanzar una disponibilidad mínima del 99 % durante las franjas de mayor demanda.                                | Estudiantes (usuarios activos) |
 | 4         | **Escalabilidad**   | La arquitectura debe permitir el crecimiento del número de usuarios y recorridos sin degradar significativamente el rendimiento. | Equipo de desarrollo |
