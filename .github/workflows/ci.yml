@@ -42,4 +42,4 @@ jobs:
         working-directory: backend
         run: pytest
         env:
-          DATABASE_URL: postgresql://test:test@localhost:5432/routb_test
+          DATABASE_URL_TEST: postgresql://test:test@localhost:5432/routb_test
