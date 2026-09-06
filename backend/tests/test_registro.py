@@ -10,7 +10,8 @@ def test_registro_usuario_exitoso():
         "name": "Juan",
         "last_name": "Pérez",
         "phone": "3001234567",
-        "password": "PasswordSegura123!"
+        "password": "PasswordSegura123!",
+        "role": "driver",
     }
 
     # PARTE 2: Ejecución de la petición a la ruta exacta
@@ -24,4 +25,18 @@ def test_registro_usuario_exitoso():
     assert data["name"] == "Juan"
     assert data["last_name"] == "Pérez"
     assert data["phone"] == "3001234567"
+    assert data["role"] == "driver"
     assert "id" in data # Confirma que se le asignó un ID en la base de datos
+
+
+def test_login_devuelve_jwt():
+    response = client.post(
+        "/auth/login",
+        json={"phone": "3001234567", "password": "PasswordSegura123!"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["token_type"] == "bearer"
+    assert data["access_token"]
+    assert data["user"]["role"] == "driver"

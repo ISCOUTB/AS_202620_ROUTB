@@ -17,3 +17,5 @@ httpx2
 sqlalchemy
 dotenv
 psycopg2
+PyJWT
+bcrypt

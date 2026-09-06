@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../auth/screens/login_screen.dart';
+import '../../auth/screens/role_selection_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -22,7 +22,9 @@ class HomeScreen extends StatelessWidget {
                   onPressed: () {
                     Navigator.pushAndRemoveUntil(
                       context,
-                      MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      MaterialPageRoute(
+                        builder: (_) => const RoleSelectionScreen(),
+                      ),
                       (route) => false,
                     );
                   },
@@ -97,13 +99,18 @@ class HomeScreen extends StatelessWidget {
                           color: const Color(0xFF22C55E).withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(50),
                           border: Border.all(
-                            color: const Color(0xFF22C55E).withValues(alpha: 0.3),
+                            color: const Color(0xFF22C55E)
+                                .withValues(alpha: 0.3),
                           ),
                         ),
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.circle, size: 10, color: Color(0xFF22C55E)),
+                            Icon(
+                              Icons.circle,
+                              size: 10,
+                              color: Color(0xFF22C55E),
+                            ),
                             SizedBox(width: 8),
                             Text(
                               'Sesión activa',

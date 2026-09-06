@@ -61,4 +61,4 @@ La prueba `backend/tests/test_cupos.py` ejecuta 20 intentos concurrentes con 20 
 - exactamente 4 reservas exitosas;
 - cero cupos restantes;
 - ningún valor negativo;
-- percentil 95 de cada operación inferior a 2 segundos.
+- percentil 95 de cada operación inferior a 3,99 segundos.

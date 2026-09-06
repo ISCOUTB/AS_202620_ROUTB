@@ -4,12 +4,15 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
+import '../../../core/models/user_role.dart';
+
 class UserService {
   Future<bool> registerUser({
     required String name,
     required String lastName,
     required String phone,
     required String password,
+    UserRole role = UserRole.passenger,
   }) async {
     final url = Uri.parse('http://127.0.0.1:8000/users/');
 
@@ -22,6 +25,7 @@ class UserService {
           'last_name': lastName,
           'phone': phone,
           'password': password,
+          'role': role.name,
         }),
       );
 
