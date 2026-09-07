@@ -1,4 +1,4 @@
-name: Backend CI ROUTB
+name: CI ROUTB
 
 on:
   push:

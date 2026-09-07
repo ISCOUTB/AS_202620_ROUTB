@@ -9,8 +9,8 @@ idna
 pydantic
 pydantic_core
 starlette
-typing-inspection
 typing_extensions
+typing-inspection
 uvicorn
 pytest
 httpx2

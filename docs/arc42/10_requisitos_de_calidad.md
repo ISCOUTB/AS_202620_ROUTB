@@ -30,7 +30,7 @@ flowchart LR
     U --> USA
 
     REND --> REND1["Tiempo de búsqueda"]
-    REND1 --> REND1O["Objetivo: ≤ 2 s"]
+    REND1 --> REND1O["Objetivo: ≤ 3,99 s"]
     REND --> REND2["Cupos en tiempo real"]
     REND2 --> REND2O["Actualiza al instante"]
 
