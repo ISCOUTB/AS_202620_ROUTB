@@ -109,3 +109,94 @@ La prueba del cambio verifica precisamente este alcance: ejercita los
 endpoints y la lógica de reservas del backend, comprueba la actualización de
 la disponibilidad y no requiere modificar los límites de los contenedores
 definidos en este nivel.
+
+---
+
+**Nivel 3 - Componentes**
+
+```mermaid
+---
+title: "[Componentes] ROUTB - Nivel 3"
+---
+
+flowchart TD
+    EC["Estudiante Conductor<br/>[Persona]"]
+    EP["Estudiante Pasajero<br/>[Persona]"]
+    ADM["Administrador<br/>[Persona]"]
+
+    APP["Aplicación Móvil<br/>[Contenedor: Flutter]<br/><br/>Interfaz para conductores,<br/>pasajeros y administrador"]
+
+    subgraph API["API Backend - FASTAPI<br/>"]
+
+        REST["API REST / Presentación<br/>[Componente]<br/><br/>Expone endpoints, valida solicitudes<br/>y entrega respuestas JSON"]
+
+        AUTH["Autenticación y Acceso<br/>[Componente]<br/><br/>Registro, inicio de sesión, JWT,<br/>sesión y autorización por rol"]
+
+        USERS["Gestión de Usuarios<br/>[Componente]<br/><br/>Perfiles de estudiantes,<br/>conductores y pasajeros"]
+
+        TRIPS["Gestión de Recorridos<br/>[Componente]<br/><br/>Crear, publicar, buscar, consultar,<br/>actualizar y cancelar recorridos"]
+
+        REQUESTS["Solicitudes y Cupos<br/>[Componente]<br/><br/>Solicitar, aprobar o rechazar cupos;<br/>mantiene disponibilidad consistente"]
+
+        NOTIFICATIONS["Notificaciones<br/>[Componente]<br/><br/>Genera avisos sobre solicitudes,<br/>cupos y cambios en recorridos"]
+
+        REPUTATION["Reputación e Historial<br/>[Componente]<br/><br/>Calificaciones, comentarios<br/>e historial de viajes"]
+
+        ADMIN["Administración<br/>[Componente]<br/><br/>Gestión, moderación y estadísticas<br/>de la plataforma"]
+
+        MAP_ADAPTER["Adaptador de Mapas<br/>[Componente]<br/><br/>Consulta rutas, ubicación,<br/>distancia y duración"]
+
+        PUSH_ADAPTER["Adaptador de Push<br/>[Componente]<br/><br/>Solicita el envío de<br/>notificaciones a dispositivos"]
+
+        PERSISTENCE["Persistencia Compartida<br/>[Componente: SQLAlchemy ORM]<br/><br/>Sesiones, entidades ORM,<br/>consultas y transacciones"]
+    end
+
+    DB[("Base de Datos<br/>[Contenedor: PostgreSQL]")]
+
+    MAP["Servicio de Mapas y<br/>Geolocalización<br/>[Sistema Externo]"]
+
+    PUSH["Servicio de<br/>Notificaciones Push<br/>[Sistema Externo]"]
+
+    EC -->|"Usa"| APP
+    EP -->|"Usa"| APP
+    ADM -->|"Usa"| APP
+
+    APP -->|"REST/JSON · HTTPS"| REST
+
+    REST --> AUTH
+    REST --> USERS
+    REST --> TRIPS
+    REST --> REQUESTS
+    REST --> REPUTATION
+    REST --> ADMIN
+
+    USERS --> PERSISTENCE
+    TRIPS --> PERSISTENCE
+    REQUESTS --> PERSISTENCE
+    REPUTATION --> PERSISTENCE
+    ADMIN --> PERSISTENCE
+    AUTH --> PERSISTENCE
+
+    TRIPS --> MAP_ADAPTER
+    MAP_ADAPTER -->|"REST/JSON · HTTPS"| MAP
+
+    REQUESTS --> NOTIFICATIONS
+    TRIPS --> NOTIFICATIONS
+    NOTIFICATIONS --> PUSH_ADAPTER
+    PUSH_ADAPTER -->|"REST/JSON · HTTPS"| PUSH
+
+    PERSISTENCE -->|"SQL"| DB
+
+    PUSH -.->|"Push / FCM"| EC
+    PUSH -.->|"Push / FCM"| EP
+
+    classDef actor fill:#111827,stroke:#2dd4bf,color:#fff,stroke-width:2px
+    classDef container fill:#0e7490,stroke:#2dd4bf,color:#fff,stroke-width:2px
+    classDef component fill:#155e75,stroke:#67e8f9,color:#fff,stroke-width:2px
+    classDef service fill:#334155,stroke:#2dd4bf,color:#fff,stroke-width:2px
+
+    class EC,EP,ADM actor
+    class APP,DB container
+    class REST,AUTH,USERS,TRIPS,REQUESTS,NOTIFICATIONS,REPUTATION,ADMIN,MAP_ADAPTER,PUSH_ADAPTER,PERSISTENCE component
+    class MAP,PUSH service
+```
