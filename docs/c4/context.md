@@ -204,6 +204,5 @@ flowchart TD
 |---|---|
 | Persona | Actor humano |
 | Contenedor | Pieza desplegable de ROUTB (app, API o BD) |
-| Componente | Módulo con código real dentro del backend (router · service · models, según ADR 0002) |
-| Componente pendiente | Módulo o adaptador declarado en el diseño, pero aún sin código (0 líneas) o sin montar en `main.py` |
+| Componente | Módulo con código real dentro del backend (router · service · models · schemas, según ADR 0002) |
 | Sistema Externo | Servicio de terceros, fuera del repositorio del equipo |
