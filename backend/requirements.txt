@@ -16,6 +16,7 @@ pytest
 httpx2
 sqlalchemy
 dotenv
+alembic
 psycopg2
 PyJWT
 bcrypt
