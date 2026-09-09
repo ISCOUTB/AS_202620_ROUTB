@@ -28,6 +28,21 @@ flowchart TD
 | Sistema | ROUTB, el sistema en construcción por el equipo |
 | Sistema Externo | Servicio de terceros, fuera del repositorio del equipo |
 
+### Mapa de contextos funcionales
+
+El sistema se organiza en contextos. Cada contexto tiene una responsabilidad principal y las relaciones representan
+el tipo de colaboración entre ellos, no una separación física en servicios
+independientes.
+
+| Contexto | Responsabilidad | Relación principal |
+|---|---|---|
+| Identidad y Usuarios | Registrar usuarios, mantener perfiles, roles y autenticación. | Provee identidad y permisos a los demás contextos. |
+| Gestión de Recorridos | Publicar recorridos y mantener la disponibilidad de cupos. | Expone recorridos y disponibilidad a Solicitudes y Reservas. |
+| Solicitudes y Reservas | Gestionar solicitudes y confirmar reservas sin sobrepasar los cupos. | Consume recorridos y emite eventos de reserva. |
+| Notificaciones | Informar solicitudes, reservas, cambios y disponibilidad. | Recibe eventos de Recorridos y Solicitudes y los entrega a los usuarios. |
+| Administración | Supervisar usuarios, recorridos y solicitudes, además de gestionar reportes. | Consulta y gestiona los demás contextos según permisos administrativos. |
+
+
 ### Impacto de la restricción en el Nivel 1
 
 En el nivel de contexto, la restricción de consistencia de cupos se refleja
