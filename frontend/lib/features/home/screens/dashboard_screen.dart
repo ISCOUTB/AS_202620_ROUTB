@@ -454,7 +454,33 @@ class _DriverViewState extends State<DriverView> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const _Chip(icon: Icons.route, text: 'Centro → UTB'),
+                  Row(
+                    children: [
+                      const _Chip(icon: Icons.route, text: 'Centro → UTB'),
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          // Acción al hacer clic en Ver Ruta
+                        },
+                        icon: const Icon(Icons.map_outlined, size: 14),
+                        label: const Text(
+                          'Ver ruta',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 10,
