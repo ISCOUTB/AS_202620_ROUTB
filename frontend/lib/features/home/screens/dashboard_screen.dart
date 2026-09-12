@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'route_screen.dart';
 
 import '../../../core/models/user_role.dart';
 import '../../auth/screens/splash_screen.dart';
@@ -460,6 +461,12 @@ class _DriverViewState extends State<DriverView> {
                       const SizedBox(width: 8),
                       ElevatedButton.icon(
                         onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const RouteScreen(),
+                            )
+                          );
                           // Acción al hacer clic en Ver Ruta
                         },
                         icon: const Icon(Icons.map_outlined, size: 14),
