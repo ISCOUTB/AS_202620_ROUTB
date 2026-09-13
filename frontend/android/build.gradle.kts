@@ -9,6 +9,9 @@ allprojects {
     }
 }
 
+group = "com.example.frontend_android"
+description = "ROUTB Android application"
+
 val newBuildDir: Directory =
     rootProject.layout.buildDirectory
         .dir("../../build")
