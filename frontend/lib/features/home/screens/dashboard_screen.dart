@@ -4,24 +4,7 @@ import 'route_screen.dart';
 import '../../../core/models/user_role.dart';
 import '../../auth/screens/splash_screen.dart';
 import '../../auth/services/auth_api.dart';
-
-class Trip {
-  final String origin;
-  final String destination;
-  final String time;
-  final String seats;
-  final List<String> requests;
-  bool isActive;
-
-  Trip({
-    required this.origin,
-    required this.destination,
-    required this.time,
-    required this.seats,
-    List<String>? requests,
-    this.isActive = true,
-  }) : requests = requests ?? [];
-}
+import '../services/trip_api.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({
@@ -42,7 +25,39 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  final List<Trip> _activeTrips = [];
+  final TripApi _tripApi = TripApi();
+  List<TripData> _trips = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchTrips();
+  }
+
+  Future<void> _fetchTrips({String? origin, String? destination}) async {
+    setState(() => _isLoading = true);
+    try {
+      if (widget.role == UserRole.driver) {
+        final myTrips = await _tripApi.getMyTrips();
+        if (mounted) setState(() => _trips = myTrips);
+      } else {
+        final available = await _tripApi.getAvailableTrips(
+          origin: origin,
+          destination: destination,
+        );
+        if (mounted) setState(() => _trips = available);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al cargar viajes: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   Future<void> _logout(BuildContext context) async {
     await AuthApi().logout();
@@ -54,24 +69,123 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  void _addNewTrip(String origin, String destination, String time) {
-    setState(() {
-      _activeTrips.add(
-        Trip(
-          origin: origin.isEmpty ? 'Centro' : origin,
-          destination: destination.isEmpty ? 'UTB' : destination,
-          time: time.isEmpty ? '7:00 AM' : time,
-          seats: '0/4 cupos',
-          requests: [],
-        ),
+  Future<void> _addNewTrip(String origin, String destination, String time) async {
+    try {
+      await _tripApi.createTrip(
+        origin: origin,
+        destination: destination,
+        time: time,
       );
-    });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('¡Viaje publicado exitosamente'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+      await _fetchTrips();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('No se pudo publicar el viaje: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
   }
 
-  void _cancelTrip(Trip trip) {
-    setState(() {
-      _activeTrips.remove(trip);
-    });
+  Future<void> _cancelTrip(TripData trip) async {
+    try {
+      final success = await _tripApi.cancelTrip(trip.id);
+      if (success) {
+        setState(() {
+          _trips.removeWhere((t) => t.id == trip.id);
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Ruta cancelada correctamente')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al cancelar viaje: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _acceptRequest(TripData trip, TripRequestData request) async {
+    try {
+      final success = await _tripApi.acceptRequest(request.id);
+      if (success) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Solicitud de ${request.passengerName} aceptada'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+        await _fetchTrips();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al aceptar solicitud: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _rejectRequest(TripData trip, TripRequestData request) async {
+    try {
+      final success = await _tripApi.rejectRequest(request.id);
+      if (success) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Solicitud de ${request.passengerName} rechazada'),
+            ),
+          );
+        }
+        await _fetchTrips();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al rechazar solicitud: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _reserveSeat(TripData trip) async {
+    try {
+      await _tripApi.requestSeat(trip.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('¡Solicitud de cupo enviada al conductor!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+      await _fetchTrips();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('No se pudo reservar: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -144,12 +258,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
           _ModeStrip(isDriver: isDriver),
           Expanded(
-            child: isDriver
-                ? DriverView(
-                    trips: _activeTrips,
-                    onCancelTrip: _cancelTrip,
-                  )
-                : PassengerView(trips: _activeTrips),
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : RefreshIndicator(
+                    onRefresh: _fetchTrips,
+                    child: isDriver
+                        ? DriverView(
+                            trips: _trips,
+                            onCancelTrip: _cancelTrip,
+                            onAcceptRequest: _acceptRequest,
+                            onRejectRequest: _rejectRequest,
+                          )
+                        : PassengerView(
+                            trips: _trips,
+                            onReserve: _reserveSeat,
+                            onSearch: (origin, dest) => _fetchTrips(
+                              origin: origin,
+                              destination: dest,
+                            ),
+                          ),
+                  ),
           ),
         ],
       ),
@@ -190,9 +318,16 @@ class _ModeStrip extends StatelessWidget {
 }
 
 class PassengerView extends StatefulWidget {
-  const PassengerView({super.key, required this.trips});
+  const PassengerView({
+    super.key,
+    required this.trips,
+    required this.onReserve,
+    required this.onSearch,
+  });
 
-  final List<Trip> trips;
+  final List<TripData> trips;
+  final Function(TripData) onReserve;
+  final Function(String, String) onSearch;
 
   @override
   State<PassengerView> createState() => _PassengerViewState();
@@ -205,7 +340,7 @@ class _PassengerViewState extends State<PassengerView> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        const _PassengerSearch(),
+        _PassengerSearch(onSearch: widget.onSearch),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
           child: Align(
@@ -221,59 +356,58 @@ class _PassengerViewState extends State<PassengerView> {
         ),
         Expanded(
           child: widget.trips.isEmpty
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.search_off_rounded,
-                          size: 48,
-                          color: Colors.grey.shade400,
-                        ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'No hay viajes disponibles',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
+              ? ListView(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(40),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.search_off_rounded,
+                            size: 48,
+                            color: Colors.grey.shade400,
                           ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Aún no hay conductores que hayan publicado una ruta.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.grey.shade600,
-                            fontSize: 12,
+                          const SizedBox(height: 12),
+                          const Text(
+                            'No hay viajes disponibles',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 6),
+                          Text(
+                            'Aún no hay conductores que hayan publicado una ruta para este destino.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
+                  ],
                 )
               : ListView.builder(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                   itemCount: widget.trips.length,
                   itemBuilder: (context, index) {
                     final trip = widget.trips[index];
-                    final reserved = _reserved.contains(index);
+                    final reserved = _reserved.contains(trip.id);
                     return _PassengerTripCard(
-                      name: 'Conductor',
+                      name: trip.driverName ?? 'Conductor UTB',
                       route: '${trip.origin} → ${trip.destination}',
-                      time: trip.time,
-                      seats: trip.seats,
+                      time: trip.departureTime,
+                      seats: trip.seatsText,
                       rating: 4.8,
                       reviews: '12',
                       reserved: reserved,
-                      onReserve: () => setState(() {
-                        if (reserved) {
-                          _reserved.remove(index);
-                        } else {
-                          _reserved.add(index);
-                        }
-                      }),
+                      onReserve: () {
+                        setState(() => _reserved.add(trip.id));
+                        widget.onReserve(trip);
+                      },
                     );
                   },
                 ),
@@ -283,8 +417,25 @@ class _PassengerViewState extends State<PassengerView> {
   }
 }
 
-class _PassengerSearch extends StatelessWidget {
-  const _PassengerSearch();
+class _PassengerSearch extends StatefulWidget {
+  const _PassengerSearch({required this.onSearch});
+
+  final Function(String, String) onSearch;
+
+  @override
+  State<_PassengerSearch> createState() => _PassengerSearchState();
+}
+
+class _PassengerSearchState extends State<_PassengerSearch> {
+  final _originController = TextEditingController();
+  final _destController = TextEditingController();
+
+  @override
+  void dispose() {
+    _originController.dispose();
+    _destController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) => Card(
@@ -296,24 +447,48 @@ class _PassengerSearch extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Row(
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Icon(Icons.search, color: DashboardScreen.primary, size: 19),
-                  SizedBox(width: 8),
-                  Text(
-                    'Buscar viaje',
-                    style: TextStyle(fontWeight: FontWeight.w700),
+                  const Row(
+                    children: [
+                      Icon(Icons.search, color: DashboardScreen.primary, size: 19),
+                      SizedBox(width: 8),
+                      Text(
+                        'Buscar viaje',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ],
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      _originController.clear();
+                      _destController.clear();
+                      widget.onSearch('', '');
+                    },
+                    child: const Text('Limpiar', style: TextStyle(fontSize: 12)),
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
-              _SearchField(hint: 'Origen', icon: Icons.location_on_rounded),
-              const SizedBox(height: 8),
-              _SearchField(hint: 'Destino', icon: Icons.flag_rounded),
               const SizedBox(height: 8),
               _SearchField(
-                hint: 'Hora (ej. 7:30 AM)',
-                icon: Icons.schedule_rounded,
+                hint: 'Origen (ej. Centro)',
+                icon: Icons.location_on_rounded,
+                controller: _originController,
+                onSubmitted: (_) => widget.onSearch(
+                  _originController.text,
+                  _destController.text,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _SearchField(
+                hint: 'Destino (ej. UTB)',
+                icon: Icons.flag_rounded,
+                controller: _destController,
+                onSubmitted: (_) => widget.onSearch(
+                  _originController.text,
+                  _destController.text,
+                ),
               ),
             ],
           ),
@@ -326,14 +501,18 @@ class _SearchField extends StatelessWidget {
     required this.hint,
     required this.icon,
     this.controller,
+    this.onSubmitted,
   });
+
   final String hint;
   final IconData icon;
   final TextEditingController? controller;
+  final ValueChanged<String>? onSubmitted;
 
   @override
   Widget build(BuildContext context) => TextField(
         controller: controller,
+        onSubmitted: onSubmitted,
         decoration: InputDecoration(
           hintText: hint,
           prefixIcon: Icon(icon, color: DashboardScreen.primary, size: 18),
@@ -426,12 +605,12 @@ class _PassengerTripCard extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const _SeatBadge(text: '✓  2/4 cupos'),
+                  _SeatBadge(text: '✓  $seats'),
                   ElevatedButton(
-                    onPressed: onReserve,
+                    onPressed: reserved ? null : onReserve,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: reserved
-                          ? Colors.green
+                          ? Colors.grey
                           : DashboardScreen.primary,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(
@@ -442,7 +621,7 @@ class _PassengerTripCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-                    child: Text(reserved ? 'Reservado' : 'Reservar cupo'),
+                    child: Text(reserved ? 'Solicitado' : 'Reservar cupo'),
                   ),
                 ],
               ),
@@ -500,28 +679,27 @@ class _SeatBadge extends StatelessWidget {
       );
 }
 
-class DriverView extends StatefulWidget {
+class DriverView extends StatelessWidget {
   const DriverView({
     super.key,
     required this.trips,
     required this.onCancelTrip,
+    required this.onAcceptRequest,
+    required this.onRejectRequest,
   });
 
-  final List<Trip> trips;
-  final Function(Trip) onCancelTrip;
+  final List<TripData> trips;
+  final Function(TripData) onCancelTrip;
+  final Function(TripData, TripRequestData) onAcceptRequest;
+  final Function(TripData, TripRequestData) onRejectRequest;
 
-  @override
-  State<DriverView> createState() => _DriverViewState();
-}
-
-class _DriverViewState extends State<DriverView> {
-  void _showCancelDialog(BuildContext context, Trip trip) {
+  void _showCancelDialog(BuildContext context, TripData trip) {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('¿Cancelar esta ruta?'),
         content: const Text(
-          'El viaje se eliminará y se notificará a los pasajeros que hayan solicitado cupo.',
+          'El viaje se cancelará en el servidor y se notificará a los pasajeros que hayan solicitado cupo.',
         ),
         actions: [
           TextButton(
@@ -531,7 +709,7 @@ class _DriverViewState extends State<DriverView> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(dialogContext);
-              widget.onCancelTrip(trip);
+              onCancelTrip(trip);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.redAccent,
@@ -559,7 +737,7 @@ class _DriverViewState extends State<DriverView> {
             ],
           ),
           const SizedBox(height: 10),
-          if (widget.trips.isEmpty)
+          if (trips.isEmpty)
             Card(
               color: Colors.white,
               elevation: 1,
@@ -591,7 +769,7 @@ class _DriverViewState extends State<DriverView> {
               ),
             )
           else
-            ...widget.trips.map(
+            ...trips.map(
               (trip) => Card(
                 color: Colors.white,
                 elevation: 1,
@@ -657,7 +835,7 @@ class _DriverViewState extends State<DriverView> {
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
-                              '● Activo',
+                              '● ${trip.status.toUpperCase()}',
                               style: TextStyle(
                                 color: Colors.green.shade700,
                                 fontSize: 11,
@@ -670,9 +848,9 @@ class _DriverViewState extends State<DriverView> {
                       const SizedBox(height: 10),
                       Row(
                         children: [
-                          _Chip(icon: Icons.schedule, text: trip.time),
+                          _Chip(icon: Icons.schedule, text: trip.departureTime),
                           const SizedBox(width: 8),
-                          _Chip(icon: Icons.event_seat, text: trip.seats),
+                          _Chip(icon: Icons.event_seat, text: trip.seatsText),
                         ],
                       ),
                       const SizedBox(height: 18),
@@ -702,11 +880,9 @@ class _DriverViewState extends State<DriverView> {
                       else
                         ...trip.requests.map(
                           (request) => _RequestTile(
-                            name: request,
-                            onAccept: () => setState(
-                                () => trip.requests.remove(request)),
-                            onReject: () => setState(
-                                () => trip.requests.remove(request)),
+                            request: request,
+                            onAccept: () => onAcceptRequest(trip, request),
+                            onReject: () => onRejectRequest(trip, request),
                           ),
                         ),
                       const SizedBox(height: 14),
@@ -773,11 +949,12 @@ class _CountBadge extends StatelessWidget {
 
 class _RequestTile extends StatelessWidget {
   const _RequestTile({
-    required this.name,
+    required this.request,
     required this.onAccept,
     required this.onReject,
   });
-  final String name;
+
+  final TripRequestData request;
   final VoidCallback onAccept;
   final VoidCallback onReject;
 
@@ -798,16 +975,17 @@ class _RequestTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    name,
+                    request.passengerName,
                     style: const TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 13,
                     ),
                   ),
-                  Text(
-                    '⌖ Centro Histórico',
-                    style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
-                  ),
+                  if (request.passengerPhone.isNotEmpty)
+                    Text(
+                      'Tel: ${request.passengerPhone}',
+                      style: TextStyle(color: Colors.grey.shade600, fontSize: 11),
+                    ),
                 ],
               ),
             ),
