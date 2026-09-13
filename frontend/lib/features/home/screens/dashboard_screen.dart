@@ -5,7 +5,26 @@ import '../../../core/models/user_role.dart';
 import '../../auth/screens/splash_screen.dart';
 import '../../auth/services/auth_api.dart';
 
-class DashboardScreen extends StatelessWidget {
+
+class Trip {
+  final String origin;
+  final String destination;
+  final String time;
+  final String seats;
+  final List<String> requests;
+  bool isActive;
+
+  Trip({
+    required this.origin,
+    required this.destination,
+    required this.time,
+    required this.seats,
+    List<String>? requests,
+    this.isActive = true,
+  }): requests = requests ?? [];
+}
+
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({
     super.key,
     required this.role,
@@ -19,6 +38,14 @@ class DashboardScreen extends StatelessWidget {
   static const background = Color(0xFFF4F7FF);
   static const text = Color(0xFF1A2035);
 
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  // Lista dinámica de rutas publicadas (Inicia vacía para usuarios nuevos)
+  final List<Trip> _activeTrips = [];
+
   Future<void> _logout(BuildContext context) async {
     await AuthApi().logout();
     if (!context.mounted) return;
@@ -29,15 +56,36 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
+  // Método para agregar la ruta desde el modal (+)
+  void _addNewTrip(String origin, String destination, String time) {
+    setState(() {
+      _activeTrips.add(
+        Trip(
+          origin: origin.isEmpty ? 'Centro' : origin,
+          destination: destination.isEmpty ? 'UTB' : destination,
+          time: time.isEmpty ? '7:00 AM' : time,
+          seats: '0/4 cupos',
+          requests: [],
+        ),
+      );
+    });
+  }
+
+ void _cancelTrip(Trip trip) {
+  setState(() {
+    _activeTrips.remove(trip);
+  });
+}
+
   @override
   Widget build(BuildContext context) {
-    final isDriver = role == UserRole.driver;
+    final isDriver = widget.role == UserRole.driver;
     return Scaffold(
-      backgroundColor: background,
+      backgroundColor: DashboardScreen.background,
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(78),
         child: AppBar(
-          backgroundColor: primary,
+          backgroundColor: DashboardScreen.primary,
           foregroundColor: Colors.white,
           automaticallyImplyLeading: false,
           titleSpacing: 20,
@@ -61,7 +109,7 @@ class DashboardScreen extends StatelessWidget {
                     style: const TextStyle(fontSize: 11, letterSpacing: .5),
                   ),
                   Text(
-                    'Hola, $userName 👋',
+                    'Hola, ${widget.userName} 👋',
                     style: const TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w700,
@@ -99,11 +147,18 @@ class DashboardScreen extends StatelessWidget {
         children: [
           _ModeStrip(isDriver: isDriver),
           Expanded(
-            child: isDriver ? const DriverView() : const PassengerView(),
+            child: isDriver
+                ? DriverView(
+                 trips: _activeTrips,
+                 onCancelTrip: _cancelTrip,
+                 )
+                : const PassengerView(),
           ),
         ],
       ),
-      floatingActionButton: isDriver ? const _PublishTripButton() : null,
+      floatingActionButton: isDriver
+          ? _PublishTripButton(onTripPublished: _addNewTrip)
+          : null,
     );
   }
 }
@@ -247,12 +302,18 @@ class _PassengerSearch extends StatelessWidget {
 }
 
 class _SearchField extends StatelessWidget {
-  const _SearchField({required this.hint, required this.icon});
+  const _SearchField({
+    required this.hint,
+    required this.icon,
+    this.controller,
+  });
   final String hint;
   final IconData icon;
+  final TextEditingController? controller;
 
   @override
   Widget build(BuildContext context) => TextField(
+    controller: controller,
     decoration: InputDecoration(
       hintText: hint,
       prefixIcon: Icon(icon, color: DashboardScreen.primary, size: 18),
@@ -420,14 +481,49 @@ class _SeatBadge extends StatelessWidget {
 }
 
 class DriverView extends StatefulWidget {
-  const DriverView({super.key});
+  const DriverView({
+    super.key, 
+    required this.trips,
+    required this.onCancelTrip, 
+  });
+
+  final List<Trip> trips;
+  final Function(Trip) onCancelTrip; 
 
   @override
   State<DriverView> createState() => _DriverViewState();
 }
 
 class _DriverViewState extends State<DriverView> {
-  final _requests = <String>['Sofía Ruiz', 'Miguel Pérez'];
+  
+  void _showCancelDialog(BuildContext context, Trip trip) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('¿Cancelar esta ruta?'),
+        content: const Text(
+          'El viaje se eliminará y se notificará a los pasajeros que hayan solicitado cupo.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Volver'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              widget.onCancelTrip(trip);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Sí, cancelar'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) => ListView(
@@ -444,101 +540,177 @@ class _DriverViewState extends State<DriverView> {
         ],
       ),
       const SizedBox(height: 10),
-      Card(
-        color: Colors.white,
-        elevation: 1,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+
+      // Si no hay viajes publicados, muestra la pantalla vacía de bienvenida para el usuario nuevo
+      if (widget.trips.isEmpty)
+        Card(
+          color: Colors.white,
+          elevation: 1,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 20),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.directions_car_outlined,
+                  size: 48,
+                  color: Colors.grey.shade400,
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'No tienes rutas activas',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Presiona el botón + en la esquina inferior para publicar tu primer viaje.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        )
+      else
+        // Renderiza cada ruta agregada
+        ...widget.trips.map(
+          (trip) => Card(
+            color: Colors.white,
+            elevation: 1,
+            margin: const EdgeInsets.only(bottom: 10),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const _Chip(icon: Icons.route, text: 'Centro → UTB'),
-                      const SizedBox(width: 8),
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const RouteScreen(),
-                            )
-                          );
-                          // Acción al hacer clic en Ver Ruta
-                        },
-                        icon: const Icon(Icons.map_outlined, size: 14),
-                        label: const Text(
-                          'Ver ruta',
-                          style: TextStyle(fontSize: 12),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
+                      Row(
+                        children: [
+                          _Chip(
+                            icon: Icons.route,
+                            text: '${trip.origin} → ${trip.destination}',
                           ),
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
+                          const SizedBox(width: 8),
+                          ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const RouteScreen(),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.map_outlined, size: 14),
+                            label: const Text(
+                              'Ver ruta',
+                              style: TextStyle(fontSize: 12),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFDDF7E7),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '● Activo',
+                          style: TextStyle(
+                            color: Colors.green.shade700,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ),
                     ],
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFDDF7E7),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      '● Activo',
-                      style: TextStyle(
-                        color: Colors.green.shade700,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      _Chip(icon: Icons.schedule, text: trip.time),
+                      const SizedBox(width: 8),
+                      _Chip(icon: Icons.event_seat, text: trip.seats),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      const Text(
+                        'Solicitudes pendientes',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(width: 8),
+                      _CountBadge(count: trip.requests.length),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  if (trip.requests.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Text(
+                        'Aún no hay solicitudes de pasajeros para este viaje.',
+                        style: TextStyle(
+                          color: Colors.grey.shade500,
+                          fontSize: 12,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    )
+                  else
+                    ...trip.requests.map(
+                      (request) => _RequestTile(
+                        name: request,
+                        onAccept: () => setState(() => trip.requests.remove(request)),
+                        onReject: () => setState(() => trip.requests.remove(request)),
                       ),
                     ),
-                  ),
+                  const SizedBox(height: 14),
+                  const Divider(height: 1),
+                  const SizedBox(height: 8),
+
+                  SizedBox(
+                    width: double.infinity,
+                    child: TextButton.icon(
+                      onPressed: () => _showCancelDialog(context, trip),
+                      icon: const Icon(
+                        Icons.cancel_outlined,
+                        size: 18,
+                        color: Colors.redAccent,
+                      ),
+                      label: const Text(
+                        'Cancelar ruta',
+                        style: TextStyle(
+                          color: Colors.redAccent,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                      ),
+                    ),
+                  ),  
                 ],
               ),
-              const SizedBox(height: 10),
-              const Row(
-                children: [
-                  _Chip(icon: Icons.schedule, text: '7:00 AM'),
-                  SizedBox(width: 8),
-                  _Chip(icon: Icons.event_seat, text: '2/4 cupos'),
-                ],
-              ),
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  const Text(
-                    'Solicitudes pendientes',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(width: 8),
-                  _CountBadge(count: _requests.length),
-                ],
-              ),
-              const SizedBox(height: 8),
-              ..._requests.map(
-                (request) => _RequestTile(
-                  name: request,
-                  onAccept: () => setState(() => _requests.remove(request)),
-                  onReject: () => setState(() => _requests.remove(request)),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
-      ),
       const SizedBox(height: 4),
       Text(
         'ⓘ Usa el botón + para publicar un nuevo viaje',
@@ -632,7 +804,9 @@ class _RequestTile extends StatelessWidget {
 }
 
 class _PublishTripButton extends StatelessWidget {
-  const _PublishTripButton();
+  const _PublishTripButton({required this.onTripPublished});
+
+  final Function(String, String, String) onTripPublished;
 
   @override
   Widget build(BuildContext context) => FloatingActionButton(
@@ -641,14 +815,33 @@ class _PublishTripButton extends StatelessWidget {
     onPressed: () => showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => const _PublishTripSheet(),
+      builder: (_) => _PublishTripSheet(onTripPublished: onTripPublished),
     ),
     child: const Icon(Icons.add, size: 30),
   );
 }
 
-class _PublishTripSheet extends StatelessWidget {
-  const _PublishTripSheet();
+class _PublishTripSheet extends StatefulWidget {
+  const _PublishTripSheet({required this.onTripPublished});
+
+  final Function(String, String, String) onTripPublished;
+
+  @override
+  State<_PublishTripSheet> createState() => _PublishTripSheetState();
+}
+
+class _PublishTripSheetState extends State<_PublishTripSheet> {
+  final _originController = TextEditingController();
+  final _destinationController = TextEditingController();
+  final _timeController = TextEditingController();
+
+  @override
+  void dispose() {
+    _originController.dispose();
+    _destinationController.dispose();
+    _timeController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -678,17 +871,33 @@ class _PublishTripSheet extends StatelessWidget {
           style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 14),
-        const _SearchField(hint: 'Origen', icon: Icons.location_on_rounded),
+        _SearchField(
+          hint: 'Origen (ej. Centro)',
+          icon: Icons.location_on_rounded,
+          controller: _originController,
+        ),
         const SizedBox(height: 8),
-        const _SearchField(hint: 'Destino', icon: Icons.flag_rounded),
+        _SearchField(
+          hint: 'Destino (ej. UTB)',
+          icon: Icons.flag_rounded,
+          controller: _destinationController,
+        ),
         const SizedBox(height: 8),
-        const _SearchField(
-          hint: 'Hora de salida',
+        _SearchField(
+          hint: 'Hora de salida (ej. 7:00 AM)',
           icon: Icons.schedule_rounded,
+          controller: _timeController,
         ),
         const SizedBox(height: 14),
         ElevatedButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            widget.onTripPublished(
+              _originController.text,
+              _destinationController.text,
+              _timeController.text,
+            );
+            Navigator.pop(context);
+          },
           style: ElevatedButton.styleFrom(
             backgroundColor: DashboardScreen.primary,
             foregroundColor: Colors.white,
