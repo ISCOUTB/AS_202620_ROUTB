@@ -69,10 +69,10 @@ pip install -r requirements.txt
 
 ### Frontend (Flutter)
 
-**6. Vuelve a la raíz del proyecto y entra al frontend**
+**6. Desde la raíz del proyecto, entra al frontend**
 
 ```bash
-cd ../frontend
+cd ..\frontend
 ```
 
 **7. Obtén las dependencias de Flutter**
@@ -85,19 +85,22 @@ flutter pub get
 
 ## Ejecución
 
-### Arranque del Backend con un solo comando
+### Arranque del Backend
 
-Desde la carpeta `backend`, con el entorno virtual activo, inicia el servidor:
+Abre una terminal ubicada en la raíz del proyecto y ejecuta:
 
-```bash
+```powershell
+cd backend
 uvicorn app.main:app --reload
 ```
 
-### Arranque del Frontend con un solo comando
+### Arranque del Frontend
 
-Desde la carpeta `frontend`, con un emulador abierto, un celular conectado o un navegador disponible, inicia la aplicación:
+En otra terminal, ubicada en la raíz del proyecto, con un emulador abierto,
+un celular conectado o un navegador disponible, ejecuta:
 
-```bash
+```powershell
+cd frontend
 flutter run
 ```
 

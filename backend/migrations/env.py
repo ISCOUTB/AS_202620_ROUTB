@@ -6,6 +6,7 @@ from sqlalchemy import engine_from_config, pool
 from dotenv import load_dotenv
 
 from app.core.database import Base
+from app.modules.requests import models as requests_models
 from app.modules.trips import models as trips_models
 from app.modules.users import models as users_models
 

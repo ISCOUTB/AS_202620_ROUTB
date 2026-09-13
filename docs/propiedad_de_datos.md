@@ -10,24 +10,29 @@ deben colaborar mediante servicios o la API del backend.
 | Entidad | Módulo dueño | Modelo en el repositorio | Tabla PostgreSQL | Estado |
 |---|---|---|---|---|
 | Usuario | `users` | `backend/app/modules/users/models.py:4` | `users` | Implementada |
-| Recorrido | `trips` | `backend/app/modules/trips/models.py:6` | `trips` | Implementada |
-| Solicitud/reserva | `requests` | `backend/app/modules/requests/models.py` | `requests` | Pendiente: no existe una entidad ORM |
+| Recorrido | `trips` | `backend/app/modules/trips/models.py:7` | `trips` | Implementada |
+| Solicitud de viaje | `requests` | `backend/app/modules/requests/models.py:7` | `trip_requests` | Implementada |
 | Notificación | `notifications` | `backend/app/modules/notifications/models.py` | `notifications` | Pendiente: no existe una entidad ORM |
 | Administración | `admin` | `backend/app/modules/admin/models.py` | — | Pendiente: usa usuarios con rol administrativo; no tiene entidad propia |
 
 `auth` no posee una tabla propia: su responsabilidad es autenticar usuarios
 del contexto `users` y emitir tokens JWT.
 
+Las solicitudes de viaje se gestionan desde `requests`, que expone operaciones
+para crear, consultar, aceptar y rechazar solicitudes. La aceptación y el
+rechazo actualizan el cupo disponible del recorrido mediante la relación con
+`trips`.
+
 ## Cobertura del código persistente
 
 Las entidades ORM actuales se registran en `Base.metadata` y están cubiertas
-por la migración inicial aplicada en Supabase:
+por las migraciones aplicadas en Supabase:
 
 - `User` → `users`
-- `Trip` → `trips`
+- `Trip` → `trips` (incluye `driver_id`, `departure_time` y `status`)
+- `TripRequest` → `trip_requests`
 
-La migración está en
-`backend/migrations/versions` y se ejecuta con:
+Las migraciones están en `backend/migrations/versions` y se ejecutan con:
 
 ```powershell
 cd backend
@@ -43,7 +48,6 @@ A continuación se detallan las violaciones arquitectónicas detectadas en el c�
 | **V2** | **Consulta directa de User desde auth:** `auth` accede directamente a la tabla `users` mediante ORM. | `backend/app/modules/auth/service.py`<br>(líneas 12, 30, 42, 57) | Crear `users.service.get_user_by_id(...)` y utilizarlo desde `auth`. Además, desacoplar `create_access_token` de la entidad ORM `User`, usando datos primitivos o un DTO. |
 | **V3** | **Fuga de entidad ORM entre módulos:** `/me` utiliza directamente la entidad `User` perteneciente a `users`. | `backend/app/modules/auth/router.py`<br>(líneas 34–41) | Definir un DTO para los datos del usuario autenticado y evitar que las entidades ORM sean transferidas entre módulos. |
 | **V4** | **Acoplamiento circular users ↔ auth:** `users` depende de `auth` para `hash_password`, mientras `auth` depende de `users` para consultar usuarios. | `backend/app/modules/users/service.py`<br>(líneas 3–10)<br><br>`backend/app/modules/users/models.py`<br>(línea 11) | Mover `hash_password` y `verify_password` a `backend/app/shared/security.py`, eliminando la dependencia `users` → `auth`. |
-| **V5** | **trips gestiona reservas de requests:** la reserva pertenece a `requests`, pero actualmente es gestionada desde `trips`. | `backend/app/modules/trips/router.py`<br>(líneas 23–30)<br><br>`backend/app/modules/trips/service.py`<br>(líneas 25–36) | Crear el modelo `Reservation` en `requests`, mover el endpoint de reserva a `requests` y gestionar allí su ciclo de vida. `requests` puede solicitar a `trips.service` la disminución del cupo mediante un servicio público. |
+| **V5** | **Endpoint legado de reservas en trips:** `requests` ya posee el modelo `TripRequest` y gestiona el flujo de solicitudes, pero `trips` aún conserva un endpoint independiente que descuenta cupos directamente. | `backend/app/modules/trips/router.py`<br>(líneas 61–68)<br><br>`backend/app/modules/trips/service.py`<br>(líneas 48–56) | Retirar o delegar el endpoint `/trips/{trip_id}/reservations` al módulo `requests` para que exista un único ciclo de vida de solicitudes y reservas. |
 | **V6** | **Salto de capa en users:** el router accede directamente a la persistencia mediante `db.query(User)`. | `backend/app/modules/users/router.py`<br>(líneas 11–20) | Crear métodos como `get_user_by_phone(...)` y `list_users(...)` en `users.service`, y hacer que el router utilice estos servicios en lugar de consultar directamente la base de datos. |
-
 

@@ -72,6 +72,17 @@ Justificación: Las herramientas fueron utilizadas con propósitos diferentes. C
 - **Justificación:** El cambio fue revisado contra la arquitectura existente y se mantuvo dentro de los límites del contenedor API Backend, la base de datos y el módulo `trips`. La prueba confirmó 4 reservas exitosas de 20 intentos, 0 cupos restantes y un tiempo de respuesta inferior a 3,99 segundos. También se midió la línea base sobre la versión anterior, donde los 20 intentos no servian porque el endpoint no existía.
 - **Fecha:** 2026-09-05.
 
+### Semana 6
+
+- **Actividad realizada:** Actualización de la arquitectura y del backend para la gestión de recorridos y solicitudes, junto con la documentación de los cambios.
+- **Herramienta utilizada:** GitHub Copilot y Antigravity.
+- **Contexto proporcionado:** Código, documentación arc42, mapa de contextos, C4, ADR y criterios de evaluación del proyecto.
+- **Respuesta que se obtuvo:** Se implementó `TripRequest`, su migración y endpoints; se actualizaron los recorridos con conductor, horario y estado; y se revisaron el mapa de contextos, la tabla de propiedad de datos, las violaciones y sus planes de corrección, la sección 8 de arc42, el C4 nivel 3 y el ADR.
+- **Qué se aceptó:** La separación entre `trips` y `requests`, la cobertura de las entidades existentes, la asignación de un único dueño por entidad y la actualización de los diagramas y documentos relacionados.
+- **Qué se rechazó:** Cambios fuera del alcance y funcionalidades no implementadas, como notificaciones persistentes o una entidad propia de administración.
+- **Justificación:** Los cambios se contrastaron con el código actual y con los límites de los contextos del sistema, manteniendo la trazabilidad entre arquitectura, implementación y documentación.
+- **Fecha:** 2026-09-13.
+
 ## Observaciones
 
 La Inteligencia Artificial se utiliza como una herramienta de apoyo durante el desarrollo y la documentación del proyecto. Las respuestas generadas no se incorporan automáticamente: son revisadas, contrastadas con el contexto y los requisitos del proyecto y, cuando corresponde, modificadas o rechazadas por el equipo.

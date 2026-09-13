@@ -26,8 +26,10 @@ constexpr const wchar_t kGetPreferredBrightnessRegKey[] =
   L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize";
 constexpr const wchar_t kGetPreferredBrightnessRegValue[] = L"AppsUseLightTheme";
 
-// The number of Win32Window objects that currently exist.
-static int g_active_window_count = 0;
+int& ActiveWindowCount() {
+  static int active_window_count = 0;
+  return active_window_count;
+}
 
 using EnableNonClientDpiScaling = BOOL __stdcall(HWND hwnd);
 
@@ -46,7 +48,7 @@ void EnableFullDpiSupportIfAvailable(HWND hwnd) {
   }
   auto enable_non_client_dpi_scaling =
       reinterpret_cast<EnableNonClientDpiScaling*>(
-          GetProcAddress(user32_module, "EnableNonClientDpiScaling"));
+          GetProcAddress(user32_module, "EnableNonClientDpiScaling"));  // NOSONAR: required for the Win32 API function lookup.
   if (enable_non_client_dpi_scaling != nullptr) {
     enable_non_client_dpi_scaling(hwnd);
   }
@@ -62,10 +64,8 @@ class WindowClassRegistrar {
 
   // Returns the singleton registrar instance.
   static WindowClassRegistrar* GetInstance() {
-    if (!instance_) {
-      instance_ = new WindowClassRegistrar();
-    }
-    return instance_;
+    static WindowClassRegistrar instance;
+    return &instance;
   }
 
   // Returns the name of the window class, registering the class if it hasn't
@@ -79,12 +79,8 @@ class WindowClassRegistrar {
  private:
   WindowClassRegistrar() = default;
 
-  static WindowClassRegistrar* instance_;
-
   bool class_registered_ = false;
 };
-
-WindowClassRegistrar* WindowClassRegistrar::instance_ = nullptr;
 
 const wchar_t* WindowClassRegistrar::GetWindowClass() {
   if (!class_registered_) {
@@ -112,12 +108,17 @@ void WindowClassRegistrar::UnregisterWindowClass() {
 }
 
 Win32Window::Win32Window() {
-  ++g_active_window_count;
+  ++ActiveWindowCount();
 }
 
 Win32Window::~Win32Window() {
-  --g_active_window_count;
-  Destroy();
+  if (window_handle_) {
+    DestroyWindow(window_handle_);
+    window_handle_ = nullptr;
+  }
+  if (--ActiveWindowCount() == 0) {
+    WindowClassRegistrar::GetInstance()->UnregisterWindowClass();
+  }
 }
 
 bool Win32Window::Create(const std::wstring& title,
@@ -159,9 +160,10 @@ LRESULT CALLBACK Win32Window::WndProc(HWND const window,
                                       WPARAM const wparam,
                                       LPARAM const lparam) noexcept {
   if (message == WM_NCCREATE) {
-    auto window_struct = reinterpret_cast<CREATESTRUCT*>(lparam);
+    auto window_struct = reinterpret_cast<CREATESTRUCT*>(lparam);  // NOSONAR: WM_NCCREATE supplies this Win32 pointer through LPARAM.
     SetWindowLongPtr(window, GWLP_USERDATA,
-                     reinterpret_cast<LONG_PTR>(window_struct->lpCreateParams));
+                     reinterpret_cast<LONG_PTR>(
+                         window_struct->lpCreateParams));  // NOSONAR: Win32 stores the window pointer as LONG_PTR.
 
     auto that = static_cast<Win32Window*>(window_struct->lpCreateParams);
     EnableFullDpiSupportIfAvailable(window);
@@ -188,7 +190,7 @@ Win32Window::MessageHandler(HWND hwnd,
       return 0;
 
     case WM_DPICHANGED: {
-      auto newRectSize = reinterpret_cast<RECT*>(lparam);
+      auto newRectSize = reinterpret_cast<RECT*>(lparam);  // NOSONAR: WM_DPICHANGED supplies the RECT through LPARAM.
       LONG newWidth = newRectSize->right - newRectSize->left;
       LONG newHeight = newRectSize->bottom - newRectSize->top;
 
@@ -228,13 +230,13 @@ void Win32Window::Destroy() {
     DestroyWindow(window_handle_);
     window_handle_ = nullptr;
   }
-  if (g_active_window_count == 0) {
+  if (ActiveWindowCount() == 0) {
     WindowClassRegistrar::GetInstance()->UnregisterWindowClass();
   }
 }
 
 Win32Window* Win32Window::GetThisFromHandle(HWND const window) noexcept {
-  return reinterpret_cast<Win32Window*>(
+  return reinterpret_cast<Win32Window*>(  // NOSONAR: Win32 stores the instance pointer as LONG_PTR.
       GetWindowLongPtr(window, GWLP_USERDATA));
 }
 
