@@ -53,7 +53,7 @@ void EnableFullDpiSupportIfAvailable(HWND hwnd) {
   if (auto* enable_non_client_dpi_scaling = [&procedure]() {
         EnableNonClientDpiScaling* function = nullptr;
         static_assert(sizeof(procedure) == sizeof(function));
-        std::memcpy(&function, &procedure, sizeof(function));
+        std::bit_cast<EnableNonClientDpiScaling*>(&function, &procedure, sizeof(function));
         return function;
       }();
       enable_non_client_dpi_scaling != nullptr) {
