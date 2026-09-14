@@ -27,5 +27,7 @@ subprojects {
 }
 
 tasks.register<Delete>("clean") {
+    description = "Deletes the build directory."
+    group = BasePlugin.BUILD_GROUP
     delete(rootProject.layout.buildDirectory)
 }

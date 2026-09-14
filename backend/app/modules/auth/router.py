@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -9,7 +11,10 @@ router = APIRouter()
 
 
 @router.post("/login", response_model=schemas.TokenResponse)
-def login(credentials: schemas.LoginRequest, db: Session = Depends(get_db)):
+def login(
+    credentials: schemas.LoginRequest,
+    db: Annotated[Session, Depends(get_db)],
+):
     user = db.query(User).filter(User.phone == credentials.phone).first()
     if user is None or not service.verify_password(credentials.password, user.hashed_password):
         raise HTTPException(
@@ -31,7 +36,9 @@ def login(credentials: schemas.LoginRequest, db: Session = Depends(get_db)):
 
 
 @router.get("/me")
-def current_user(user: User = Depends(service.get_current_user)):
+def current_user(
+    user: Annotated[User, Depends(service.get_current_user)],
+):
     return {
         "id": user.id,
         "name": user.name,

@@ -3,6 +3,8 @@
 #include <dwmapi.h>
 #include <flutter_windows.h>
 
+#include <cstring>
+
 #include "resource.h"
 
 namespace {
@@ -46,10 +48,15 @@ void EnableFullDpiSupportIfAvailable(HWND hwnd) {
   if (!user32_module) {
     return;
   }
-  auto enable_non_client_dpi_scaling =
-      reinterpret_cast<EnableNonClientDpiScaling*>(
-          GetProcAddress(user32_module, "EnableNonClientDpiScaling"));  // NOSONAR: required for the Win32 API function lookup.
-  if (enable_non_client_dpi_scaling != nullptr) {
+  FARPROC procedure =
+      GetProcAddress(user32_module, "EnableNonClientDpiScaling");
+  if (auto* enable_non_client_dpi_scaling = [&procedure]() {
+        EnableNonClientDpiScaling* function = nullptr;
+        static_assert(sizeof(procedure) == sizeof(function));
+        std::memcpy(&function, &procedure, sizeof(function));
+        return function;
+      }();
+      enable_non_client_dpi_scaling != nullptr) {
     enable_non_client_dpi_scaling(hwnd);
   }
   FreeLibrary(user32_module);
