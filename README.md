@@ -12,7 +12,7 @@ La descripción completa del problema se encuentra en [Problema](docs/problema.m
 
 ---
 
-## Equipo de Desarrollo
+## Equipo de desarrollo
 
 - Diego Baron
 - Junior Orozco
@@ -30,81 +30,12 @@ La descripción completa del problema se encuentra en [Problema](docs/problema.m
 
 ---
 
-## Instalación
+## Inicio rápido
 
-Para preparar tu entorno local, sigue estos pasos en tu terminal.
+Para iniciar el proyecto, ejecuta el script correspondiente según tu sistema operativo en el directorio raíz del proyecto:
 
-### 1. Clona el repositorio
-
-```bash
-git clone https://github.com/ISCOUTB/AS_202620_ROUTB.git
-```
-
-### 2. Navega al directorio del proyecto
-
-```bash
-cd AS_202620_ROUTB
-```
-
-### Backend (FastAPI)
-
-**3. Ingresa a la carpeta del backend**
-
-```bash
-cd backend
-```
-
-**4. Crea y activa el entorno virtual**
-
-```powershell
-python -m venv .venv
-.\.venv\Scripts\activate
-```
-
-**5. Instala las dependencias**
-
-```bash
-pip install -r requirements.txt
-```
-
-### Frontend (Flutter)
-
-**6. Desde la raíz del proyecto, entra al frontend**
-
-```bash
-cd ..\frontend
-```
-
-**7. Obtén las dependencias de Flutter**
-
-```bash
-flutter pub get
-```
-
----
-
-## Ejecución
-
-### Arranque del Backend
-
-Abre una terminal ubicada en la raíz del proyecto y ejecuta:
-
-```powershell
-cd backend
-uvicorn app.main:app --reload
-```
-
-### Arranque del Frontend
-
-En otra terminal, ubicada en la raíz del proyecto, con un emulador abierto,
-un celular conectado o un navegador disponible, ejecuta:
-
-```powershell
-cd frontend
-flutter run
-```
-
----
+- **Windows:** `start.bat`
+- **Linux/Mac:** `start.sh`
 
 ### Pruebas
 
@@ -120,3 +51,7 @@ El recorrido de validación del flujo de autenticación se encuentra implementad
 
 - **Archivos de prueba:** `backend/tests/test_registro.py` , `backend/tests/test_cupos.py` y `backend/tests/test_trips_flow.py`
 - **Evidencia de ejecución (Success):** [Enlace a GitHub Actions Run #34790035688](https://github.com/ISCOUTB/AS_202620_ROUTB/actions/runs/34790035688)
+
+### Analisis de SonarCloud
+El análisis de calidad de código se realiza automáticamente con SonarCloud.
+- **Enlace:** [ROUTB en SonarCloud](https://sonarcloud.io/dashboard?id=ISCOUTB_AS_202620_ROUTB)
