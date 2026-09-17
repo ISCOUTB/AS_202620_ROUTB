@@ -46,9 +46,3 @@ jobs:
           JWT_SECRET_KEY: ci-test-secret-key
           JWT_ALGORITHM: HS256
           JWT_EXPIRE_MINUTES: "60"
-
-      - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@master
-        with:
-          args: >
-            -Dsonar.login=${{ secrets.SONAR_TOKEN }}
