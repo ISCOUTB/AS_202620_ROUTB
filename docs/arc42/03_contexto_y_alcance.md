@@ -55,8 +55,7 @@ flowchart LR
 
 
     U -->|"Interacción"| R
-
-    R -->|"HTTPS / API"| MAP
+    U -->|"HTTPS / API"| MAP
     R -->|"HTTPS / API"| PUSH
 
 
@@ -72,7 +71,7 @@ flowchart LR
 | Interfaz                          | Canal            | Propósito                                                                        |
 | --------------------------------- | ---------------- | -------------------------------------------------------------------------------- |
 | **Usuario ↔ ROUTB**               | Interfaz cliente | Registro, autenticación, consulta y gestión de recorridos, solicitudes y viajes. |
-| **ROUTB ↔ Servicio de mapas**     | HTTPS / API      | Consulta de mapas, ubicaciones y geolocalización.                                |
+| **Usuario ↔ Servicio de mapas**   | HTTPS / API      | Consulta de mapas, ubicaciones y geolocalización.                                |
 | **ROUTB ↔ Notificaciones Push**   | HTTPS / API      | Envío de notificaciones relacionadas con recorridos y solicitudes.               |
 
 
@@ -83,6 +82,6 @@ flowchart LR
 | Información de recorridos        | ROUTB → Usuario           | HTTPS / REST                |
 | Gestión de cupos y solicitudes   | Usuario ↔ ROUTB           | HTTPS / REST                |
 | Ubicaciones                      | Usuario ↔ ROUTB           | HTTPS / REST + API de mapas |
-| Datos de mapas                   | Servicio de mapas → ROUTB | HTTPS / API                 |
+| Datos de mapas                   | Servicio de mapas → Usuario | HTTPS / API                 |
 | Datos persistentes               | ROUTB ↔ Persistencia        | SQL                         |
 | Notificaciones                   | ROUTB → Usuario           | Servicio Push               |
