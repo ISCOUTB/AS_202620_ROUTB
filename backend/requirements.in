@@ -1,0 +1,11 @@
+alembic==1.19.2
+bcrypt==5.0.0
+fastapi==0.141.1
+httpx==0.28.1
+psycopg2-binary==2.9.13
+pydantic==2.13.5
+PyJWT==2.10.1
+pytest==9.0.1
+python-dotenv==1.2.3
+sqlalchemy==2.0.54
+uvicorn==0.41.0
