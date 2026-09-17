@@ -15,8 +15,8 @@ flowchart LR
 
     U --> APP
     APP -->|"HTTPS"| API
+    APP -->|"HTTPS"| MAP
     API -->|"Conexión segura"| DB
-    API -->|"HTTPS"| MAP
     API -->|"HTTPS"| PUSH
 ```
 
@@ -24,9 +24,9 @@ flowchart LR
 
 ROUTB se despliega como una aplicación móvil que consume un backend centralizado.
 El backend concentra los módulos funcionales, consulta la información persistida
-y se comunica con los servicios externos de mapas, geolocalización y
-notificaciones. Esta distribución mantiene el despliegue sencillo y adecuado
-para el alcance del proyecto.
+y se comunica con el servicio externo de notificaciones, mientras que el dispositivo
+móvil se comunica directamente con el servicio externo de mapas y geolocalización.
+Esta distribución mantiene el despliegue sencillo y adecuado para el alcance del proyecto.
 
 **Características de calidad y/o rendimiento:**
 
@@ -65,12 +65,14 @@ flowchart TD
     end
 
     DB[("Servidor de datos")]
-    EXT["Servicios externos"]
+    MAP["Servicio externo<br/>Mapas y geolocalización"]
+    PUSH["Servicio externo<br/>Notificaciones"]
 
     APP -->|"HTTPS"| API
+    APP -->|"HTTPS"| MAP
     API --> MODULES
     MODULES -->|"Consultas y transacciones"| DB
-    MODULES -->|"Mapas y notificaciones"| EXT
+    MODULES -->|"Notificaciones"| PUSH
 ```
 
 **Explicación:**
@@ -79,10 +81,10 @@ El servidor de aplicación ejecuta el backend de ROUTB y expone la API utilizada
 por la aplicación móvil. Dentro de este nodo se alojan los módulos funcionales
 del monolito modular. Los módulos procesan las solicitudes, aplican las reglas
 del sistema, consultan el servidor de datos y utilizan las integraciones
-externas cuando una funcionalidad lo requiere.
+externas de notificaciones cuando una funcionalidad lo requiere.
 
 Este nodo no almacena permanentemente la información del sistema. Su
 responsabilidad es procesar las peticiones y coordinar la comunicación con el
-servidor de datos y los servicios externos.
+servidor de datos y el servicio externo de notificaciones.
 
 ---

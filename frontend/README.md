@@ -45,30 +45,3 @@ También puedes indicar un dispositivo específico:
 flutter devices
 flutter run -d <device-id>
 ```
-
-## Estructura del proyecto
-
-```text
-lib/
-├── main.dart
-├── core/
-│   └── models/
-│       └── user_role.dart
-└── features/
-    ├── auth/
-    │   ├── screens/
-    │   │   ├── login_screen.dart
-    │   │   ├── role_selection_screen.dart
-    │   │   └── splash_screen.dart
-    │   └── services/
-    │       └── auth_api.dart
-    ├── home/
-    │   └── screens/
-    │       ├── dashboard_screen.dart
-    │       └── home_screen.dart
-    └── users/
-        ├── screens/
-        │   └── register_screen.dart
-        └── services/
-            └── user_service.dart
-```

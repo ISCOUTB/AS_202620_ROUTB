@@ -65,8 +65,8 @@ flowchart TD
     EP -->|"Usa"| APP
     ADM -->|"Usa"| APP
     APP -->|"Llamadas API<br/>[REST/JSON · HTTPS]"| API
+    APP -->|"Consulta rutas y ubicaciones<br/>[REST/JSON · HTTPS]"| MAP
     API -->|"Lee y escribe<br/>[SQL · asyncpg]"| DB
-    API -->|"Consulta rutas y ubicaciones<br/>[REST/JSON · HTTPS]"| MAP
     API -->|"Solicita envío de notificaciones<br/>[REST/JSON · HTTPS]"| PUSH
     PUSH -.->|"Entrega notificaciones a<br/>[Push/FCM]"| EC
     PUSH -.->|"Entrega notificaciones a<br/>[Push/FCM]"| EP
@@ -117,7 +117,7 @@ definidos en este nivel.
 
 ```mermaid
 ---
-title: "[Componentes] ROUTB - Nivel 3"
+title: "[Componentes] ROUTB - Nivel 3: API Backend"
 ---
 
 flowchart TD
@@ -125,45 +125,55 @@ flowchart TD
     EP["Estudiante Pasajero<br/>[Persona]"]
     ADM["Administrador<br/>[Persona]"]
 
-    APP["Aplicación Móvil<br/>[Contenedor: Flutter]<br/><br/>Interfaz para conductores,<br/>pasajeros y administrador"]
+    APP["Aplicación Móvil<br/>[Contenedor: Flutter]<br/><br/>Interfaz de usuario y consumo de APIs"]
 
-    subgraph API["API Backend - FASTAPI<br/>"]
+    MAP["Servicio de Mapas y<br/>Geolocalización<br/>[Sistema Externo]<br/><br/>Visualización de mapas y rutas"]
 
-        REST["API REST / Presentación<br/>[Componente]<br/><br/>Expone endpoints, valida solicitudes<br/>y entrega respuestas JSON"]
+    subgraph API["API Backend · FastAPI [Contenedor: Monolito Modular]"]
 
-        AUTH["Autenticación y Acceso<br/>[Componente]<br/><br/>Registro, inicio de sesión, JWT,<br/>sesión y autorización por rol"]
+        subgraph LAYER_PRESENTATION["Capa de Presentación / Controladores"]
+            REST["API REST / Enrutadores<br/>[Componente FastAPI]<br/><br/>Expone endpoints, valida solicitudes<br/>(Pydantic) y entrega respuestas JSON"]
+        end
 
-        USERS["Gestión de Usuarios<br/>[Componente]<br/><br/>Perfiles de estudiantes,<br/>conductores y pasajeros"]
+        subgraph LAYER_DOMAIN["Capa de Dominio / Módulos Funcionales"]
+            AUTH["Autenticación y Acceso<br/>[Componente]<br/><br/>Registro, inicio de sesión, JWT,<br/>sesión y autorización por rol"]
 
-        TRIPS["Gestión de Recorridos<br/>[Componente]<br/><br/>Crear, publicar, buscar, consultar,<br/>actualizar y cancelar recorridos"]
+            USERS["Gestión de Usuarios<br/>[Componente]<br/><br/>Perfiles de estudiantes,<br/>conductores y pasajeros"]
 
-        REQUESTS["Solicitudes y Cupos<br/>[Componente]<br/><br/>Solicitar, aprobar o rechazar cupos;<br/>mantiene disponibilidad consistente"]
+            TRIPS["Gestión de Recorridos<br/>[Componente]<br/><br/>Crear, publicar, buscar, consultar,<br/>actualizar y cancelar recorridos"]
 
-        NOTIFICATIONS["Notificaciones<br/>[Componente]<br/><br/>Genera avisos sobre solicitudes,<br/>cupos y cambios en recorridos"]
+            REQUESTS["Solicitudes y Cupos<br/>[Componente]<br/><br/>Solicitar, aprobar o rechazar cupos;<br/>mantiene disponibilidad consistente"]
 
-        REPUTATION["Reputación e Historial<br/>[Componente]<br/><br/>Calificaciones, comentarios<br/>e historial de viajes"]
+            REPUTATION["Reputación e Historial<br/>[Componente]<br/><br/>Calificaciones, comentarios<br/>e historial de viajes"]
 
-        ADMIN["Administración<br/>[Componente]<br/><br/>Gestión, moderación y estadísticas<br/>de la plataforma"]
+            ADMIN["Administración<br/>[Componente]<br/><br/>Gestión, moderación y estadísticas<br/>de la plataforma"]
 
-        MAP_ADAPTER["Adaptador de Mapas<br/>[Componente]<br/><br/>Consulta rutas, ubicación,<br/>distancia y duración"]
+            NOTIFICATIONS["Servicio de Notificaciones<br/>[Componente]<br/><br/>Coordina eventos de alertas ante<br/>cambios en viajes y solicitudes"]
+        end
 
-        PUSH_ADAPTER["Adaptador de Push<br/>[Componente]<br/><br/>Solicita el envío de<br/>notificaciones a dispositivos"]
+        subgraph LAYER_INFRA["Capa de Infraestructura y Persistencia"]
+            PUSH_ADAPTER["Adaptador de Push<br/>[Componente]<br/><br/>Cliente de integración para el envío<br/>de notificaciones a dispositivos"]
 
-        PERSISTENCE["Persistencia Compartida<br/>[Componente: SQLAlchemy ORM]<br/><br/>Sesiones, entidades ORM,<br/>consultas y transacciones"]
+            PERSISTENCE["Persistencia Compartida<br/>[Componente: SQLAlchemy ORM]<br/><br/>Sesiones de BD, entidades ORM,<br/>consultas y transacciones atómicas"]
+        end
     end
 
-    DB[("Base de Datos<br/>[Contenedor: PostgreSQL]")]
+    DB[("Base de Datos<br/>[Contenedor: PostgreSQL]<br/><br/>Almacenamiento relacional")]
 
-    MAP["Servicio de Mapas y<br/>Geolocalización<br/>[Sistema Externo]"]
+    PUSH["Servicio de Notificaciones Push<br/>[Sistema Externo · FCM/APNs]<br/><br/>Entrega notificaciones<br/>a los dispositivos móviles"]
 
-    PUSH["Servicio de<br/>Notificaciones Push<br/>[Sistema Externo]"]
-
+    %% Interacción usuarios -> aplicación
     EC -->|"Usa"| APP
     EP -->|"Usa"| APP
     ADM -->|"Usa"| APP
 
+    %% Aplicación móvil -> Servicio de mapas (responsabilidad de cliente)
+    APP -->|"Consulta mapas y rutas<br/>[REST/JSON · HTTPS]"| MAP
+
+    %% Aplicación móvil -> Backend
     APP -->|"REST/JSON · HTTPS"| REST
 
+    %% Presentación -> Módulos de dominio
     REST --> AUTH
     REST --> USERS
     REST --> TRIPS
@@ -171,26 +181,26 @@ flowchart TD
     REST --> REPUTATION
     REST --> ADMIN
 
+    %% Eventos hacia el módulo de notificaciones
+    TRIPS -->|"Dispara eventos"| NOTIFICATIONS
+    REQUESTS -->|"Dispara eventos"| NOTIFICATIONS
+
+    %% Módulos de dominio -> Persistencia
+    AUTH --> PERSISTENCE
     USERS --> PERSISTENCE
     TRIPS --> PERSISTENCE
     REQUESTS --> PERSISTENCE
     REPUTATION --> PERSISTENCE
     ADMIN --> PERSISTENCE
-    AUTH --> PERSISTENCE
 
-    TRIPS --> MAP_ADAPTER
-    MAP_ADAPTER -->|"REST/JSON · HTTPS"| MAP
-
-    REQUESTS --> NOTIFICATIONS
-    TRIPS --> NOTIFICATIONS
+    %% Notificaciones -> Adaptador externo
     NOTIFICATIONS --> PUSH_ADAPTER
+
+    %% Infraestructura -> Servicios externos
     PUSH_ADAPTER -->|"REST/JSON · HTTPS"| PUSH
+    PERSISTENCE -->|"SQL / asyncpg"| DB
 
-    PERSISTENCE -->|"SQL"| DB
-
-    PUSH -.->|"Push / FCM"| EC
-    PUSH -.->|"Push / FCM"| EP
-
+    %% Clases de estilo C4
     classDef actor fill:#111827,stroke:#2dd4bf,color:#fff,stroke-width:2px
     classDef container fill:#0e7490,stroke:#2dd4bf,color:#fff,stroke-width:2px
     classDef component fill:#155e75,stroke:#67e8f9,color:#fff,stroke-width:2px
@@ -198,12 +208,12 @@ flowchart TD
 
     class EC,EP,ADM actor
     class APP,DB container
-    class REST,AUTH,USERS,TRIPS,REQUESTS,NOTIFICATIONS,REPUTATION,ADMIN,MAP_ADAPTER,PUSH_ADAPTER,PERSISTENCE component
+    class REST,AUTH,USERS,TRIPS,REQUESTS,NOTIFICATIONS,REPUTATION,ADMIN,PUSH_ADAPTER,PERSISTENCE component
     class MAP,PUSH service
 ```
 | Elemento | Significado |
 |---|---|
 | Persona | Actor humano |
 | Contenedor | Pieza desplegable de ROUTB (app, API o BD) |
-| Componente | Módulo con código real dentro del backend (router · service · models · schemas, según ADR 0002) |
+| Componente | Módulo con código real dentro del backend |
 | Sistema Externo | Servicio de terceros, fuera del repositorio del equipo |
