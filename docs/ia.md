@@ -83,6 +83,17 @@ Justificación: Las herramientas fueron utilizadas con propósitos diferentes. C
 - **Justificación:** Los cambios se contrastaron con el código actual y con los límites de los contextos del sistema, manteniendo la trazabilidad entre arquitectura, implementación y documentación.
 - **Fecha:** 2026-09-13.
 
+### Semana 7
+
+- **Actividad realizada:** Definición y versionamiento del contrato de la API, creación de las pruebas que verifican que el contrato y la implementación coincidan, documentación del ADR sobre la forma en que los componentes se comunican entre sí, y ampliación de los flujos de ejecución con el escenario de reserva de cupo.
+- **Herramienta utilizada:** Antigravity.
+- **Contexto proporcionado:** Se proporcionó la estructura del proyecto, el contrato OpenAPI existente, las pruebas del backend, el pipeline de CI y la documentación arc42 y de ADRs. Se solicitó apoyo para identificar qué faltaba en la documentación y el código, y para generar los artefactos necesarios.
+- **Respuesta que se obtuvo:** La herramienta identificó que el proyecto ya contaba con el contrato y las pruebas, pero que faltaba documentar la decisión sobre cómo los componentes se comunican entre sí (síncrono o asíncrono) y que la sección 6 de arc42 no incluía el flujo de reserva de cupo, que es el más relevante del sistema. También propuso el contenido del ADR y del escenario de ejecución.
+- **Qué se aceptó:** Se aceptó crear el ADR 0004 sobre la integración síncrona mediante REST, ligado al escenario de cupos y con la alternativa asíncrona descartada. También se aceptó el escenario 6.3 de reserva de cupo en arc42, que documenta el flujo completo con sus dos posibles resultados: confirmación o rechazo por falta de cupos.
+- **Qué se rechazó:** Se descartó plantear la integración asíncrona como la estrategia principal del sistema, ya que el flujo de reserva exige una respuesta inmediata que el modelo asíncrono no puede garantizar sin añadir componentes de mensajería que no forman parte del alcance del proyecto.
+- **Justificación:** Los artefactos generados se contrastaron con el código existente y con las decisiones previas del equipo. El ADR 0004 complementa al ADR 0003 y a las pruebas de concurrencia ya existentes, y el escenario 6.3 cierra el vacío entre la decisión técnica documentada y su representación en la vista de ejecución de arc42.
+- **Fecha:** 2026-09-19
+
 ## Observaciones
 
 La Inteligencia Artificial se utiliza como una herramienta de apoyo durante el desarrollo y la documentación del proyecto. Las respuestas generadas no se incorporan automáticamente: son revisadas, contrastadas con el contexto y los requisitos del proyecto y, cuando corresponde, modificadas o rechazadas por el equipo.

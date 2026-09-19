@@ -98,3 +98,53 @@ Persistencia segura en el cliente: el token se resguarda en el almacenamiento se
 Protección en la navegación: al igual que en el registro, la redirección a la pantalla principal reemplaza la vista de inicio de sesión en el historial del dispositivo para evitar accesos redundantes.
 
 ---
+
+## 6.3 Escenario de Runtime 3 — Reserva de cupo en un recorrido
+
+Capa de Presentación (Cliente Flutter): el estudiante pasajero selecciona un recorrido disponible y pulsa el botón de reserva. La interfaz verifica que el usuario tenga sesión activa y que el recorrido muestre al menos un cupo disponible antes de enviar la solicitud.
+
+Capa de Red: la solicitud de reserva se transmite al backend con el token JWT del pasajero adjunto en la cabecera de autorización, a través de una conexión cifrada.
+
+Capa de API / Enrutamiento (FastAPI): el backend valida el token, identifica al pasajero y enruta la solicitud al módulo de recorridos, que ejecuta la lógica de reserva.
+
+Capa de Persistencia (PostgreSQL): la reserva se realiza mediante una actualización atómica condicionada a que `available_seats > 0`. Solo la transacción que logra actualizar el contador consume un cupo; las demás reciben un error de conflicto. Esto evita la sobreventa incluso cuando varios pasajeros intentan reservar el mismo cupo al mismo tiempo.
+
+Cierre del flujo: si la reserva fue exitosa, el backend responde con confirmación y el cliente navega a la pantalla de confirmación del viaje. Si no hay cupos disponibles, el backend responde con un error de conflicto y el cliente muestra un aviso al pasajero.
+
+### Diagrama de secuencia
+
+```mermaid
+flowchart TD
+    A["<b>App Flutter</b><br>Pasajero selecciona recorrido y solicita reserva"]
+    B["<b>Backend (FastAPI)</b><br>Valida token JWT e identifica al pasajero"]
+    C["<b>Módulo de recorridos</b><br>Ejecuta actualización atómica de cupos"]
+    D["<b>Base de datos</b><br>Descuenta cupo si available_seats > 0"]
+    E1["<b>App Flutter</b><br>Muestra confirmación y navega al detalle del viaje"]
+    E2["<b>App Flutter</b><br>Muestra aviso: sin cupos disponibles"]
+
+    A --> B
+    B --> C
+    C --> D
+    D -->|"Cupo disponible: éxito"| E1
+    D -->|"Sin cupos: conflicto 409"| E2
+
+    classDef flutter fill:#483C7E,color:#ffffff,stroke:#333333,stroke-width:1px
+    classDef backend fill:#275342,color:#ffffff,stroke:#333333,stroke-width:1px
+    classDef database fill:#7E4126,color:#ffffff,stroke:#333333,stroke-width:1px
+
+    class A,E1,E2 flutter
+    class B,C backend
+    class D database
+```
+
+### Aspectos relevantes
+
+Atomicidad de la reserva: la actualización del contador de cupos y la creación de la reserva ocurren en una sola operación de base de datos. No es posible que dos pasajeros concurrentes obtengan el mismo cupo.
+
+Respuesta inmediata: el pasajero recibe confirmación o rechazo en la misma conexión HTTP, sin necesidad de consultar el estado posteriormente. Esta decisión se documenta en el [ADR 0004](../adr/0004-integracion-sincrona-rest.md).
+
+Protección frente a concurrencia: la prueba `backend/tests/test_cupos.py` valida este escenario con 20 intentos simultáneos sobre 4 cupos, confirmando exactamente 4 reservas exitosas y cero cupos negativos.
+
+Autorización por rol: solo los usuarios con sesión activa y token válido pueden realizar reservas. El módulo de autenticación verifica el token antes de que la solicitud llegue al módulo de recorridos.
+
+---
