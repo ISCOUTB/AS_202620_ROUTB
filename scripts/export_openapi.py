@@ -10,8 +10,8 @@ os.environ.setdefault("TESTING", "1")
 os.environ.setdefault("DATABASE_URL_TEST", "sqlite:///temp_export.db")
 os.environ.setdefault("JWT_SECRET_KEY", "export-openapi-secret-key")
 
-BACKEND_DIR = Path(__file__).resolve().parents[1]
-WORKSPACE_ROOT = BACKEND_DIR.parent
+WORKSPACE_ROOT = Path(__file__).resolve().parents[1]
+BACKEND_DIR = WORKSPACE_ROOT / "backend"
 
 sys.path.insert(0, str(BACKEND_DIR))
 
