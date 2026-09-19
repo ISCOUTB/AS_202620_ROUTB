@@ -5,7 +5,7 @@ os.environ["TESTING"] = "1"
 import pytest
 
 from app.core.database import Base, DATABASE_URL, engine
-from app.modules.trips.models import Trip
+from app.modules.trips.infrastructure.models import Trip
 
 
 if DATABASE_URL == os.getenv("DATABASE_URL"):

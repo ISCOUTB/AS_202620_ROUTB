@@ -5,9 +5,8 @@ from fastapi.testclient import TestClient
 
 from app.core.database import SessionLocal
 from app.main import app
-from app.modules.trips.models import Trip
-from app.modules.trips.service import reserve_seat
-
+from app.modules.trips.application.reserve_seat import reserve_seat
+from app.modules.trips.infrastructure.models import Trip
 
 client = TestClient(app)
 

@@ -1,8 +1,9 @@
 from fastapi.testclient import TestClient
-from app.main import app
-from app.modules.auth.service import create_access_token
-from app.modules.users.models import User
+
 from app.core.database import SessionLocal
+from app.main import app
+from app.modules.auth.infrastructure.security import create_access_token
+from app.modules.users.infrastructure.models import User
 
 client = TestClient(app)
 
@@ -117,4 +118,3 @@ def test_flujo_completo_viajes_y_solicitudes():
         if u2:
             db.delete(u2)
         db.commit()
-

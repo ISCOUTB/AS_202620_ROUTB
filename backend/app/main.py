@@ -1,16 +1,15 @@
 from fastapi import FastAPI
-from app.core.database import engine, Base
-from app.modules.users.router import router as users_router
-from app.modules.trips.router import router as trips_router
-from app.modules.auth.router import router as auth_router
-from app.modules.requests.router import router as requests_router
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.modules.auth.infrastructure.router import router as auth_router
+from app.modules.requests.infrastructure.router import router as requests_router
+from app.modules.trips.infrastructure.router import router as trips_router
+from app.modules.users.infrastructure.router import router as users_router
 
 app = FastAPI(
     title="ROUTB API",
     description="ROUTB",
-    version="0.1.0"
+    version="0.2.0",
 )
 
 app.add_middleware(
@@ -26,9 +25,11 @@ app.include_router(trips_router, prefix="/trips", tags=["trips"])
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
 app.include_router(requests_router, prefix="/requests", tags=["requests"])
 
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
 
 @app.get("/")
 def read_root():
