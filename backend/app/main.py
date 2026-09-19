@@ -9,7 +9,7 @@ from app.modules.users.infrastructure.router import router as users_router
 app = FastAPI(
     title="ROUTB API",
     description="ROUTB",
-    version="0.1.0",
+    version="0.2.0",
 )
 
 app.add_middleware(
