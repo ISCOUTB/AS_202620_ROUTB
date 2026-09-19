@@ -14,11 +14,16 @@ El código actual ya refleja una separación de responsabilidades técnica dentr
 
 Para la estructura interna de los módulos de ROUTB se utilizará una **Arquitectura por Capas**. 
 
-Cada módulo dividirá sus responsabilidades en los siguientes archivos estándar:
-- **`router.py` (Capa de Presentación/API):** Define los endpoints y recibe las peticiones HTTP.
-- **`schemas.py` (Capa de Validación):** Define los modelos Pydantic para validar datos de entrada/salida.
-- **`service.py` (Capa de Lógica de Negocio):** Contiene las reglas de negocio y orquesta las operaciones.
-- **`models.py` (Capa de Persistencia):** Define las entidades del ORM mapeadas a la base de datos PostgreSQL.
+Cada módulo dividirá sus responsabilidades en las siguiente capas:
+- **`domain/`:** Contiene reglas de negocio puras, validaciones, constantes y excepciones propias del módulo. No depende de FastAPI, SQLAlchemy, Pydantic, JWT ni bcrypt. Puede permanecer vacío cuando un módulo no requiera lógica de dominio independiente.
+
+- **`application/`:** Contiene los casos de uso del módulo, por ejemplo `create_user.py`, `login.py`, `create_trip.py` u otros. Coordina la lógica de negocio y las operaciones del caso de uso.
+
+- **`infrastructure/`:** Contiene los detalles técnicos y dependientes de framework:
+  - `router.py`: endpoints FastAPI, recepción de peticiones HTTP y conversión de errores de aplicación a respuestas HTTP.
+  - `schemas.py`: modelos Pydantic para entrada y salida de la API.
+  - `models.py`: modelos SQLAlchemy y persistencia.
+  - `security.py`: solo en el módulo `auth`; contiene JWT, bcrypt, hash de contraseñas y dependencias de autenticación.
 
 Se elige este enfoque porque:
 - Es el patrón de diseño más natural y estándar al trabajar con FastAPI.
@@ -42,14 +47,14 @@ Se elige este enfoque porque:
 - Facilita la lectura del proyecto para cualquier desarrollador externo con experiencia básica en desarrollo web.
 
 **Negativas / riesgos:**
-- Existe el riesgo de que la capa de lógica de negocio (`service.py`) se acople fuertemente a los modelos del ORM (`models.py`) o a los esquemas de FastAPI (`schemas.py`). 
+- Existe el riesgo de que la capa de aplicación (`application/`) se acople fuertemente a los modelos del ORM (`infrastructure/models.py`) o a detalles técnicos de infraestructura.
 - Si en el futuro se decide cambiar el framework (ej. pasar de FastAPI a Django), el costo de refactorización será mayor que si se hubiera usado una Arquitectura Hexagonal. Este riesgo se asume como aceptable dado el alcance actual.
 
 ## Trazabilidad
 
 | Aspecto / Requisito | Elementos C4 relevantes | Artefactos / documentación | Pruebas / evidencia existente |
 |---|---|---|---|
-| Microarquitectura interna de los módulos | Componentes internos de cada módulo en el contenedor API Backend | [Backend](../arc42/05_vista_de_bloques_de_construccion.md) | Estructura de archivos (`router.py`, `service.py`, `models.py`, `schemas.py`) en `backend/app/modules/` |
+| Microarquitectura interna de los módulos | Componentes internos de cada módulo en el contenedor API Backend | [Backend](../arc42/05_vista_de_bloques_de_construccion.md) | Estructura `domain/`, `application/` e `infrastructure/` en `backend/app/modules/` |
 | Velocidad de desarrollo y mantenibilidad | API Backend | Matriz de decisión (abajo) | Entregas funcionales de los flujos de autenticación y vistas en tiempo esperado. |
 
 ---
@@ -63,6 +68,6 @@ Comparación de la microarquitectura interna para los módulos del monolito.
 | **Velocidad de Desarrollo** | **Alta:** Implementación directa sin interfaces intermedias. | **Baja:** Requiere escribir múltiples abstracciones para una sola funcionalidad. |
 | **Curva de Aprendizaje** | **Baja:** El equipo ya conoce el patrón (similar al clásico MVC). | **Alta:** Exige dominar Inversión de Dependencias y diseño agnóstico. |
 | **Alineación con FastAPI** | **Alta:** Integración natural con dependencias y esquemas de Pydantic. | **Baja/Media:** FastAPI está diseñado para resolver cosas en la capa web que la Hexagonal intenta alejar. |
-| **Aislamiento del Dominio** | **Medio:** La lógica de negocio (`service.py`) interactúa directamente con el ORM. | **Alto:** Lógica de negocio 100% aislada e independiente de tecnologías externas. |
+| **Aislamiento del Dominio** | **Medio:** La lógica de negocio interactúa directamente con el ORM. | **Alto:** Lógica de negocio 100% aislada e independiente de tecnologías externas. |
 
 **Resultado:** Se selecciona la Arquitectura por Capas ya que el beneficio de la velocidad de desarrollo y la baja fricción con FastAPI supera con creces la necesidad de un aislamiento puro del dominio para las condiciones y el tamaño del equipo actual.
