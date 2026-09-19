@@ -102,3 +102,93 @@ A continuación se relacionan las revisiones registradas en la retroalimentació
 | S3 | README sin un solo comando documentado para arranque | Se documentaron comandos unificados e independientes de un solo paso para arrancar el backend (`uvicorn app.main:app --reload`) y frontend (`flutter run`) | `README.md` (sección *Ejecución: Arranque del Backend con un solo comando* y *Arranque del Frontend con un solo comando*) | Corregido |
 | S3 | Prueba automatizada en verde no comprobable por falta de workflow de CI o evidencia de ejecución | Se implementó el flujo de integración continua en GitHub Actions ejecutando la suite de pruebas (`pytest`) automáticamente y se enlazó el run exitoso en el README | `.github/workflows/ci.yml` y `README.md#prueba-automatizada-del-recorrido-completo-ci` | Corregido |
 
+# 5. Semana 6
+
+## 5.1 Matriz de la ficha
+
+| Criterio | Evidencia técnica | Estado | Observaciones |
+| :--- | :--- | :--- | :--- |
+| Tabla módulo a datos con dueño único por entidad | `docs/propiedad_de_datos.md` aparece en el árbol pero su contenido no se incluye en la evidencia entregada. | No verificado | No se pudo comprobar el dueño único por entidad; haría falta extraer la tabla del archivo citado en `docs/aspectos.md` fila 4. |
+| La tabla cubre las entidades que existen en el código | Modelos y migraciones existen (`backend/app/modules/*/models.py`; `backend/migrations/versions/001_crear_users_y_trips.py`, `002_update_trips_requests.py`) pero no se aporta el contenido de la tabla. | No verificado | No es contrastable la cobertura entidad a entidad frente al esquema real. |
+| No conformidades de propiedad de datos detectadas sobre el código actual | `docs/evidencia/hallazgos.md` y `correcciones.md` están en el árbol; su contenido no se incluye en la evidencia. | No verificado | No hay lista citable de entidad, módulo dueño esperado y ubicación observada para el hash `5b48dd0`. |
+| Plan de corrección por no conformidad | No se aporta el contenido de las no conformidades ni de su plan (`docs/evidencia/hallazgos.md`, `correcciones.md`). | No verificado | Imposible asociar acciones concretas a cada hallazgo sin el contenido. |
+
+
+**Resultado informado por el autocalificador: 4 criterios en estado No verificado.**
+
+## 5.2 Dónde sí están los ítems «No verificado»
+
+Los cuatro criterios marcados como «No verificado» no pudieron ser comprobados por el revisor porque el contenido de los archivos no fue incluido como evidencia entregada. Sin embargo, **el contenido existe en el repositorio** y se ubica en los siguientes lugares:
+
+---
+
+### 5.2.1 Tabla módulo a datos con dueño único por entidad
+
+**Ubicación real:** `docs/propiedad_de_datos.md` — sección **«Matriz de propiedad»** (líneas 10–16).
+
+La tabla está presente y asigna un módulo dueño a cada entidad persistente:
+
+| Entidad | Módulo dueño | Modelo en el repositorio | Tabla PostgreSQL |
+| :--- | :--- | :--- | :--- |
+| Usuario | `users` | `backend/app/modules/users/models.py:4` | `users` |
+| Recorrido | `trips` | `backend/app/modules/trips/models.py:7` | `trips` |
+| Solicitud de viaje | `requests` | `backend/app/modules/requests/models.py:7` | `trip_requests` |
+| Notificación | `notifications` | `backend/app/modules/notifications/models.py` | `notifications` (pendiente) |
+| Administración | `admin` | `backend/app/modules/admin/models.py` | — (usa rol en `users`) |
+
+El archivo también aclara que `auth` no posee tabla propia: únicamente autentica usuarios de `users` y emite tokens JWT.
+
+**Referencia en `docs/aspectos.md`:** fila 4, columna *Evidencia* → enlace a `propiedad_de_datos.md`.
+
+---
+
+### 5.2.2 La tabla cubre las entidades que existen en el código
+
+**Ubicación real:** sección **«Cobertura del código persistente»** en `docs/propiedad_de_datos.md` (líneas 26–40) y los propios archivos de código/migración.
+
+La correspondencia entidad ↔ tabla ↔ migración es la siguiente:
+
+| Entidad ORM | Tabla | Migración que la crea |
+| :--- | :--- | :--- |
+| `User` | `users` | `backend/migrations/versions/001_crear_users_y_trips.py` |
+| `Trip` | `trips` | `backend/migrations/versions/001_crear_users_y_trips.py` |
+| `TripRequest` | `trip_requests` | `backend/migrations/versions/002_update_trips_requests.py` |
+
+Los modelos ORM están declarados en `backend/app/modules/*/models.py` y registrados en `Base.metadata`; las migraciones existen en `backend/migrations/versions/` con los dos archivos listados arriba.
+
+---
+
+### 5.2.3 No conformidades de propiedad de datos detectadas sobre el código actual
+
+**Ubicación real:** `docs/propiedad_de_datos.md` — sección **«Registro de violaciones de propiedad de datos»** (líneas 41–53) y `docs/evidencia/hallazgos.md`.
+
+Se identificaron **6 violaciones** con entidad afectada, módulo dueño esperado, ubicación exacta (archivo + línea) y plan de corrección:
+
+| ID | Violación | Módulos implicados | Ubicación en código |
+| :--- | :--- | :--- | :--- |
+| V1 | `auth` consulta directamente la entidad `User` (propiedad de `users`) | `auth` → `users` | `backend/app/modules/auth/router.py` líneas 6, 13, 23–29 |
+| V2 | `auth` accede a la tabla `users` mediante ORM | `auth` → `users` | `backend/app/modules/auth/service.py` líneas 12, 30, 42, 57 |
+| V3 | Fuga de entidad ORM `User` entre módulos en el endpoint `/me` | `auth` → `users` | `backend/app/modules/auth/router.py` líneas 34–41 |
+| V4 | Acoplamiento circular `users` ↔ `auth` (`hash_password` en `auth`) | `users` ↔ `auth` | `backend/app/modules/users/service.py` líneas 3–10 |
+| V5 | Endpoint legado de reservas en `trips` duplica responsabilidad de `requests` | `trips` ↔ `requests` | `backend/app/modules/trips/router.py` líneas 61–68 |
+| V6 | Salto de capa en `users`: router accede directamente al ORM | `users` interno | `backend/app/modules/users/router.py` líneas 11–20 |
+
+---
+
+### 5.2.4 Plan de corrección por no conformidad
+
+**Ubicación real:** `docs/propiedad_de_datos.md` — columna **«Plan de Corrección»** de la misma tabla de violaciones (líneas 47–52) y `docs/evidencia/hallazgos.md` para los hallazgos de SonarQube.
+
+Cada violación tiene una acción concreta asignada:
+
+| ID | Acción de corrección |
+| :--- | :--- |
+| V1 | Crear `users.service.get_user_by_phone(...)` y consumirlo desde `auth`, eliminando el import `User` y el `db.query(User)` de `auth`. |
+| V2 | Crear `users.service.get_user_by_id(...)` y usarlo desde `auth`; desacoplar `create_access_token` de la entidad ORM usando datos primitivos o un DTO. |
+| V3 | Definir un DTO para los datos del usuario autenticado y evitar transferencia de entidades ORM entre módulos. |
+| V4 | Mover `hash_password` y `verify_password` a `backend/app/shared/security.py`, eliminando la dependencia `users` → `auth`. |
+| V5 | Retirar o delegar el endpoint `/trips/{trip_id}/reservations` al módulo `requests` para que exista un único ciclo de vida de solicitudes y reservas. |
+| V6 | Crear métodos `get_user_by_phone(...)` y `list_users(...)` en `users.service` y hacer que el router los consuma en lugar de consultar directamente la base de datos. |
+
+Los hallazgos de SonarQube (13 en total, todos corregidos) se documentan en `docs/evidencia/hallazgos.md` con archivo, línea, tipo de riesgo y plan de corrección por cada uno.
+
