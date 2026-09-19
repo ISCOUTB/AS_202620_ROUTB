@@ -38,9 +38,9 @@ jobs:
         working-directory: backend
         run: "pip install --only-binary :all: --require-hashes -r requirements.txt"
 
-      - name: Ejecutar pruebas con pytest
+      - name: Ejecutar pruebas unitarias y de contrato OpenAPI
         working-directory: backend
-        run: pytest
+        run: pytest -v
         env:
           DATABASE_URL_TEST: postgresql://test:test@localhost:5432/routb_test
           JWT_SECRET_KEY: ci-test-secret-key

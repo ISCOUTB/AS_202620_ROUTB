@@ -12,3 +12,6 @@ __pycache__/
 
 # Archivos de configuración de IDE
 .vscode/
+
+# Bases de datos temporales
+*.db
