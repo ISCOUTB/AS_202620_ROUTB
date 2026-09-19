@@ -1,6 +1,6 @@
 # ROUTB - Frontend
 
-Aplicación frontend de ROUTB, una plataforma de transporte compartido para estudiantes de la Universidad Tecnológica de Bolívar. Está construida con Flutter y se comunica con la API del backend mediante HTTP.
+Aplicación frontend de ROUTB, una plataforma de transporte compartido para estudiantes de la Universidad Tecnológica de Bolívar. Está construida con Flutter y se comunica con la API del backend mediante solicitudes HTTP.
 
 ## Requisitos
 
