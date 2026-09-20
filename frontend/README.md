@@ -29,6 +29,8 @@ Inicia primero el backend:
 
 ```bash
 cd backend
+.venv\Scripts\activate
+pip install --only-binary :all: --require-hashes -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
