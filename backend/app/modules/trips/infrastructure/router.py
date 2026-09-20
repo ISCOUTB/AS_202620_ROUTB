@@ -56,7 +56,7 @@ def get_active_trips(
     return [_to_response(t) for t in trips]
 
 
-@router.get("/mis-viajes-incompatible", response_model=list[schemas.TripResponse])
+@router.get("/my-trips", response_model=list[schemas.TripResponse])
 def get_my_trips(
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
