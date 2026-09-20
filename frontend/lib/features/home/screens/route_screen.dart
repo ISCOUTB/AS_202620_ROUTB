@@ -3,8 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../services/trip_api.dart';
+
 class RouteScreen extends StatefulWidget {
-  const RouteScreen({super.key});
+  const RouteScreen({
+    super.key,
+    required this.trip,
+  });
+
+  final TripData trip;
 
   @override
   State<RouteScreen> createState() => _RouteScreenState();
@@ -89,6 +96,13 @@ class _RouteScreenState extends State<RouteScreen> {
   @override
   Widget build(BuildContext context) {
     final posicionActual = ruta[posicionCarro];
+    final acceptedPassengers = widget.trip.requests
+        .where((request) => request.status == 'accepted')
+        .toList();
+    final passengerCount = acceptedPassengers.length;
+    final passengerNames = acceptedPassengers
+        .map((request) => request.passengerName)
+        .join(', ');
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F7FF),
@@ -342,14 +356,14 @@ class _RouteScreenState extends State<RouteScreen> {
                         child: _Info(
                           icon: Icons.people,
                           title: 'Pasajeros',
-                          value: '2/4',
+                          value: '$passengerCount/${widget.trip.totalSeats}',
                         ),
                       ),
                       Expanded(
                         child: _Info(
                           icon: Icons.access_time,
                           title: 'Hora',
-                          value: '7:00 AM',
+                          value: widget.trip.departureTime,
                         ),
                       ),
                       Expanded(
@@ -360,6 +374,40 @@ class _RouteScreenState extends State<RouteScreen> {
                         ),
                       ),
                     ],
+                  ),
+
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF4F7FF),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Reservas confirmadas',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF5271FF),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          passengerCount > 0
+                              ? passengerNames
+                              : 'Aún no hay pasajeros confirmados para este viaje.',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF1A2035),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
 
                   const SizedBox(height: 18),

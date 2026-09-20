@@ -8,5 +8,4 @@
 
 
 void RegisterPlugins(flutter::PluginRegistry* registry) {
-    // No plugins registered.
 }

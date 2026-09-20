@@ -4,9 +4,7 @@ allprojects {
         mavenCentral()
     }
 
-    dependencyLocking {
-        lockAllConfigurations()
-    }
+    
 }
 
 group = "com.example.frontend_android"

@@ -334,7 +334,70 @@ class PassengerView extends StatefulWidget {
 }
 
 class _PassengerViewState extends State<PassengerView> {
-  final _reserved = <int>{};
+
+void _showSeatSelectionDialog(BuildContext context, TripData trip) {
+  int selectedSeats = 1;
+
+  showDialog(
+    context: context,
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (context, setModalState) => AlertDialog(
+        title: const Text('Reservar cupos'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('¿Cuántos cupos deseas solicitar para el viaje hacia ${trip.destination}?'),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton(
+                  onPressed: selectedSeats > 1
+                      ? () => setModalState(() => selectedSeats--)
+                      : null,
+                  icon: const Icon(Icons.remove_circle_outline),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(
+                    '$selectedSeats',
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                IconButton(
+                  onPressed: selectedSeats < trip.availableSeats
+                      ? () => setModalState(() => selectedSeats++)
+                      : null,
+                  icon: const Icon(Icons.add_circle_outline),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              // 🟢 Envía las solicitudes iterando según la cantidad seleccionada
+              for (int i = 0; i < selectedSeats; i++) {
+                widget.onReserve(trip);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: DashboardScreen.primary,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Confirmar reserva'),
+          ),
+        ],
+      ),
+    ),
+  );
+}
 
   @override
   Widget build(BuildContext context) {
@@ -395,7 +458,10 @@ class _PassengerViewState extends State<PassengerView> {
                   itemCount: widget.trips.length,
                   itemBuilder: (context, index) {
                     final trip = widget.trips[index];
-                    final reserved = _reserved.contains(trip.id);
+
+                    final hasAcceptedRequest = trip.myRequestStatus == 'accepted';
+                    final hasPendingRequest = trip.myRequestStatus == 'pending';
+
                     return _PassengerTripCard(
                       name: trip.driverName ?? 'Conductor UTB',
                       route: '${trip.origin} → ${trip.destination}',
@@ -403,11 +469,9 @@ class _PassengerViewState extends State<PassengerView> {
                       seats: trip.seatsText,
                       rating: 4.8,
                       reviews: '12',
-                      reserved: reserved,
-                      onReserve: () {
-                        setState(() => _reserved.add(trip.id));
-                        widget.onReserve(trip);
-                      },
+                      isAccepted: hasAcceptedRequest,
+                      isPending: hasPendingRequest,
+                      onReserve: () => _showSeatSelectionDialog(context, trip),
                     );
                   },
                 ),
@@ -536,7 +600,8 @@ class _PassengerTripCard extends StatelessWidget {
     required this.seats,
     required this.rating,
     required this.reviews,
-    required this.reserved,
+    required this.isAccepted,
+    required this.isPending,
     required this.onReserve,
   });
 
@@ -546,89 +611,96 @@ class _PassengerTripCard extends StatelessWidget {
   final String seats;
   final double rating;
   final String reviews;
-  final bool reserved;
+  final bool isAccepted;
+  final bool isPending;
   final VoidCallback onReserve;
 
   @override
-  Widget build(BuildContext context) => Card(
-        color: Colors.white,
-        elevation: 1,
-        margin: const EdgeInsets.only(bottom: 12),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  const CircleAvatar(
-                    radius: 21,
-                    backgroundColor: Color(0xFFE2E8FF),
-                    child: Icon(Icons.person, color: DashboardScreen.primary),
+  Widget build(BuildContext context) {
+    // 🟢 Evaluamos el estado para configurar color, texto e ícono del botón
+    String buttonText = 'Reservar cupo';
+    Color buttonColor = DashboardScreen.primary;
+    IconData buttonIcon = Icons.event_seat;
+
+    if (isAccepted) {
+      buttonText = 'Cupo reservado ✓';
+      buttonColor = Colors.green;
+      buttonIcon = Icons.check_circle;
+    } else if (isPending) {
+      buttonText = 'Solicitud pendiente';
+      buttonColor = Colors.orange.shade800;
+      buttonIcon = Icons.hourglass_top_rounded;
+    }
+
+    return Card(
+      color: Colors.white,
+      elevation: 1,
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                const CircleAvatar(
+                  radius: 21,
+                  backgroundColor: Color(0xFFE2E8FF),
+                  child: Icon(Icons.person, color: DashboardScreen.primary),
+                ),
+                const SizedBox(width: 11),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
+                      Row(
+                        children: [
+                          const Icon(Icons.star, size: 15, color: Colors.amber),
+                          Text(
+                            ' $rating · $reviews reseñas',
+                            style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 11),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          name,
-                          style: const TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                        Row(
-                          children: [
-                            const Icon(Icons.star, size: 15, color: Colors.amber),
-                            Text(
-                              ' $rating · $reviews reseñas',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey.shade500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(child: _Chip(icon: Icons.route, text: route)),
+                const SizedBox(width: 6),
+                _Chip(icon: Icons.schedule, text: time),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // 🟢 Muestra "disponibles" explícitamente en el badge de cupos
+                _SeatBadge(text: '✓ $seats disponibles'),
+                ElevatedButton.icon(
+                  onPressed: isAccepted ? null : onReserve,
+                  icon: Icon(buttonIcon, size: 16),
+                  label: Text(buttonText),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: buttonColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: _Chip(icon: Icons.route, text: route),
-                  ),
-                  const SizedBox(width: 6),
-                  _Chip(icon: Icons.schedule, text: time),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _SeatBadge(text: '✓  $seats'),
-                  ElevatedButton(
-                    onPressed: reserved ? null : onReserve,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: reserved
-                          ? Colors.grey
-                          : DashboardScreen.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 9,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    child: Text(reserved ? 'Solicitado' : 'Reservar cupo'),
-                  ),
-                ],
-              ),
-            ],
-          ),
+                ),
+              ],
+            ),
+          ],
         ),
-      );
+      ),
+    );
+  }
 }
 
 class _Chip extends StatelessWidget {
@@ -769,8 +841,12 @@ class DriverView extends StatelessWidget {
               ),
             )
           else
-            ...trips.map(
-              (trip) => Card(
+            ...trips.map((trip) {
+              final pendingRequests = trip.requests
+                  .where((request) => request.status == 'pending')
+                  .toList();
+
+              return Card(
                 color: Colors.white,
                 elevation: 1,
                 margin: const EdgeInsets.only(bottom: 10),
@@ -798,7 +874,7 @@ class DriverView extends StatelessWidget {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (_) => const RouteScreen(),
+                                        builder: (_) => RouteScreen(trip: trip),
                                       ),
                                     );
                                   },
@@ -850,7 +926,7 @@ class DriverView extends StatelessWidget {
                         children: [
                           _Chip(icon: Icons.schedule, text: trip.departureTime),
                           const SizedBox(width: 8),
-                          _Chip(icon: Icons.event_seat, text: trip.seatsText),
+                          _Chip(icon: Icons.event_seat, text: "${trip.seatsText} Disponibles"),
                         ],
                       ),
                       const SizedBox(height: 18),
@@ -861,11 +937,11 @@ class DriverView extends StatelessWidget {
                             style: TextStyle(fontWeight: FontWeight.w700),
                           ),
                           const SizedBox(width: 8),
-                          _CountBadge(count: trip.requests.length),
+                          _CountBadge(count: pendingRequests.length),
                         ],
                       ),
                       const SizedBox(height: 8),
-                      if (trip.requests.isEmpty)
+                      if (pendingRequests.isEmpty)
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 8),
                           child: Text(
@@ -878,7 +954,7 @@ class DriverView extends StatelessWidget {
                           ),
                         )
                       else
-                        ...trip.requests.map(
+                        ...pendingRequests.map(
                           (request) => _RequestTile(
                             request: request,
                             onAccept: () => onAcceptRequest(trip, request),
@@ -913,8 +989,8 @@ class DriverView extends StatelessWidget {
                     ],
                   ),
                 ),
-              ),
-            ),
+              );
+            }),
           const SizedBox(height: 4),
           Text(
             'ⓘ Usa el botón + para publicar un nuevo viaje',
