@@ -75,10 +75,3 @@ Queda evidenciado que:
 1. El contrato OpenAPI en `docs/openapi.json` gobierna de manera efectiva la implementación del backend.
 2. La prueba de contrato en `.github/workflows/ci.yml` detecta cualquier cambio no documentado o incompatible.
 3. El pipeline previene integraciones defectuosas garantizando la estabilidad de la API para los clientes móviles de ROUTB.
-## 3. Evidencia del Fallo en el Pipeline de CI (Run en Rojo)
-
-El push a la rama `Changes` disparó automáticamente el workflow **CI ROUTB** (`.github/workflows/ci.yml`). 
-
-En la ejecución **[Run #35531242547](https://github.com/ISCOUTB/AS_202620_ROUTB/actions/runs/35531242547)**, el paso *«Ejecutar pruebas unitarias y de contrato OpenAPI»* falló con el siguiente error:
-
-```text
