@@ -20,3 +20,4 @@ class TripResponse(BaseModel):
     status: str = "active"
     driver_id: int | None = None
     driver_name: str | None = None
+    my_request_status: str | None = None

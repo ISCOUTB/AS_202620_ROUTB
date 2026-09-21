@@ -45,6 +45,7 @@ class TripData {
   final String status;
   final int? driverId;
   final String? driverName;
+  final String? myRequestStatus;
   List<TripRequestData> requests;
 
   TripData({
@@ -57,10 +58,13 @@ class TripData {
     required this.status,
     this.driverId,
     this.driverName,
+    this.myRequestStatus,
     List<TripRequestData>? requests,
   }) : requests = requests ?? [];
 
   factory TripData.fromJson(Map<String, dynamic> json) {
+    final rawRequests = json['requests'] as List<dynamic>?;
+
     return TripData(
       id: json['id'] as int,
       origin: json['origin'] as String,
@@ -71,6 +75,12 @@ class TripData {
       status: (json['status'] as String?) ?? 'active',
       driverId: json['driver_id'] as int?,
       driverName: json['driver_name'] as String?,
+      myRequestStatus: json['my_request_status'] as String?,
+      requests: rawRequests != null
+          ? rawRequests
+              .map((req) => TripRequestData.fromJson(req as Map<String, dynamic>))
+              .toList()
+          : [],
     );
   }
 
@@ -179,7 +189,6 @@ class TripApi {
         final list = jsonDecode(response.body) as List<dynamic>;
         return list
             .map((item) => TripRequestData.fromJson(item as Map<String, dynamic>))
-            .where((req) => req.status == 'pending')
             .toList();
       }
     } catch (_) {}
