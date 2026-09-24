@@ -10,10 +10,14 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir --only-binary :all: --require-hashes -r requirements.txt
 
-# Copiar el código de la aplicación
-COPY app ./app
-COPY alembic ./alembic
-COPY alembic.ini .
+# Copiar el código de la aplicación con dueño del usuario no-root
+COPY --chown=appuser:appuser app ./app
+COPY --chown=appuser:appuser alembic ./alembic
+COPY --chown=appuser:appuser alembic.ini .
+
+# Crear usuario sin privilegios y cambiar al mismo antes del CMD
+RUN adduser --disabled-password --gecos "" appuser
+USER appuser
 
 EXPOSE 8000
 
