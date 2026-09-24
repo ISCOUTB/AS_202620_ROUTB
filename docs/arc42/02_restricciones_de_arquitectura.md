@@ -62,3 +62,9 @@ Las restricciones se agrupan en categorías organizativas, técnicas, de integra
   estudiantes, dado que no existe una relación comercial regulada
   entre las partes ni participación de la plataforma en el cobro
   del servicio.
+- El sistema debe operar con costo recurrente de $0.00 USD y sin
+  asociación de tarjetas de crédito o medios de pago bancarios, dado que
+  el equipo no dispone de presupuesto asignado ni instrumentos financieros
+  para asumir facturación en la nube, lo que obliga a seleccionar proveedores
+  con capas gratuitas permanentes y verificadas (Render y Supabase; ver ADR 0005).
+
