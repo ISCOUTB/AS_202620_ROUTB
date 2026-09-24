@@ -6,17 +6,19 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
+# Crear usuario sin privilegios ANTES de copiar nada con --chown
+RUN adduser --disabled-password --gecos "" appuser
+
 # Instalar dependencias con verificación estricta de hashes
 COPY requirements.txt .
 RUN pip install --no-cache-dir --only-binary :all: --require-hashes -r requirements.txt
 
 # Copiar el código de la aplicación con dueño del usuario no-root
 COPY --chown=appuser:appuser app ./app
-COPY --chown=appuser:appuser alembic ./alembic
+COPY --chown=appuser:appuser migrations ./migrations
 COPY --chown=appuser:appuser alembic.ini .
 
-# Crear usuario sin privilegios y cambiar al mismo antes del CMD
-RUN adduser --disabled-password --gecos "" appuser
+# Cambiar al usuario sin privilegios antes del CMD
 USER appuser
 
 EXPOSE 8000
