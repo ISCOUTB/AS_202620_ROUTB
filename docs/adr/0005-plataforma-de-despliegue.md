@@ -1,4 +1,4 @@
-# 0005 - Elección de plataforma de despliegue e infraestructura en la nube ($0 Costos)
+# 0005 - Elección de plataforma para el despliegue del backend (Render Web Service)
 
 ## Estado
 
@@ -6,59 +6,54 @@ Aceptado
 
 ## Contexto
 
-ROUTB requiere una plataforma de despliegue para el backend contenerizado (FastAPI) y la base de datos relacional (PostgreSQL), con el objetivo de permitir el acceso público vía HTTPS desde fuera de la red de la universidad y permitir la verificación de endpoints de salud y negocio.
+ROUTB requiere una plataforma de cómputo y hosting en la nube para ejecutar el contenedor del backend desarrollado con FastAPI (Python 3.14). El servicio debe ser públicamente accesible mediante HTTPS desde fuera de la red de la universidad y permitir la verificación continua de endpoints de diagnóstico y negocio.
 
-El proyecto se rige por restricciones académicas estrictas:
-- **Presupuesto cero ($0 USD):** No existe partida presupuestaria para infraestructura.
-- **Sin tarjeta de crédito:** Ningún integrante del equipo dispone de tarjeta de crédito para asociar a proveedores en la nube, ni se acepta incurrir en riesgos de cobros automáticos por descuidos de uso.
-- **Volumen objetivo:** Soportar hasta 100 usuarios concurrentes en franjas de alta demanda (definido en `docs/arc42/10_requisitos_de_calidad.md`), con disponibilidad objetivo del 99 %.
-
-Se requiere seleccionar una combinación de hosting y base de datos que garantice operación real, reproducible y declarada como código (IaC), respetando íntegramente la restricción de costo nulo.
+El proyecto está sujeto a restricciones académicas y organizativas estrictas:
+- **Presupuesto cero ($0.00 USD):** No existe partida presupuestaria para infraestructura en la nube.
+- **Sin tarjeta de crédito:** Ningún integrante del equipo dispone de tarjeta de crédito para asociar a proveedores cloud, ni se asume el riesgo de cobros automáticos o facturación imprevista.
+- **Soporte de estándares abiertos:** Debe ejecutar un contenedor OCI / Docker estándar definido en `backend/Dockerfile`.
+- **Automatización e Infraestructura como Código (IaC):** Debe permitir despliegue automatizado vinculado al repositorio de GitHub mediante un manifiesto versionado.
 
 ## Decisión
 
-Se adopta la combinación de **Render (Free Web Service)** para el cómputo del backend y **Supabase (Free Tier)** para la base de datos PostgreSQL administrada:
+Se adopta **Render (Free Web Service)** como plataforma de cómputo y despliegue del backend de ROUTB:
 
-1. **Cómputo Backend:** Web Service en **Render** desplegado a partir del `backend/Dockerfile` versionado en el repositorio y orquestado mediante el manifiesto `render.yaml`.
-2. **Base de Datos:** Instancia gestionada de PostgreSQL 15 en **Supabase**, utilizando conexión segura y pool de conexiones (PgBouncer) para optimizar el uso de conexiones concurrentes.
-3. **Automatización:** Manifiesto de plataforma (`render.yaml`) versionado y sincronización continua con la rama principal de GitHub.
-
-Criterios determinantes:
-- **Ausencia total de medios de pago:** Render y Supabase permiten registro y despliegue funcional en sus capas gratuitas sin exigir tarjeta de crédito.
-- **Soporte de Docker nativo:** Render construye y ejecuta directamente el `Dockerfile` del backend sin configuraciones propietarias.
-- **Certificados SSL automáticos:** Ambas herramientas proporcionan terminación TLS/HTTPS pública de forma gratuita.
+1. **Despliegue basado en Docker:** El servicio se construye directamente a partir de `backend/Dockerfile` versionado en el repositorio, ejecutándose con un usuario sin privilegios (`appuser`).
+2. **Infraestructura como Código:** La configuración del servicio se formaliza en el manifiesto `render.yaml`, especificando el plan gratuito y proporcionando las variables de entorno.
+3. **Terminación TLS/HTTPS automática:** Render proporciona certificados SSL gestionados sin costo adicional bajo el subdominio `https://as-202620-routb.onrender.com`.
 
 ## Alternativas consideradas
 
-### Fly.io
-- **Ventajas:** Excelente latencia y manejo de contenedores ligeros Firecracker.
-- **Motivo de descarte:** Exige una tarjeta de crédito válida para verificar la cuenta antes de permitir crear o desplegar aplicaciones, violando directamente la restricción fundamental de no poseer tarjeta.
-
 ### Railway
 - **Ventajas:** Despliegue intuitivo y soporte nativo de Docker.
-- **Motivo de descarte:** Su modelo de capa gratuita es temporal (crédito único de $5 USD o límite de 30 días de prueba). Al agotarse el crédito o el mes, los servicios se suspenden a menos que se ingrese un método de pago. No es viable para la duración del semestre.
+- **Motivo de descarte:** Su modelo de capa gratuita es temporal (crédito único no renovable de $5 USD o límite de 30 días de prueba). Al agotarse el crédito o cumplirse el mes, los servicios se suspenden a menos que se introduzca una tarjeta de crédito, lo cual imposibilita la operación durante todo el semestre académico.
 
-### AWS / Google Cloud Platform / Microsoft Azure
-- **Ventajas:** Ecosistemas líderes y altamente escalables.
-- **Motivo de descarte:** Exigen tarjeta de crédito para la activación de la cuenta. Además, presentan una alta complejidad operativa y riesgo de facturación imprevista al expirar el periodo promocional o por tráfico entrante.
+### Fly.io
+- **Ventajas:** Excelente latencia global y manejo eficiente de micro-máquinas Firecracker.
+- **Motivo de descarte:** Exige obligatoriamente una tarjeta de crédito válida para verificar la cuenta antes de permitir crear o desplegar aplicaciones, violando directamente la restricción de ausencia total de instrumentos financieros.
+
+### AWS Elastic Beanstalk / Google Cloud Run / Microsoft Azure App Service
+- **Ventajas:** Ecosistemas empresariales líderes con alta escalabilidad.
+- **Motivo de descarte:** Todos exigen registro con tarjeta de crédito para la activación de la cuenta. Además, presentan un alto riesgo de facturación imprevista si se excede el tráfico o culminan periodos de gracia.
 
 ## Consecuencias
 
 ### Positivas
 - Cumplimiento estricto del presupuesto: costo mensual recurrente de **$0.00 USD**.
-- Cumplimiento de la restricción de medios de pago: cero tarjetas de crédito requeridas.
-- Infraestructura como código: la definición del servicio queda formalizada en `backend/Dockerfile` y `render.yaml`.
-- Base de datos relacional robusta en la nube con copias de seguridad automáticas provistas por Supabase.
+- Cero requisitos de tarjetas de crédito o instrumentos bancarios para el registro y operación.
+- Despliegue reproducible y versionado a través de `backend/Dockerfile` y `render.yaml`.
+- Certificado HTTPS gestionado y activo para el consumo seguro desde la aplicación móvil.
 
 ### Negativas y Mitigaciones
-- **Suspensión por inactividad (Spin-down):** En la capa gratuita de Render, si el servicio no recibe tráfico durante 15 minutos, la instancia entra en reposo. La siguiente petición experimenta un retraso de inicio en frío (*cold start*) de 30 a 50 segundos.
-  - *Mitigación:* Se documenta este comportamiento en la vista de arquitectura y se asume aceptable para el contexto académico; las pruebas del evaluador o del equipo contemplan este tiempo en el primer contacto.
-- **Límites de recursos:** Render Free asigna 512 MB de RAM y 0.1 CPU compartida, con un tope de 750 horas de cómputo por mes (suficiente para mantener un servicio activo de forma continua durante un mes de 31 días = 744 horas).
+- **Suspensión por inactividad (Spin-down):** Tras 15 minutos sin recibir tráfico HTTP, Render pone la instancia gratuita en reposo. La siguiente petición experimenta un retraso de inicio en frío (*cold start*) de 30 a 50 segundos mientras se levanta el contenedor.
+  - *Mitigación:* Se documenta este comportamiento en la arquitectura (arc42 sección 7 y ADR); los evaluadores y usuarios conocen que el primer contacto puede tardar unos segundos, reanudando la latencia normal en las solicitudes subsecuentes.
+- **Límite de horas de cómputo:** Render Free asigna 750 horas de cómputo al mes por cuenta. Dado que un mes de 31 días tiene 744 horas, una única instancia puede operar continuamente sin agotar la cuota.
 
 ## Trazabilidad
 
 | Aspecto / Requisito | Elementos C4 relevantes | Artefactos / Documentación | Pruebas / Evidencia |
 |---|---|---|---|
-| Hosting y despliegue sin costo | Contenedor Backend API | `backend/Dockerfile`, `render.yaml` | URL pública activa y respuesta HTTP 200 en `/health` |
-| Persistencia en la nube | Base de datos PostgreSQL | Supabase Free Tier, `backend/alembic/` | Conexión y migración en base de datos remota |
-| Restricción presupuestaria ($0) | Infraestructura global | `docs/arc42/02_restricciones_de_arquitectura.md`, `docs/evidencia/costo_mensual.md` | Verificación de facturación en $0 USD |
+| Hosting backend sin costo | [API en Render](../arc42/07_vista_de_despliegue.md) | `backend/Dockerfile`, `render.yaml` | [Verificación externa vía curl](../evidencia/despliegue-externo.md) |
+| Automatización de infraestructura | Servidor de aplicación | `render.yaml` | URL pública activa (`https://as-202620-routb.onrender.com/health`) |
+| Restricción de presupuesto ($0 USD) | Todo el entorno de cómputo | [Restricciones arc42](../arc42/02_restricciones_de_arquitectura.md#25-restricciones-comerciales-y-de-alcance) | [Costo mensual](../evidencia/costo_mensual.md) |
+| Decisión complementaria de BD | Servidor de datos | [ADR 0006 - Base de datos Supabase](0006-base-de-datos-supabase.md) | Conexión remota PostgreSQL |

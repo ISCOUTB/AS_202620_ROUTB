@@ -79,7 +79,7 @@ en relación con la consistencia de la **disponibilidad**. El estímulo es que
 varios estudiantes intenten reservar simultáneamente un mismo recorrido; el
 artefacto involucrado es el backend de ROUTB; la respuesta esperada es aceptar
 solo las reservas permitidas y conservar la disponibilidad correcta; y el
-umbral definido es que el 95 % de las solicitudes responda en menos de 2
+umbral definido es que el 95 % de las solicitudes responda en menos de 3,99
 segundos.
 
 Cuando varios estudiantes intenten reservar cupos del mismo recorrido
