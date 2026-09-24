@@ -71,3 +71,21 @@ Reservas, Notificaciones y Administración están definidos arquitectónicamente
 pero sus entidades y casos de uso todavía se encuentran en desarrollo.
 
 ---
+
+## 8.3 Gestión de secretos y configuración
+
+Para garantizar que ningún dato sensible o credencial de infraestructura quede expuesto en el repositorio de código, ROUTB implementa una política estricta de configuración desacoplada:
+
+1. **Entorno local:** Las variables sensibles (`DATABASE_URL`, `JWT_SECRET_KEY`) se cargan desde un archivo `backend/.env` que está ignorado de forma permanente por Git (`.gitignore`).
+2. **Plantilla de configuración (`.env.example`):** Se versiona un archivo de ejemplo con las claves requeridas y valores no sensibles (placeholders), facilitando que cualquier desarrollador configure su entorno sin exponer datos de producción.
+3. **Integración continua (CI):** En GitHub Actions, los secretos necesarios para pruebas se inyectan a través de GitHub Secrets o variables de entorno temporales aisladas en el job de prueba.
+4. **Entorno de producción:** En la plataforma de hosting (Render), los secretos se gestionan mediante el panel de variables de entorno de la plataforma, impidiendo su almacenamiento en texto plano en el repositorio.
+
+## 8.4 Observabilidad y logging estructurado
+
+El backend implementa logging estructurado en formato JSON a través de un middleware HTTP en FastAPI (`backend/app/main.py`), canalizado hacia la salida estándar (`stdout`):
+
+- **Formato estándar:** Cada registro emite un objeto JSON con campos explícitos: `timestamp` (ISO 8601 UTC), `method`, `path`, `status_code`, `duration_ms` y `client_ip`.
+- **Cobertura automática:** Aplica transversalmente a todos los endpoints del sistema, incluyendo `/health` y las operaciones de negocio (`/users`, `/trips`, `/auth`, `/requests`).
+- **Compatibilidad cloud:** La salida a `stdout` permite que el recolector de logs de Render ingiera y presente los eventos sin requerir agentes pesados ni servicios de terceros de pago.
+

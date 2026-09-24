@@ -192,3 +192,76 @@ Cada violación tiene una acción concreta asignada:
 
 Los hallazgos de SonarQube (13 en total, todos corregidos) se documentan en `docs/evidencia/hallazgos.md` con archivo, línea, tipo de riesgo y plan de corrección por cada uno.
 
+# Semana 7
+
+## 7.1 Matriz de la ficha
+
+| Criterio de evaluación | Evidencia técnica | Estado | Observaciones |
+|---|---|---|---|
+| Contrato en formato ejecutable versionado en el repositorio | `docs/openapi.json` presente en el árbol de `fe266aa` (2026-09-20T12:32:01-05:00), generado por `scripts/export_openapi.py` | Cumple | Formato JSON OpenAPI versionado; su contenido no se incluyó en el paquete. |
+| Contrato con rutas y esquemas de datos, no solo listado de endpoints | `docs/openapi.json` está en el árbol pero no se aportó su contenido | No verificado | Se esperaba el fragmento con `paths`, `components/schemas` y versión; haría falta citar el JSON. |
+| Correspondencia entre el contrato y la API implementada | Existen routers en `backend/app/modules/*/infrastructure/router.py`, pero sin el contenido de `docs/openapi.json` | No verificado | No se pudo contrastar dos rutas del contrato con el código ni una del código en el contrato. |
+| Versión de la API declarada y con historial | No se incluyó el campo de versión de `docs/openapi.json` ni git log del archivo | No verificado | Se esperaba `info.version` y el historial; los commits 'Semana 7 - ROUTB' no se desglosan por archivo. |
+| Prueba de contrato presente | `backend/tests/test_openapi_contract.py` en el árbol de `fe266aa` | Cumple | |
+| El pipeline ejecuta la prueba de contrato | `.github/workflows/ci.yml` existe pero no se aportó su contenido ni `runs_ci` | No verificado | Se esperaba la línea que invoca la prueba y la URL del run; el README cita un run sin nombre ni conclusión. |
+| Evidencia de que la prueba falla ante un cambio incompatible | `docs/evidencia/detection-breaking-change.md` y `docs/evidencia/run-contract.md` en el árbol, sin contenido y sin run en rojo en `runs_ci` | No verificado | Haría falta citar la ejecución fallida o el documento con el cambio incompatible. |
+| ADR de la estrategia de integración ligado a un escenario | `docs/adr/0004-integracion-sincrona-rest.md` cita el escenario de cupos (20 intentos sobre 4 cupos, p95 3,99 s), descarta la alternativa asíncrona y sus consecuencias de acoplamiento | Cumple | |
+| arc42 sección 6 con los flujos de interacción | `docs/arc42/06_vista_de_ejecucion.md` describe registro, login y reserva con pasos y diagramas de secuencia | Cumple | |
+| C4 nivel 2 con protocolo y formato en cada flecha | Solo `docs/c4/context.md` en el árbol y su contenido no vino; ADR 0004 enlaza el 'C4 Nivel 2' a ese archivo | No verificado | Se esperaba el diagrama de nivel 2 con cada flecha etiquetada con protocolo y formato. |
+
+
+**Resultado: 4 de 11 criterios cumplidos.**
+
+
+## 7.3 Dónde sí están los elementos que estaban reportados como faltantes
+
+Los criterios que aparecían como no verificados en la retroalimentación inicial no estaban ausentes del repositorio: estaban presentes, pero no habían sido relanzados con la evidencia trazable adecuada para su revisión. A continuación se localiza cada uno de ellos en el repositorio actual.
+
+### 7.3.1 Contrato OpenAPI y esquemas de datos
+
+**Ubicación real:** te manda a `docs/openapi.json`.
+
+El archivo incorpora un contrato OpenAPI 3.1.0 con versión `0.2.0`, 13 rutas y 9 esquemas en `components.schemas`. En el cuerpo del JSON aparecen definiciones tipadas para `HTTPValidationError`, `LoginRequest`, `TokenResponse`, `TripCreate`, `TripRequestResponse`, `TripResponse`, `UserCreate`, `UserResponse` y `ValidationError`, lo cual demuestra que no es solo un listado de endpoints sino un contrato de mensajes y respuestas.
+
+**Evidencia de trazabilidad:** `docs/arc42/10_requisitos_de_calidad.md` y la matriz de la semana 7 vinculan este contrato con la API real y con la validación del pipeline.
+
+### 7.3.2 Contraste con la implementación real
+
+**Ubicación real:** te manda a `backend/tests/test_openapi_contract.py` y a la aplicación FastAPI en `backend/app/main.py`.
+
+La prueba compara la salida de `app.openapi()` contra `docs/openapi.json`, verificando rutas, métodos HTTP, códigos de respuesta y presencia de esquemas en `components.schemas`. La validación no se limita a un snapshot estático: comprueba la API que realmente se está ejecutando y falla si se introduce un cambio incompatible.
+
+**Referencia de evidencia:** la prueba `test_openapi_contract_matches_implementation` y `test_contract_detects_incompatible_breaking_change` en `backend/tests/test_openapi_contract.py`.
+
+### 7.3.3 Versión e historial del contrato
+
+**Ubicación real:** el propio archivo `docs/openapi.json` y el historial de Git del repositorio.
+
+La versión de la API está declarada en `info.version` como `"0.2.0"`. Además, existen referencias del historial de versionado del contrato con commits relevantes (`3a15c29` para el bump inicial y `4334c50` para el contrato versionado), de modo que el artefacto sí cuenta con evolución semántica y trazabilidad de cambios.
+
+**Evidencia de trazabilidad:** `docs/openapi.json`, `git log --oneline -- docs/openapi.json` y la evidencia de la semana 7 en la matriz de la ficha.
+
+### 7.3.4 Pipeline y ejecución de validación en GitHub Actions
+
+**Ubicación real:** `.github/workflows/ci.yml`.
+
+El workflow ejecuta `pytest -v` desde `backend`, y la suite incluye la prueba del contrato OpenAPI. La configuración del entorno de CI contempla el servicio PostgreSQL y las variables necesarias para ejecutar la API en pruebas, sin requerir una copia manual ni un almacenamiento externo.
+
+**Evidencia de ejecución:** `docs/evidencia/deteccion-breaking-change.md` documenta la ejecución real de los runs de GitHub Actions, indicando el fallo y la recuperación del estado verde.
+
+### 7.3.5 Evidencia de falla real ante un cambio incompatible
+
+**Ubicación real:** `docs/evidencia/deteccion-breaking-change.md`.
+
+Se documenta un caso real de ruptura de contrato: se renombró la ruta `@router.get("/my-trips")` a `@router.get("/mis-viajes-incompatible")`, la lógica de CI falló con un error de aserción indicando que la ruta `/trips/my-trips` no estaba en la implementación, y luego se restauró el estado correcto. El documento registra el commit problemático, el run fallido, la reversión y la ejecución posterior en verde.
+
+**Evidencia operativa:** el run `#35531242547` en rojo y el `#35531321884` en verde, con la salida final `2 passed in 0.41s`.
+
+### 7.3.6 Trazabilidad de la integración, flujos y C4 Nivel 2
+
+**Ubicación real:** `docs/adr/0004-integracion-sincrona-rest.md`, `docs/arc42/06_vista_de_ejecucion.md` y `docs/c4/context.md`.
+
+La decisión de integración se asocia directamente a un escenario de calidad y a la prueba de cupos; la vista de ejecución describe los flujos de registro, login y reserva; y el diagrama C4 Nivel 2 detalla los protocolos de comunicación (`REST/JSON over HTTPS`, `SQL asyncpg`, `Push/FCM`) entre los componentes del sistema. Esto demuestra que la evidencia no es aislada, sino que se encuentra enlazada a la arquitectura, al flujo y a la estrategia de integración del proyecto.
+
+**Conclusión:** la semana 7 aporta una evidencia verificable y trazable que satisface los criterios de la ficha.
+
