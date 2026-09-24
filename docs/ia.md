@@ -12,7 +12,7 @@ Este documento registra el uso de herramientas de Inteligencia Artificial durant
 | Claude (Anthropic) | Apoyo en la elaboración, revisión y mejora de documentación arquitectónica, decisiones de arquitectura y estructura inicial del proyecto. |
 | GitHub Copilot | Apoyo en la implementación del backend, incluyendo la creación de módulos y la organización de la estructura inicial. |
 | Gemini | Apoyo en la estructuración, redacción y estandarización de la documentación técnica del proyecto. |
-| Antigravity | Apoyo en la codificación e implementación inicial del frontend, incluyendo el diseño funcional del flujo de autenticación y validaciones. |
+| Antigravity | Apoyo en la codificación del frontend, contenerización del backend con Docker, arquitectura de despliegue en la nube, observabilidad y documentación técnica. |
 
 
 ## Registro
@@ -93,6 +93,17 @@ Justificación: Las herramientas fueron utilizadas con propósitos diferentes. C
 - **Qué se rechazó:** Se descartó plantear la integración asíncrona como la estrategia principal del sistema, ya que el flujo de reserva exige una respuesta inmediata que el modelo asíncrono no puede garantizar sin añadir componentes de mensajería que no forman parte del alcance del proyecto.
 - **Justificación:** Los artefactos generados se contrastaron con el código existente y con las decisiones previas del equipo. El ADR 0004 complementa al ADR 0003 y a las pruebas de concurrencia ya existentes, y el escenario 6.3 cierra el vacío entre la decisión técnica documentada y su representación en la vista de ejecución de arc42. La evidencia de detección de breaking changes se generó ejecutando las pruebas reales y capturando la salida, sin alterar el código ni el contrato versionado.
 - **Fecha:** 2026-09-19
+
+### Semana 8
+
+- **Actividad realizada:** Selección y evaluación de la plataforma de despliegue en la nube a costo cero ($0.00 USD) y sin tarjeta de crédito (ADR 0005), contenerización del backend mediante Docker, configuración de despliegue en Render y Supabase, implementación de observabilidad con logging estructurado en JSON a stdout y endpoint de health check (`/health`), actualización de las secciones 2, 7 y 8 de arc42, actualización de la matriz de aspectos (Aspecto 5), y documentación de evidencias técnicas (estimación de costos mensuales, análisis de punto de ruptura y verificación de disponibilidad externa con curl).
+- **Herramienta utilizada:** Antigravity.
+- **Contexto proporcionado:** Requisitos de la Semana 8 sobre despliegue en la nube, observabilidad y costos; restricciones del proyecto de costo nulo ($0 USD) y ausencia de tarjetas de crédito; arquitectura existente del backend (FastAPI, PostgreSQL); configuración de contenedores Docker y estructura de documentación en arc42.
+- **Respuesta que se obtuvo:** Propuesta de arquitectura de hosting combinando Render (Web Service gratuito) y Supabase (PostgreSQL gratuito); diseño del `Dockerfile` multi-stage con usuario no privilegiado (`appuser`) y manifiesto `render.yaml`; diseño e implementación del middleware de logging estructurado JSON en FastAPI y pruebas de disponibilidad en `test_health.py`; redacción del ADR 0005, vista de despliegue (sección 7 de arc42 con diagramas C4 en Mermaid), sección 2 (restricciones comerciales y presupuestarias), sección 8 (gestión de secretos con `.env.example` y observabilidad), y los informes de estimación de costos y verificación externa vía curl.
+- **Qué se aceptó:** Se aceptó la adopción de Render y Supabase para el despliegue a costo cero sin tarjetas bancarias; el ADR 0005; el `Dockerfile` seguro sin usuario root; el manifiesto `render.yaml`; el middleware de logs estructurados a `stdout`; el endpoint `/health` y sus pruebas automatizadas; las actualizaciones en arc42 (secciones 2, 7 y 8); la incorporación del Aspecto 5 en `aspectos.md`; y los documentos de evidencia técnica de costos y verificación externa.
+- **Qué se rechazó:** Se descartó el uso de nubes principales (AWS, GCP, Azure) o servicios como Fly.io debido a la exigencia de tarjeta de crédito para la activación de cuentas, y Railway por limitar su capa gratuita a periodos de prueba temporales. También se rechazó almacenar secretos o credenciales en el repositorio, así como la integración de agentes de observabilidad pesados o de pago, prefiriendo la ingestión nativa de logs JSON desde `stdout` en Render.
+- **Justificación:** Las decisiones adoptadas garantizan la viabilidad operativa del sistema en un entorno cloud público accesible vía HTTPS, garantizando la observabilidad y trazabilidad operativa sin infringir las restricciones presupuestarias del proyecto. Todo cambio fue revisado por el equipo, asegurando la correspondencia entre la infraestructura como código, la arquitectura documentada y las pruebas ejecutadas.
+- **Fecha:** 2026-09-24
 
 ## Observaciones
 
