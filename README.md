@@ -49,9 +49,16 @@ pytest
 
 El recorrido de validación del flujo de autenticación se encuentra implementado y ejecutado en la nube mediante Integración Continua.
 
-- **Archivos de prueba:** [`backend/tests/test_registro.py`](backend/tests/test_registro.py), [`backend/tests/test_cupos.py`](backend/tests/test_cupos.py), [`backend/tests/test_trips_flow.py`](backend/tests/test_trips_flow.py) y [`backend/tests/test_openapi_contract.py`](backend/tests/test_openapi_contract.py)
-- **Evidencia de ejecución (Success):** [GitHub Actions Run #35956936236](https://github.com/ISCOUTB/AS_202620_ROUTB/actions/runs/35956936236)
+- **Archivos de prueba:** [`Prueba de salud`](backend/tests/test_health.py),[`Prueba de registro`](backend/tests/test_registro.py), [`Prueba de cupos`](backend/tests/test_cupos.py), [`Prueba de viajes`](backend/tests/test_trips_flow.py) y [`Prueba de contrato`](backend/tests/test_openapi_contract.py)
+- **Evidencia de ejecución (Success):** [GitHub Actions Run #36037874215](https://github.com/ISCOUTB/AS_202620_ROUTB/actions/runs/36037874215)
 
 ### Analisis de SonarCloud
 El análisis de calidad de código se realiza automáticamente con SonarCloud.
 - **Enlace:** [ROUTB en SonarCloud](https://sonarcloud.io/dashboard?id=ISCOUTB_AS_202620_ROUTB)
+
+### Despliegue en la nube
+El backend se encuentra desplegado y accesible públicamente vía HTTPS sobre Render:
+- **URL Base:** [https://as-202620-routb.onrender.com](https://as-202620-routb.onrender.com)
+- **Health Check:** [https://as-202620-routb.onrender.com/health](https://as-202620-routb.onrender.com/health)
+- **Evidencia de verificación externa:** [docs/evidencia/despliegue-externo.md](docs/evidencia/despliegue-externo.md)
+
