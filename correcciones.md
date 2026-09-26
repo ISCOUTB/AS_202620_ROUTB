@@ -11,6 +11,8 @@ A continuación se relacionan las revisiones registradas en la retroalimentació
 | Evidencia S1 | `68b0b05d` | 2026-08-09T14:48:08-05:00 | 2026-08-10T05:00:00Z |
 | Evidencia S2 | `14e66888` | 2026-08-16T12:44:08-05:00 | 2026-08-17T05:00:00Z |
 | Evidencia S3 | `1ed002b2` | 2026-08-23T20:31:54-05:00 | 2026-08-24T05:00:00Z |
+| Evidencia S6 | `5b48dd0` | 2026-09-13T23:43:22-05:00 | 2026-09-14T05:00:00Z |
+| Evidencia S7 | `fe266aa` | 2026-09-20T12:32:01-05:00 | 2026-09-21T05:00:00Z |
 
 ---
 
@@ -264,4 +266,3 @@ Se documenta un caso real de ruptura de contrato: se renombró la ruta `@router.
 La decisión de integración se asocia directamente a un escenario de calidad y a la prueba de cupos; la vista de ejecución describe los flujos de registro, login y reserva; y el diagrama C4 Nivel 2 detalla los protocolos de comunicación (`REST/JSON over HTTPS`, `SQL asyncpg`, `Push/FCM`) entre los componentes del sistema. Esto demuestra que la evidencia no es aislada, sino que se encuentra enlazada a la arquitectura, al flujo y a la estrategia de integración del proyecto.
 
 **Conclusión:** la semana 7 aporta una evidencia verificable y trazable que satisface los criterios de la ficha.
-
