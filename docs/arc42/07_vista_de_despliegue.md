@@ -48,7 +48,7 @@ ROUTB funciona como un sistema con tres partes que se reparten el trabajo: la ap
 | Pieza | Dónde funciona | Plataforma | Cómo se comunica | Decisión asociada |
 |---|---|---|---|---|
 | **App ROUTB** | En el celular del estudiante | App Flutter (Android / iOS) | Conexión segura con el servidor y con los mapas | [ADR 0004 - Integración síncrona REST](../adr/0004-integracion-sincrona-rest.md) |
-| **Servidor de ROUTB** | Servicio web en la nube | **Render** | Recibe las peticiones de la app por una dirección web segura | [ADR 0005 - Despliegue en Render](../adr/0005-plataforma-de-despliegue.md) |
+| **Servidor de ROUTB** | Servicio web en la nube | **Render** | Recibe las peticiones de la app por una dirección web segura | [ADR 0005 - Despliegue en Render](../adr/0005-render-plataforma-de-despliegue.md) |
 | **Base de datos** | Servicio de base de datos administrado | **Supabase** | Conexión cifrada con el servidor | [ADR 0006 - Base de datos en Supabase](../adr/0006-base-de-datos-supabase.md) |
 | **Mapas y ubicación** | Servidores del proveedor de mapas | Proveedor externo (OpenStreetMap / Google) | Conexión segura desde la app | Servicio externo |
 | **Notificaciones** | Plataforma de mensajería de Google | Firebase Cloud Messaging | Conexión segura desde el servidor | Servicio externo |
@@ -93,7 +93,7 @@ flowchart TD
 - **Seguridad:** el servidor se ejecuta con permisos limitados, solo los necesarios para funcionar.
 - **Claves y contraseñas:** se guardan en el panel de Render y nunca en el repositorio (ver [Sección 8.3](08_conceptos_transversales.md#83-gestión-de-secretos-y-configuración)).
 - **Registro de actividad:** anota cada petición recibida y cuánto tardó en responder. Render conserva esos registros (ver [Sección 8.4](08_conceptos_transversales.md#84-observabilidad-y-logging-estructurado)).
-- **Decisión asociada:** [ADR 0005 - Elección de plataforma para el despliegue del backend (Render)](../adr/0005-plataforma-de-despliegue.md).
+- **Decisión asociada:** [ADR 0005 - Elección de plataforma para el despliegue del backend (Render)](../adr/0005-render-plataforma-de-despliegue.md).
 ### 7.2.3 Base de datos (Supabase)
 - **Dónde funciona:** como un proyecto de base de datos administrado en **Supabase**, en su plan gratuito.
 - **Qué guarda:** de forma permanente los usuarios, los viajes y las solicitudes de reserva.
@@ -111,12 +111,12 @@ Al usar planes gratuitos, cada plataforma tiene un comportamiento que conviene c
  
 | Pieza | Qué pasa | Qué efecto tiene | Dónde está documentado |
 |---|---|---|---|
-| **Servidor (Render)** | Se "duerme" si pasan 15 minutos sin recibir visitas | La primera petición después de ese tiempo puede tardar entre 30 y 50 segundos. Las siguientes responden con normalidad | [ADR 0005](../adr/0005-plataforma-de-despliegue.md) |
-| **Servidor (Render)** | Incluye 750 horas de uso al mes | Un solo servicio puede funcionar todo el mes sin agotarlas | [ADR 0005](../adr/0005-plataforma-de-despliegue.md) |
+| **Servidor (Render)** | Se "duerme" si pasan 15 minutos sin recibir visitas | La primera petición después de ese tiempo puede tardar entre 30 y 50 segundos. Las siguientes responden con normalidad | [ADR 0005](../adr/0005-render-plataforma-de-despliegue.md) |
+| **Servidor (Render)** | Incluye 750 horas de uso al mes | Un solo servicio puede funcionar todo el mes sin agotarlas | [ADR 0005](../adr/0005-render-plataforma-de-despliegue.md) |
 | **Base de datos (Supabase)** | Se pausa si pasan 7 días sin uso | Se reactiva desde el panel de Supabase, sin perder datos ni cambiar su estructura | [ADR 0006](../adr/0006-base-de-datos-supabase.md) |
  
 ### Cómo se verifica
  
 - **Que el servicio está activo:** [Verificación de despliegue externo](../evidencia/despliegue-externo.md).
-- **Que responde con rapidez:** la medición del tiempo de respuesta de la búsqueda de viajes está en [Métrica de calidad consultable](../metricas.md). Esa medición no incluye el arranque tras el "sueño" del servidor, porque ocurre antes de que el registro de actividad empiece a contar.
+- **Que responde con rapidez:** la medición del tiempo de respuesta de la búsqueda de viajes está en [Métrica de calidad consultable](../evidencia/metricas-escenario-calidad.md). Esa medición no incluye el arranque tras el "sueño" del servidor, porque ocurre antes de que el registro de actividad empiece a contar.
 - **Que no genera costo:** [Costo mensual](../evidencia/costo_mensual.md).

@@ -13,7 +13,7 @@ En particular, el sistema implementa un control de concurrencia atómico para ev
 Asimismo, el proyecto se rige por las siguientes restricciones:
 - **Presupuesto cero ($0.00 USD):** No se dispone de fondos económicos para adquirir bases de datos dedicadas.
 - **Sin tarjeta de crédito:** El proveedor debe permitir crear, mantener y conectar la base de datos sin requerir ninguna tarjeta bancaria ni periodo de prueba que caduque a mitad de semestre.
-- **Conectividad remota y segura:** Debe permitir conexiones remotas cifradas (SSL/TLS) tanto desde el backend alojado en Render ([ADR 0005](0005-plataforma-de-despliegue.md)) como desde los entornos de desarrollo local y de integración continua.
+- **Conectividad remota y segura:** Debe permitir conexiones remotas cifradas (SSL/TLS) tanto desde el backend alojado en Render ([ADR 0005](0005-render-plataforma-de-despliegue.md)) como desde los entornos de desarrollo local y de integración continua.
 
 ## Decisión
 
@@ -61,4 +61,4 @@ Se adopta **Supabase (Free Tier)** como plataforma de base de datos relacional P
 | Persistencia relacional en la nube | [Base de datos en Supabase](../arc42/07_vista_de_despliegue.md) | `backend/migrations/`, `backend/app/shared/database.py` | Conexión remota verificada |
 | Control atómico de cupos | Servidor de base de datos | [ADR 0003 - Control atómico](0003-control-atomico-de-cupos.md) | `backend/tests/test_cupos.py` |
 | Restricción de presupuesto ($0 USD) | Infraestructura de datos | [Restricciones arc42](../arc42/02_restricciones_de_arquitectura.md) | [Costo mensual](../evidencia/costo_mensual.md) |
-| Plataforma de cómputo asociada | Servidor de aplicación | [ADR 0005 - Render](0005-plataforma-de-despliegue.md) | Endpoint `/health` |
+| Plataforma de cómputo asociada | Servidor de aplicación | [ADR 0005 - Render](0005-render-plataforma-de-despliegue.md) | Endpoint `/health` |
