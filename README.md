@@ -84,7 +84,9 @@ El recorrido de validación del flujo de autenticación se encuentra implementad
   - [Prueba de cupos](backend/tests/test_cupos.py)
   - [Prueba de viajes](backend/tests/test_trips_flow.py)
   - [Prueba de contrato](backend/tests/test_openapi_contract.py)
-- **Evidencia de ejecución (Success):** [GitHub Actions Run #36037874215](https://github.com/ISCOUTB/AS_202620_ROUTB/actions/runs/36037874215)
+- **Evidencia de ejecución (Success):** [GitHub Actions Run #36063583782](https://github.com/ISCOUTB/AS_202620_ROUTB/actions/runs/36063583782)
+  
+  **Conclusion de la última ejecución:** La ejecución de las pruebas automatizadas ha sido exitosa, lo que indica que el código cumple con los estándares de calidad establecidos.
 
 ### Análisis de SonarCloud
 
@@ -102,18 +104,17 @@ El backend está desplegado y accesible públicamente por HTTPS:
 
 - **URL base:** [https://as-202620-routb.onrender.com](https://as-202620-routb.onrender.com)
 - **Health check:** [https://as-202620-routb.onrender.com/health](https://as-202620-routb.onrender.com/health)
-- **Evidencia de verificación externa:** [docs/evidencia/despliegue-externo.md](docs/evidencia/despliegue-externo.md)
+
+**Evidencia:** Al entrar a los links de verificación, se puede observar que el servicio está funcionando correctamente. Si se necesita verificar más a fondo, se puede consultar toda la evidencia en [docs/evidencia/despliegue-externo.md](docs/evidencia/despliegue-externo.md)
 
 ### Piezas desplegadas
 
-Ambas plataformas se usan en su plan gratuito, sin tarjeta de crédito.
+Ambas plataformas que prestan servicio se usan en su plan gratuito.
 
 | Pieza | Dónde se ejecuta | Proveedor | Decisión |
 |---|---|---|---|
 | API Backend | Web Service en contenedor Docker | [Render](https://render.com) | [ADR 0005](docs/adr/0005-plataforma-de-despliegue.md) |
 | Base de datos | PostgreSQL 15 administrado | [Supabase](https://supabase.com) | [ADR 0006](docs/adr/0006-base-de-datos-supabase.md) |
-
-La app móvil se ejecuta en el dispositivo del usuario y consume la API por HTTPS. El detalle completo está en la [Vista de despliegue](docs/arc42/07_vista_de_despliegue.md).
 
 ### Variables de entorno
 
@@ -122,72 +123,24 @@ La app móvil se ejecuta en el dispositivo del usuario y consume la API por HTTP
 | `DATABASE_URL` | Cadena de conexión con la que la API accede a la base de datos (SSL requerido) | Datos de conexión del proyecto, en el panel de Supabase | Panel de Render (Environment) |
 | `JWT_SECRET_KEY` | Clave secreta con la que la API firma los tokens de autenticación | Se genera una cadena aleatoria (ver paso 4) | Panel de Render (Environment) |
 
-Ejemplo de formato, sin valores reales:
-
-```env
-DATABASE_URL=postgresql://<USUARIO>:<CONTRASENA>@<HOST>:<PUERTO>/<BASE_DE_DATOS>
-JWT_SECRET_KEY=<cadena-aleatoria-larga>
-```
-
-Los secretos no se guardan en el repositorio: se cargan únicamente en el panel de Render.
-
 ### Pasos para recrear el entorno desde cero
 
-**Requisitos previos:** cuentas gratuitas en GitHub, Supabase y Render; acceso al repositorio; Python instalado para ejecutar las migraciones.
+**Requisitos:** cuentas gratuitas en GitHub, Supabase y Render, y Python instalado.
 
-**1. Crear la base de datos en Supabase**
+1. **Base de datos (Supabase):** crea un proyecto (plan Free) y copia la cadena de conexión del panel; la usarás como `DATABASE_URL`.
+2. **Migraciones:** en `backend`, con las dependencias instaladas y `DATABASE_URL` exportada, ejecuta `alembic upgrade head`.
+3. **Servicio (Render):** *New → Web Service* → selecciona el repo → entorno **Docker** (`backend/Dockerfile`), instancia **Free**, **Health Check Path** = `/health`.
+4. **Variables de entorno** en Render → *Environment*: `DATABASE_URL` (paso 1) y `JWT_SECRET_KEY` (genera una con `python -c "import secrets; print(secrets.token_urlsafe(32))"`).
+5. **Verificar:** espera a que el servicio quede **Live** y prueba:
+   ```bash
+   curl https://as-202620-routb.onrender.com/health
+   curl -i https://as-202620-routb.onrender.com/trips/
+   ```
 
-1. En [supabase.com](https://supabase.com) crea un proyecto nuevo (plan Free) y guarda la contraseña de la base de datos.
-2. En el panel del proyecto busca los datos de conexión a la base de datos: los necesitarás para la variable `DATABASE_URL`.
-
-**2. Crear las tablas (migraciones)**
-
-Desde tu equipo, en la carpeta `backend`, con las dependencias instaladas y `DATABASE_URL` apuntando a Supabase:
-
-```bash
-cd backend
-pip install -r requirements.txt
-export DATABASE_URL="<tu cadena de Supabase>"   # PowerShell: $env:DATABASE_URL="<tu cadena de Supabase>"
-alembic upgrade head
-```
-
-**3. Crear el servicio en Render**
-
-1. En [render.com](https://render.com) conecta tu cuenta de GitHub.
-2. Elige **New → Web Service** y selecciona el repositorio del proyecto.
-3. Configura el servicio: entorno **Docker** (que use `backend/Dockerfile`), instancia **Free** y, en las opciones avanzadas, **Health Check Path** con el valor `/health`.
-4. Antes de pulsar **Create Web Service**, agrega las variables de entorno del paso 4.
-
-**4. Cargar las variables de entorno**
-
-Al crear el servicio (o después, en su sección **Environment**), define `DATABASE_URL` (paso 1) y `JWT_SECRET_KEY`. Para generar esta última:
-
-```bash
-python -c "import secrets; print(secrets.token_urlsafe(32))"
-```
-
-**5. Desplegar**
-
-Render construye la imagen a partir de `backend/Dockerfile` y arranca el servicio. Espera a que su estado sea **Live**.
-
-**6. Verificar**
-
-Reemplaza la URL por la de tu servicio (si recreas el entorno, será distinta a la de arriba):
-
-```bash
-curl https://as-202620-routb.onrender.com/health
-# Respuesta esperada: {"status":"ok"}
-
-curl -i https://as-202620-routb.onrender.com/trips/
-# Respuesta esperada: HTTP 200
-```
-
-La documentación interactiva de la API queda disponible en `/docs`.
-
-> En el plan gratuito de Render, si el servicio estuvo 15 minutos sin tráfico, la primera petición puede tardar entre 30 y 50 segundos. Es normal; las siguientes responden con rapidez.
+> En el plan gratuito de Render, tras 15 min sin tráfico la primera petición puede tardar 30-50 s; las siguientes responden con normalidad. La documentación interactiva de la API está en `/docs`.
 
 ---
 
 ## Calidad y métricas
 
-La calidad de rendimiento se verifica con una métrica consultable: el percentil 95 de la latencia de `GET /trips/` debe ser menor a 3,99 s. El escenario, la fuente de datos, la consulta, el umbral y la medición realizada están en [docs/metricas.md](docs/metricas.md).
+La calidad de rendimiento se verifica con una métrica consultable: el percentil 95 de la latencia de `GET /trips/` debe ser menor a 3,99 s. El escenario, la fuente de datos, la consulta, el umbral y la medición realizada están en [docs/metricas.md](docs/evidencia/metricas.md).

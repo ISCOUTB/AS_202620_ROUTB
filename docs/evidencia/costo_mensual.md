@@ -1,6 +1,6 @@
-# Estimación de Costo Mensual y Punto de Ruptura de la Capa Gratuita ($0 USD)
+# Estimación de costo mensual y punto de ruptura de la capa gratuita ($0 USD)
 
-## 1. Supuestos de Volumen y Carga (Escenarios de Calidad)
+## 1. Supuestos de volumen y carga (Escenarios de Calidad)
 
 De acuerdo con lo definido en el Árbol de Utilidad y Escenarios de Calidad de ROUTB (`docs/arc42/10_requisitos_de_calidad.md`):
 
@@ -19,7 +19,7 @@ De acuerdo con lo definido en el Árbol de Utilidad y Escenarios de Calidad de R
 
 ---
 
-## 2. Desglose de Costos por Componente de Infraestructura
+## 2. Desglose de costos por componente de infraestructura
 
 | Componente | Proveedor | Recurso / Plan | Capacidad Incluida | Consumo Estimado ROUTB | Costo Mensual ($ USD) |
 |---|---|---|---|---|---|
@@ -33,7 +33,7 @@ De acuerdo con lo definido en el Árbol de Utilidad y Escenarios de Calidad de R
 
 ---
 
-## 3. Análisis de Punto de Ruptura de la Capa Gratuita
+## 3. Análisis de punto de ruptura de la capa gratuita
 
 A continuación se determina con precisión el umbral a partir del cual cada servicio superaría los límites gratuitos y qué impacto tendría:
 
@@ -53,13 +53,13 @@ A continuación se determina con precisión el umbral a partir del cual cada ser
 * **Siguiente escalón (Plan de contingencia):**
   - Supabase *Pro Plan* ($25 USD/mes con 8 GB de almacenamiento y sin pausa por inactividad).
 
-### 3.3 Ancho de Banda y Red
+### 3.3 Ancho de banda y red
 * **Límite gratuito:** 100 GB/mes en Render.
 * **Punto de ruptura:** Con el tráfico actual de ~0.6 GB/mes, se necesitaría multiplicar el tráfico por más de **150 veces** (> 25.000.000 de solicitudes/mes) para exceder el ancho de banda gratuito.
 
 ---
 
-## 4. Conclusión de Viabilidad
+## 4. Conclusión de viabilidad
 
 El dimensionamiento de ROUTB para el alcance académico demuestra que:
 1. La plataforma opera holgadamente dentro de los márgenes de los planes gratuitos (**menos del 10 % del cupo de almacenamiento de Supabase** y **menos del 1 % del ancho de banda de Render**).

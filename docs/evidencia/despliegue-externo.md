@@ -1,6 +1,6 @@
-# Evidencia de Despliegue en la Nube y Verificación de Disponibilidad Externa
+# Evidencia de despliegue en la nube y verificación de disponibilidad externa
 
-## 1. Contexto de la Prueba
+## 1. Contexto de la prueba
 
 Conforme a lo establecido en el **ADR 0005** y los escenarios de calidad de **ROUTB**, el backend se desplegó en un entorno contenerizado público utilizando **Render (Web Service - Free Tier)** conectado a **Supabase (PostgreSQL 15)**.
 
@@ -12,40 +12,46 @@ Para validar que el servicio es efectivamente alcanzable desde fuera de la red d
 
 ---
 
-## 2. Comando y Salida de Ejecución
+## 2. Comando y salida de ejecución
 
-A continuación se registra la ejecución real del comando `curl` realizada desde una terminal externa:
+Se ejecutó el siguiente comando, capturando en una sola llamada la respuesta HTTP completa y el tiempo total de respuesta:
 
 ```powershell
-PS C:\Windows\System32> curl.exe -i https://as-202620-routb.onrender.com/health
+curl.exe -i -w " codigo=%{http_code} tiempo=%{time_total}s" https://as-202620-routb.onrender.com/health
+```
+
+Se obtuvo la siguiente salida, que incluye encabezados HTTP, cuerpo de respuesta y métricas de tiempo:
+
+```
 HTTP/1.1 200 OK
-Date: Thu, 24 Sep 2026 18:12:15 GMT
+Date: Sat, 26 Sep 2026 02:13:36 GMT
 Content-Type: application/json
 Transfer-Encoding: chunked
 Connection: keep-alive
 cf-cache-status: DYNAMIC
-rndr-id: cae3eaf0-eb4f-4cc0
+rndr-id: 1f8fe663-f055-4e94
 Server: cloudflare
 vary: Accept-Encoding
 x-render-origin-server: uvicorn
-CF-RAY: a403c19a1d4c6ebd-BOG
+CF-RAY: a40ec0150eab707c-BOG
 alt-svc: h3=":443"; ma=86400
 
-{"status":"ok"}
+{"status":"ok"} codigo=200 tiempo=0.299997s
 ```
 
 ---
 
-## 3. Análisis de Resultados
+## 3. Análisis de resultados
 
 | Parámetro | Valor Obtenido | Criterio / Esperado | Estado |
 |---|---|---|---|
 | **Código HTTP** | `200 OK` | `200 OK` | ✅ Cumple |
 | **Cuerpo de Respuesta** | `{"status":"ok"}` | JSON válido con status ok | ✅ Cumple |
 | **Servidor de Origen** | `uvicorn` (`x-render-origin-server`) | Servidor ASGI del contenedor Docker | ✅ Cumple |
-| **Identificador de Despliegue** | `rndr-id: cae3eaf0-eb4f-4cc0` | Instancia activa en Render Cloud | ✅ Cumple |
+| **Tiempo de Respuesta** | `0.299997s` | Tiempo total medido con `curl -w %{time_total}` | ✅ Cumple |
+| **Identificador de Despliegue** | `rndr-id: 1f8fe663-f055-4e94` | Instancia activa en Render Cloud | ✅ Cumple |
 | **Región de Salida CDN** | `BOG` (Bogotá, Colombia) | Acceso externo enrutado vía Cloudflare | ✅ Cumple |
-| **Fecha / Hora de Verificación** | `Thu, 24 Sep 2026 18:12:15 GMT` | Tiempo de corte de la iteración actual | ✅ Cumple |
+| **Fecha / Hora de Verificación** | `Sat, 26 Sep 2026 02:13:36 GMT` | Tiempo de corte de la iteración actual | ✅ Cumple |
 
 ---
 
