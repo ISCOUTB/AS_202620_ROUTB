@@ -23,18 +23,54 @@ cd frontend
 flutter pub get
 ```
 
-## Ejecución
+## Backend
 
-Inicia primero el backend:
+El frontend necesita el backend corriendo en `http://localhost:8000`.
 
 ```bash
 cd backend
+```
+
+Crea el entorno virtual (solo la primera vez):
+
+```bash
+python -m venv .venv
+```
+
+Actívalo:
+
+```bash
+# Windows
 .venv\Scripts\activate
+# Mac/Linux
+source .venv/bin/activate
+```
+
+Instala las dependencias:
+
+```bash
 pip install --only-binary :all: --require-hashes -r requirements.txt
+```
+
+Configura las variables de entorno copiando la plantilla y completando los valores:
+
+```bash
+cp .env.example .env
+```
+
+Inicia el servidor:
+
+```bash
 uvicorn app.main:app --reload
 ```
 
-Después, desde otra terminal, ejecuta el frontend:
+> **Nota:** también puedes usar el script `start.bat` (Windows) o `start.sh` (Mac/Linux) en la raíz del repositorio para automatizar estos pasos y levantar el frontend a continuación. Requiere que el `.venv` ya exista y las variables de entorno estén configuradas.
+>
+> El repositorio también incluye un `docker-compose.yml` en la raíz como alternativa para levantar la base de datos y el backend en contenedores.
+
+## Ejecución del frontend
+
+Con el backend ya corriendo, desde otra terminal:
 
 ```bash
 cd frontend
@@ -46,4 +82,16 @@ También puedes indicar un dispositivo específico:
 ```bash
 flutter devices
 flutter run -d <device-id>
+```
+
+## Build
+
+Para generar una versión distribuible:
+
+```bash
+# Android
+flutter build apk
+
+# Web
+flutter build web
 ```
