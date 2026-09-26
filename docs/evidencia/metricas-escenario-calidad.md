@@ -49,44 +49,73 @@ Un script de PowerShell envía 100 peticiones a `GET /trips/` sobre el despliegu
 
 ## 3. Consulta de cálculo
 
-### 3.1 Medición interna (sobre los registros de Render)
+### 3.1 Medición interna con logs de Render
 
-Exportar los registros del servicio con el comando siguiente (el ID `srv-XXXX` aparece en la URL del servicio en Render) o copiarlos desde la pestaña **Logs**, y guardarlos en `render_access.log`:
+Este procedimiento tiene **tres fases separadas**: la última depende de un archivo que se prepara manualmente entre la fase 1 y la fase 2, así que no se ejecuta todo de corrido.
 
-```bash
-render logs -r srv-XXXX --start 24h --limit 5000 --text '"/trips/"' > render_access.log
+#### Fase 1 — Generar tráfico
+
+```powershell
+$url = "https://as-202620-routb.onrender.com"
+
+curl.exe -s "$url/health" | Out-Null
+Start-Sleep -Seconds 5
+
+1..100 | ForEach-Object {
+    curl.exe -s -o NUL "$url/trips/"
+    Write-Progress -Activity "Generando tráfico a /trips/" -Status "$_ de 100" -PercentComplete $_
+}
+Write-Progress -Activity "Generando tráfico a /trips/" -Completed
 ```
 
-Calcular el p95 en PowerShell:
+#### Fase 2 — Preparar `render_access.log`
+
+> **Detenerse aquí.** La fase 3 necesita este archivo ya creado; si se ejecuta antes, el script falla porque el archivo no existe todavía.
+
+1. Entrar al servicio en Render → pestaña **Logs**.
+2. Filtrar por el texto `/trips/` en la barra de búsqueda.
+3. Ajustar el rango de tiempo para cubrir el momento en que se generó el tráfico (fase 1).
+4. Seleccionar y copiar las líneas visibles (el panel no tiene botón de exportación).
+5. Pegar el contenido copiado en un archivo de texto nuevo llamado `render_access.log`, guardado en la misma carpeta donde se ejecutará la fase 3.
+
+#### Fase 3 — Calcular la métrica
 
 ```powershell
 $tiempos = @(
     Get-Content render_access.log |
-        ForEach-Object { $_ -replace '^\d{4}-\d{2}-\d{2}T\S+\s+', '' } |   # quita la fecha que Render antepone
-        Where-Object { $_.StartsWith('{') } |                              # descarta líneas que no son JSON
+        ForEach-Object { $_ -replace '^\d{4}-\d{2}-\d{2}T\S+\s+', '' } |
+        Where-Object { $_.StartsWith('{') } |
         ForEach-Object { $_ | ConvertFrom-Json } |
         Where-Object { $_.path -eq '/trips/' -and $_.method -eq 'GET' -and $_.status_code -eq 200 } |
-        ForEach-Object { [double]$_.duration_ms } |
+        ForEach-Object { [double]$_.duration_ms / 1000 } |
         Sort-Object
 )
 
 $n = $tiempos.Count
+
 if ($n -gt 0) {
     $idx = [math]::Ceiling($n * 0.95) - 1
+    $promedio = ($tiempos | Measure-Object -Average).Average
+
+    "--------------------------------"
+    "Resultados de rendimiento"
+    "--------------------------------"
     "N = $n"
-    "p95 = $($tiempos[$idx]) ms"
-    "Máximo = $($tiempos[-1]) ms"
+    "Mínimo:   $([math]::Round($tiempos[0], 4)) s"
+    "Promedio: $([math]::Round($promedio, 4)) s"
+    "p95:      $([math]::Round($tiempos[$idx], 4)) s"
+    "Máximo:   $([math]::Round($tiempos[-1], 4)) s"
 } else {
     "No se encontraron peticiones coincidentes."
 }
 ```
 
-### 3.2 Medición externa (PowerShell con `curl`)
+### 3.2 Medición externa en PowerShell
 
 ```powershell
 $url = "https://as-202620-routb.onrender.com"
 
-# 1. Calentar el servicio (evita medir el arranque en frío)
+# 1. Calentar el servicio
 curl.exe -s "$url/health" | Out-Null
 Start-Sleep -Seconds 5
 
@@ -94,20 +123,32 @@ Start-Sleep -Seconds 5
 $resultados = 1..100 | ForEach-Object {
     curl.exe -s -o NUL -w '%{http_code} %{time_total}' "$url/trips/"
 }
-$resultados | Tee-Object -FilePath medicion_curl.txt
 
-# 3. Calcular el p95 (solo respuestas 200)
+# Mostrar resultados individuales
+$resultados
+
+# 3. Obtener tiempos de respuestas 200
 $tiempos = $resultados |
     Where-Object { $_ -like "200 *" } |
     ForEach-Object { [double](($_ -split ' ')[1]) } |
     Sort-Object
 
 $n = $tiempos.Count
+
 if ($n -gt 0) {
     $idx = [math]::Ceiling($n * 0.95) - 1
-    "Peticiones con 200 (N): $n de 100"
-    "p95: $($tiempos[$idx]) s"
-    "Máximo: $($tiempos[-1]) s"
+    $promedio = ($tiempos | Measure-Object -Average).Average
+
+    "--------------------------------"
+    "Resultados de rendimiento"
+    "--------------------------------"
+    "N = $n"
+    "Mínimo:   $([math]::Round($tiempos[0], 4)) s"
+    "Promedio: $([math]::Round($promedio, 4)) s"
+    "p95:      $([math]::Round($tiempos[$idx], 4)) s"
+    "Máximo:   $([math]::Round($tiempos[-1], 4)) s"
+} else {
+    "No se encontraron peticiones con código 200."
 }
 ```
 
@@ -126,36 +167,34 @@ Condiciones de validez de la medición:
 - Mínimo 100 peticiones por medición.
 - Servicio calentado antes de medir.
 
-> **Arranque en frío:** según el [ADR 0005](../adr/0005-plataforma-de-despliegue.md), la primera petición tras un periodo de inactividad en Render puede tardar decenas de segundos. Ese tiempo ocurre antes de que el middleware empiece a medir, así que esta métrica **no lo captura**. Por eso el servicio se calienta antes de medir, y el arranque en frío se evalúa por separado en la [verificación de disponibilidad externa](../evidencia/despliegue-externo.md).
+> **Arranque en frío:** según el [ADR 0005](../adr/0005-render-plataforma-de-despliegue.md), la primera petición tras un periodo de inactividad en Render puede tardar decenas de segundos. Ese tiempo ocurre antes de que el middleware empiece a medir, así que esta métrica **no lo captura**. Por eso el servicio se calienta antes de medir, y el arranque en frío se evalúa por separado en la [verificación de disponibilidad externa](../evidencia/despliegue-externo.md).
 
 ---
 
 ## 5. Medición realizada
-
-Ambas mediciones se hicieron el 24 de septiembre de 2026 sobre `GET https://as-202620-routb.onrender.com/trips/`.
-
+ 
+Ambas mediciones se hicieron el 26 de septiembre de 2026 sobre `GET https://as-202620-routb.onrender.com/trips/`.
+ 
 | Dato | Interna (oficial) | Externa (complementaria) |
 |---|---|---|
 | Fuente | Registros de Render | Script de PowerShell con `curl` |
-| Peticiones con código 200 (N) | 200 (2 ejecuciones de 100) | 100 de 100 |
-| Mínimo | 194,53 ms | — |
-| Promedio | 214,71 ms | — |
-| **p95** | **230,83 ms** | **566 ms** |
-| Máximo | 594,68 ms | 919 ms |
+| Peticiones con código 200 (N) | 100 | 100 |
+| Mínimo | 193,10 ms | 426,80 ms |
+| Promedio | 206,40 ms | 507,70 ms |
+| **p95** | **219,80 ms** | **585,10 ms** |
+| Máximo | 222,90 ms | 724,40 ms |
 | Umbral | < 3.990 ms | < 3.990 ms |
 | **Resultado** | **CUMPLE** | **CUMPLE** |
-
+ 
 **Cómo leer los resultados:** en ambos casos el p95 queda muy por debajo del umbral. La medición externa es más lenta porque suma el viaje de red entre quien consulta y Render; la interna muestra el tiempo real de trabajo de la aplicación.
-
-**Valor atípico:** el máximo interno (594,68 ms) corresponde a la primera petición de la primera ejecución. Se hizo justo después de calentar solo con `/health`, que no consulta la base de datos, así que probablemente incluyó la apertura de la conexión con la base. Las demás peticiones se mantienen entre 194 y 261 ms.
-
+ 
 **Chequeo de salud de Render:** las líneas de `/health` que aparecen en los registros (cada 5 segundos, en menos de 4 ms) se excluyen del cálculo, porque el filtro solo toma `/trips/`.
-
+ 
 ---
 
 ## 6. Trazabilidad con la arquitectura
 
-- **Requisito de calidad:** [arc42 sección 10.2 (Rendimiento)](arc42/10_requisitos_de_calidad.md#102-escenarios-de-calidad).
-- **Instrumentación de código:** middleware en [`backend/app/main.py`](../backend/app/main.py).
-- **Decisiones relacionadas:** [ADR 0003](adr/0003-control-atomico-de-cupos.md), [ADR 0005](adr/0005-plataforma-de-despliegue.md) y [ADR 0006](adr/0006-base-de-datos-supabase.md).
-- **Evidencia de ejecución en la nube:** [Verificación de disponibilidad externa](evidencia/despliegue-externo.md).
+- **Requisito de calidad:** [arc42 sección 10.2 (Rendimiento)](../arc42/10_requisitos_de_calidad.md#102-escenarios-de-calidad).
+- **Instrumentación de código:** middleware en [`backend/app/main.py`](/backend/app/main.py).
+- **Decisiones relacionadas:** [ADR 0003](../adr/0003-control-atomico-de-cupos.md), [ADR 0005](../adr/0005-render-plataforma-de-despliegue.md) y [ADR 0006](../adr/0006-base-de-datos-supabase.md).
+- **Evidencia de ejecución en la nube:** [Verificación de disponibilidad externa](../evidencia/despliegue-externo.md).

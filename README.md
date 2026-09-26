@@ -113,7 +113,7 @@ Ambas plataformas que prestan servicio se usan en su plan gratuito.
 
 | Pieza | Dónde se ejecuta | Proveedor | Decisión |
 |---|---|---|---|
-| API Backend | Web Service en contenedor Docker | [Render](https://render.com) | [ADR 0005](docs/adr/0005-plataforma-de-despliegue.md) |
+| API Backend | Web Service en contenedor Docker | [Render](https://render.com) | [ADR 0005](docs/adr/0005-render-plataforma-de-despliegue.md) |
 | Base de datos | PostgreSQL 15 administrado | [Supabase](https://supabase.com) | [ADR 0006](docs/adr/0006-base-de-datos-supabase.md) |
 
 ### Variables de entorno
@@ -143,4 +143,4 @@ Ambas plataformas que prestan servicio se usan en su plan gratuito.
 
 ## Calidad y métricas
 
-La calidad de rendimiento se verifica con una métrica consultable: el percentil 95 de la latencia de `GET /trips/` debe ser menor a 3,99 s. El escenario, la fuente de datos, la consulta, el umbral y la medición realizada están en [docs/metricas.md](docs/evidencia/metricas.md).
+La calidad de rendimiento se verifica con una métrica consultable: el percentil 95 de la latencia de `GET /trips/` debe ser menor a 3,99 s. El escenario, la fuente de datos, la consulta, el umbral y la medición realizada están en [Metricas frente a escenario de calidad](docs/evidencia/metricas-escenario-calidad.md).

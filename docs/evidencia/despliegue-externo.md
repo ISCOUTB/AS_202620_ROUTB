@@ -57,7 +57,7 @@ alt-svc: h3=":443"; ma=86400
 
 ## 4. Trazabilidad
 
-- **Decisión de Arquitectura:** [ADR 0005 - Plataforma de despliegue](../adr/0005-plataforma-de-despliegue.md)
+- **Decisión de Arquitectura:** [ADR 0005 - Plataforma de despliegue](../adr/0005-render-plataforma-de-despliegue.md)
 - **Infraestructura como Código:** [backend/Dockerfile](../../backend/Dockerfile), [render.yaml](../../render.yaml)
 - **Estimación de Costo:** [docs/evidencia/costo_mensual.md](costo_mensual.md)
 - **Pruebas Automatizadas:** [backend/tests/test_health.py](../../backend/tests/test_health.py)
