@@ -30,3 +30,27 @@ class TripResponse(BaseModel):
     driver_id: int | None = None
     driver_name: str | None = None
     requests: list[TripRequestResponse] = []
+
+
+class MyRequestResponse(BaseModel):
+    """Solicitud propia del pasajero con una foto del viaje.
+
+    Se expone plana y no anidada porque el pasajero la lee desde su telefono y
+    necesita solo los datos que caben en su pantalla. El viaje viaja dentro
+    porque ``GET /trips/`` deja de devolverlo cuando se ocupa el ultimo cupo.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    status: str
+    created_at: datetime
+    trip_id: int
+    origin: str
+    destination: str
+    departure_time: str | None = None
+    total_seats: int
+    available_seats: int
+    trip_status: str
+    driver_name: str | None = None
+    driver_phone: str | None = None

@@ -1,6 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- La app consume la API REST de ROUTB (ADR 0004) en todas las plataformas.
+         Este permiso debe declararse en el manifest principal: los manifiestos
+         de debug y profile solo se fusionan en esas variantes de build, por lo
+         que sin esta linea los builds release fallan al no poder abrir ningun
+         socket de red. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="frontend"
+        android:label="ROUTB"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:allowBackup="false"

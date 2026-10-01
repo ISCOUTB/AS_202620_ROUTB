@@ -56,3 +56,30 @@ def reject_request(db: Session, request_id: int, driver_id: int | None = None) -
     db.commit()
     db.refresh(request)
     return request
+
+
+def withdraw_request(db: Session, request_id: int, passenger_id: int) -> None:
+    """Retira la solicitud del pasajero y devuelve el cupo si estaba confirmada.
+
+    La fila se borra en vez de marcarse: ``create_request`` rechaza volver a
+    pedir si ya existe una solicitud ``pending`` o ``accepted``, asi que dejar
+    una retirada bloquearia al pasajero para siempre.
+    """
+    request = (
+        db.query(TripRequest)
+        .options(joinedload(TripRequest.trip))
+        .filter(TripRequest.id == request_id)
+        .first()
+    )
+    if not request:
+        raise TripRequestNotFoundError("Solicitud no encontrada")
+
+    if request.passenger_id != passenger_id:
+        raise UnauthorizedRequestActionError("Solo puedes retirar tu propia solicitud")
+
+    trip = request.trip
+    if request.status == "accepted" and trip is not None:
+        trip.available_seats = min(trip.total_seats, trip.available_seats + 1)
+
+    db.delete(request)
+    db.commit()

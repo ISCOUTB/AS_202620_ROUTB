@@ -115,6 +115,11 @@
         ],
         "summary": "Get Active Trips",
         "operationId": "get_active_trips_trips__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "origin",
@@ -214,6 +219,11 @@
         ],
         "summary": "Get Trip",
         "operationId": "get_trip_trips__trip_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "trip_id",
@@ -593,6 +603,78 @@
         }
       }
     },
+    "/requests/me": {
+      "get": {
+        "tags": [
+          "requests"
+        ],
+        "summary": "My Requests",
+        "description": "Solicitudes del pasajero que entra, con los datos de su viaje.\n\nEs la via que sobrevive a que el viaje se llene: ``GET /trips/`` solo\ndevuelve los que tienen cupo libre, asi que un pasajero con el ultimo\ncupo confirmado no lo veria ahi.",
+        "operationId": "my_requests_requests_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MyRequestResponse"
+                  },
+                  "type": "array",
+                  "title": "Response My Requests Requests Me Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/requests/{request_id}": {
+      "delete": {
+        "tags": [
+          "requests"
+        ],
+        "summary": "Withdraw Request",
+        "description": "Retira la solicitud del pasajero que entra y libera el cupo ocupado.",
+        "operationId": "withdraw_request_requests__request_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Request Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "summary": "Health",
@@ -660,6 +742,94 @@
           "password"
         ],
         "title": "LoginRequest"
+      },
+      "MyRequestResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "trip_id": {
+            "type": "integer",
+            "title": "Trip Id"
+          },
+          "origin": {
+            "type": "string",
+            "title": "Origin"
+          },
+          "destination": {
+            "type": "string",
+            "title": "Destination"
+          },
+          "departure_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Departure Time"
+          },
+          "total_seats": {
+            "type": "integer",
+            "title": "Total Seats"
+          },
+          "available_seats": {
+            "type": "integer",
+            "title": "Available Seats"
+          },
+          "trip_status": {
+            "type": "string",
+            "title": "Trip Status"
+          },
+          "driver_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Driver Name"
+          },
+          "driver_phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Driver Phone"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "created_at",
+          "trip_id",
+          "origin",
+          "destination",
+          "total_seats",
+          "available_seats",
+          "trip_status"
+        ],
+        "title": "MyRequestResponse",
+        "description": "Solicitud propia del pasajero con una foto del viaje.\n\nSe expone plana y no anidada porque el pasajero la lee desde su telefono y\nnecesita solo los datos que caben en su pantalla. El viaje viaja dentro\nporque ``GET /trips/`` deja de devolverlo cuando se ocupa el ultimo cupo."
       },
       "TokenResponse": {
         "properties": {
@@ -839,6 +1009,17 @@
               }
             ],
             "title": "Driver Name"
+          },
+          "my_request_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "My Request Status"
           }
         },
         "type": "object",
