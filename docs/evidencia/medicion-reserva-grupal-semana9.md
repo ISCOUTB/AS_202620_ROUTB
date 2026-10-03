@@ -8,14 +8,25 @@ Se conserva el escenario publicado para `GET /trips/`: servicio caliente, mínim
 
 El 26 de septiembre de 2026, antes de esta Porción, se reportaron 100 respuestas 200 a `GET /trips/`: p95 interno 219,80 ms y p95 externo 585,10 ms. La línea base cumple el umbral. No se debe comparar directamente una medición local con estos valores de producción ni atribuir una diferencia al cambio de reserva grupal si no se midió el mismo despliegue y escenario.
 
-## Medición posterior a la implementación
+## Comparación externa
 
-El 2 de octubre de 2026 (hora de Bogotá) se ejecutó una medición local posterior con el servicio caliente. Se calentó `/health` y después se midió el tiempo percibido por `TestClient` para 100 consultas a `GET /trips/`; las 100 respondieron 200.
+Escenario: `GET https://as-202620-routb.onrender.com/trips/`, servicio
+caliente y respuestas HTTP 200.
 
-| Entorno/fecha | N 200 | p95 | Umbral | Fuente | Resultado |
-|---|---:|---:|---:|---|---|
-| Local, SQLite temporal; 2026-10-02 | 100 | 0,0762 s | < 3,99 s | `TestClient`, tiempo total cliente-servidor local | CUMPLE |
+| Dato | Línea base | Semana 9 |
+|---|---:|---:|
+| Fuente | Script de PowerShell con `curl` | Script de PowerShell con `curl` |
+| Peticiones con código 200 (N) | 100 | 100 |
+| Mínimo | 426,80 ms | 502,53 ms |
+| Promedio | 507,70 ms | 590,82 ms |
+| **p95** | **585,10 ms** | **697,82 ms** |
+| Máximo | 724,40 ms | 904,64 ms |
+| Umbral | < 3.990 ms | < 3.990 ms |
+| **Resultado** | **CUMPLE** | **CUMPLE** |
 
-La medición local cumple el umbral publicado en este escenario, pero no es comparable directamente con Render: no incluye la misma infraestructura ni la latencia de red. Como no se desplegó esta versión, no se atribuye una mejora a la Porción y queda pendiente repetir la medición interna oficial en Render cuando se desplieguen los cambios.
-
-Reproducción automatizada: `backend/tests/test_week9_quality_measurement.py`. El test informó `N=100, p95=0.0762s, umbral=3.99s` y pasó (`1 passed`).
+El p95 de la línea base fue 585,10 ms y el de Semana 9 fue 697,82 ms; ambos
+están por debajo del umbral de 3.990 ms. En Semana 9, el mínimo fue 502,53 ms,
+el promedio 590,82 ms y el máximo 904,64 ms. Frente a la línea base, el p95
+aumentó 112,72 ms (19,3 %) y el máximo aumentó 180,24 ms (24,9 %). La medición
+de Semana 9 es externa y complementaria; la medición interna oficial con logs
+de Render sigue pendiente.

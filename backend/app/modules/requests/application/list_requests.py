@@ -1,7 +1,6 @@
 from sqlalchemy.orm import Session, joinedload
 
 from app.modules.requests.infrastructure.models import TripRequest
-from app.modules.trips.infrastructure.models import Trip
 
 
 def get_trip_requests(db: Session, trip_id: int) -> list[TripRequest]:
