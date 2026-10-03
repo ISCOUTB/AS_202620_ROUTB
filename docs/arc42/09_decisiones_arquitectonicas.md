@@ -10,5 +10,6 @@ Las decisiones arquitectónicas que impactan significativamente la estructura, l
 | [ADR 0004](../adr/0004-integracion-sincrona-rest.md) | Aceptado | Usar integración síncrona mediante API REST sobre HTTPS para la comunicación de clientes y servicios. |
 | [ADR 0005](../adr/0005-render-plataforma-de-despliegue.md) | Aceptado | Adoptar Render (Free Web Service) como plataforma de cómputo y despliegue del backend contenerizado. |
 | [ADR 0006](../adr/0006-base-de-datos-supabase.md) | Aceptado | Adoptar Supabase (Free Tier) como plataforma de base de datos relacional PostgreSQL administrada. |
-
+| [ADR 0007](../adr/0007-reserva-grupal-de-cupos.md) | Aceptado | Aceptar la reserva grupal de cupos como mecanismo para permitir que los usuarios reserven múltiples cupos en una sola transacción. |
+| [ADR 0008](../adr/0008-no-componente-generativo.md) | Aceptado | Rechazar la implementación de un componente generativo en el sistema. |
 ---
