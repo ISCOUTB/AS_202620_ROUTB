@@ -2,7 +2,7 @@ from fastapi.testclient import TestClient
 
 from app.core.database import SessionLocal
 from app.main import app
-from app.modules.auth.infrastructure.security import create_access_token
+from app.modules.auth.application.tokens import create_access_token
 from app.modules.requests.infrastructure.models import TripRequest
 from app.modules.trips.infrastructure.models import Trip
 from app.modules.users.infrastructure.models import User
@@ -22,7 +22,7 @@ def _crear_conductor(telefono: str):
         db.add(user)
         db.commit()
         db.refresh(user)
-        return user.id, create_access_token(user)
+        return user.id, create_access_token(user.id, user.role)
 
 
 def _crear_pasajero(telefono: str):
@@ -37,7 +37,7 @@ def _crear_pasajero(telefono: str):
         db.add(user)
         db.commit()
         db.refresh(user)
-        return user.id, create_access_token(user)
+        return user.id, create_access_token(user.id, user.role)
 
 
 def _limpiar(*user_ids: int):
@@ -103,6 +103,7 @@ def test_mis_solicitudes_incluye_el_viaje_que_ya_no_tiene_cupos():
             headers={"Authorization": f"Bearer {passenger_token}"},
         )
         assert created.status_code == 201
+        assert created.json()["seat_count"] == 1
         request_id = created.json()["id"]
 
         accepted = client.patch(
@@ -275,3 +276,154 @@ def test_retirar_inexistente_da_404():
 
 def test_mis_solicitudes_requiere_token():
     assert client.get("/requests/me").status_code == 401
+
+
+def test_reserva_grupal_de_cuatro_y_cancelacion_libera_todos_los_cupos():
+    driver_id, driver_token = _crear_conductor("3120000020")
+    passenger_id, passenger_token = _crear_pasajero("3120000021")
+
+    try:
+        trip_id = _viaje(driver_token, total_seats=4)
+        created = client.post(
+            f"/requests/trips/{trip_id}",
+            headers={"Authorization": f"Bearer {passenger_token}"},
+            json={"seat_count": 4},
+        )
+        assert created.status_code == 201
+        request_id = created.json()["id"]
+        assert created.json()["seat_count"] == 4
+        assert client.get(f"/trips/{trip_id}").json()["available_seats"] == 4
+
+        accepted = client.patch(
+            f"/requests/{request_id}/accept",
+            headers={"Authorization": f"Bearer {driver_token}"},
+        )
+        assert accepted.status_code == 200
+        assert accepted.json()["seat_count"] == 4
+        assert client.get(f"/trips/{trip_id}").json()["available_seats"] == 0
+        driver_view = client.get(
+            "/trips/my-trips", headers={"Authorization": f"Bearer {driver_token}"}
+        )
+        assert driver_view.status_code == 200
+        assert driver_view.json()[0]["requests"][0]["seat_count"] == 4
+
+        repeated_accept = client.patch(
+            f"/requests/{request_id}/accept",
+            headers={"Authorization": f"Bearer {driver_token}"},
+        )
+        assert repeated_accept.status_code == 200
+        assert client.get(f"/trips/{trip_id}").json()["available_seats"] == 0
+
+        own = client.get(
+            "/requests/me", headers={"Authorization": f"Bearer {passenger_token}"}
+        )
+        assert own.status_code == 200
+        assert own.json()[0]["seat_count"] == 4
+
+        withdrawn = client.delete(
+            f"/requests/{request_id}",
+            headers={"Authorization": f"Bearer {passenger_token}"},
+        )
+        assert withdrawn.status_code == 204
+        assert client.get(f"/trips/{trip_id}").json()["available_seats"] == 4
+
+        repeated_withdraw = client.delete(
+            f"/requests/{request_id}",
+            headers={"Authorization": f"Bearer {passenger_token}"},
+        )
+        assert repeated_withdraw.status_code == 404
+        assert client.get(f"/trips/{trip_id}").json()["available_seats"] == 4
+    finally:
+        _limpiar(passenger_id, driver_id)
+
+
+def test_solicitud_grupal_rechaza_cantidades_fuera_de_uno_a_cuatro():
+    driver_id, driver_token = _crear_conductor("3120000022")
+    passenger_id, passenger_token = _crear_pasajero("3120000023")
+
+    try:
+        trip_id = _viaje(driver_token, total_seats=4)
+        for seat_count in (0, 5):
+            response = client.post(
+                f"/requests/trips/{trip_id}",
+                headers={"Authorization": f"Bearer {passenger_token}"},
+                json={"seat_count": seat_count},
+            )
+            assert response.status_code == 422
+    finally:
+        _limpiar(passenger_id, driver_id)
+
+
+def test_solicitud_grupal_no_se_acepta_parcialmente():
+    driver_id, driver_token = _crear_conductor("3120000024")
+    group_id, group_token = _crear_pasajero("3120000025")
+    other_id, other_token = _crear_pasajero("3120000026")
+
+    try:
+        trip_id = _viaje(driver_token, total_seats=4)
+        group = client.post(
+            f"/requests/trips/{trip_id}",
+            headers={"Authorization": f"Bearer {group_token}"},
+            json={"seat_count": 4},
+        )
+        other = client.post(
+            f"/requests/trips/{trip_id}",
+            headers={"Authorization": f"Bearer {other_token}"},
+            json={"seat_count": 1},
+        )
+        assert group.status_code == other.status_code == 201
+
+        accepted_other = client.patch(
+            f"/requests/{other.json()['id']}/accept",
+            headers={"Authorization": f"Bearer {driver_token}"},
+        )
+        assert accepted_other.status_code == 200
+
+        accepted_group = client.patch(
+            f"/requests/{group.json()['id']}/accept",
+            headers={"Authorization": f"Bearer {driver_token}"},
+        )
+        assert accepted_group.status_code == 409
+        assert client.get(f"/trips/{trip_id}").json()["available_seats"] == 3
+        own = client.get(
+            "/requests/me", headers={"Authorization": f"Bearer {group_token}"}
+        )
+        assert own.json()[0]["status"] == "pending"
+    finally:
+        _limpiar(other_id, group_id, driver_id)
+
+
+def test_aceptaciones_grupales_concurrentes_no_sobrevenden():
+    from concurrent.futures import ThreadPoolExecutor
+
+    driver_id, driver_token = _crear_conductor("3120000027")
+    group_a_id, group_a_token = _crear_pasajero("3120000028")
+    group_b_id, group_b_token = _crear_pasajero("3120000029")
+
+    try:
+        trip_id = _viaje(driver_token, total_seats=4)
+        request_ids = []
+        for token in (group_a_token, group_b_token):
+            created = client.post(
+                f"/requests/trips/{trip_id}",
+                headers={"Authorization": f"Bearer {token}"},
+                json={"seat_count": 3},
+            )
+            assert created.status_code == 201
+            request_ids.append(created.json()["id"])
+
+        def accept(request_id: int) -> int:
+            response = client.patch(
+                f"/requests/{request_id}/accept",
+                headers={"Authorization": f"Bearer {driver_token}"},
+            )
+            return response.status_code
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            results = list(executor.map(accept, request_ids))
+
+        assert sorted(results) == [200, 409]
+        trip = client.get(f"/trips/{trip_id}").json()
+        assert trip["available_seats"] == 1
+    finally:
+        _limpiar(group_b_id, group_a_id, driver_id)

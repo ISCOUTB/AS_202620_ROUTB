@@ -176,20 +176,40 @@ class _PassengerScreenState extends State<PassengerScreen> {
 
   Future<void> _reserve(Trip trip) async {
     if (_busyTripId != null) return;
+    final maximum = trip.availableSeats.clamp(1, 4).toInt();
+    final seatCount = await showDialog<int>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('¿Para cuántas personas?'),
+        children: [
+          for (final count in List<int>.generate(maximum, (index) => index + 1))
+            SimpleDialogOption(
+              onPressed: () => Navigator.of(context).pop(count),
+              child: Text(
+                '$count ${count == 1 ? 'cupo (solo tú)' : 'cupos (tú y ${count - 1} más)'}',
+              ),
+            ),
+        ],
+      ),
+    );
+    if (seatCount == null || !mounted) return;
     setState(() => _busyTripId = trip.id);
 
     try {
-      final request = await _repository.requestSeat(trip.id);
+      final request = await _repository.requestSeat(
+        trip.id,
+        seatCount: seatCount,
+      );
       if (!mounted) return;
-      // El backend descuenta el cupo al aceptar el conductor, no al solicitar, así
-      // que aquí solo se marca la solicitud en curso.
+      // El backend descuenta los cupos al aceptar el conductor, no al solicitar,
+      // así que aquí solo se marca la solicitud en curso.
       _replaceTrip(trip.copyWith(myRequestStatus: request.status));
       // Y con ella aparece la tarjeta de «Mi viaje» de una vez, sin esperar al
       // siguiente refresco del buscador.
       unawaited(_loadMyRequests());
       RoutbToast.show(
         context,
-        'Solicitud enviada a ${trip.hasDriverName ? trip.driverName!.split(' ').first : 'el conductor'}',
+        'Solicitud de $seatCount ${seatCount == 1 ? 'cupo' : 'cupos'} enviada a ${trip.hasDriverName ? trip.driverName!.split(' ').first : 'el conductor'}',
       );
     } on ApiException catch (error) {
       if (!mounted) return;

@@ -1,9 +1,9 @@
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class TripRequestCreate(BaseModel):
-    trip_id: int
+    seat_count: int = Field(default=1, ge=1, le=4)
 
 
 class TripRequestResponse(BaseModel):
@@ -12,6 +12,7 @@ class TripRequestResponse(BaseModel):
     id: int
     trip_id: int
     passenger_id: int
+    seat_count: int = 1
     passenger_name: str | None = None
     passenger_phone: str | None = None
     status: str
@@ -43,6 +44,7 @@ class MyRequestResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    seat_count: int = 1
     status: str
     created_at: datetime
     trip_id: int

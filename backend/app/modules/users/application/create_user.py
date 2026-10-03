@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 
-from app.modules.auth.infrastructure.security import hash_password
+from app.shared.security import hash_password
 from app.modules.users.domain.exceptions import UserAlreadyExistsError
 from app.modules.users.infrastructure.models import User
 from app.modules.users.infrastructure.schemas import UserCreate

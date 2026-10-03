@@ -15,6 +15,7 @@ class MyRequest {
   const MyRequest({
     required this.id,
     required this.tripId,
+    this.seatCount = 1,
     required this.status,
     required this.origin,
     required this.destination,
@@ -35,6 +36,9 @@ class MyRequest {
   /// Identificador del viaje.
   final int tripId;
 
+  /// Personas incluidas en la reserva, contando al pasajero titular.
+  final int seatCount;
+
   /// Estado de la solicitud: pendiente, confirmada o rechazada.
   final SeatRequestStatus status;
 
@@ -53,7 +57,7 @@ class MyRequest {
   /// Cupos que ofrece el viaje.
   final int totalSeats;
 
-  /// Cupos que quedan libres, ya descontando el de esta persona.
+  /// Cupos libres del viaje; una solicitud aceptada puede ocupar varios.
   final int availableSeats;
 
   /// Estado del viaje: activo o cancelado.
@@ -80,6 +84,7 @@ class MyRequest {
     return MyRequest(
       id: json['id'] as int? ?? 0,
       tripId: json['trip_id'] as int? ?? 0,
+      seatCount: json['seat_count'] as int? ?? 1,
       status: SeatRequestStatus.fromWire(json['status'] as String?),
       origin: (json['origin'] as String?)?.trim() ?? '',
       destination: (json['destination'] as String?)?.trim() ?? '',
@@ -156,6 +161,7 @@ class MyRequest {
       MyRequest(
         id: id,
         tripId: tripId,
+        seatCount: seatCount,
         status: status ?? this.status,
         origin: origin,
         destination: destination,
@@ -175,8 +181,9 @@ class MyRequest {
       other is MyRequest &&
       other.id == id &&
       other.tripId == tripId &&
-      other.status == status;
+      other.status == status &&
+      other.seatCount == seatCount;
 
   @override
-  int get hashCode => Object.hash(id, tripId, status);
+  int get hashCode => Object.hash(id, tripId, seatCount, status);
 }

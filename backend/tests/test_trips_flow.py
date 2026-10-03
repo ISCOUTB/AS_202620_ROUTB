@@ -2,7 +2,7 @@ from fastapi.testclient import TestClient
 
 from app.core.database import SessionLocal
 from app.main import app
-from app.modules.auth.infrastructure.security import create_access_token
+from app.modules.auth.application.tokens import create_access_token
 from app.modules.users.infrastructure.models import User
 
 client = TestClient(app)
@@ -32,8 +32,8 @@ def test_flujo_completo_viajes_y_solicitudes():
 
         driver_id = driver.id
         passenger_id = passenger.id
-        driver_token = create_access_token(driver)
-        passenger_token = create_access_token(passenger)
+        driver_token = create_access_token(driver.id, driver.role)
+        passenger_token = create_access_token(passenger.id, passenger.role)
 
     # 2. Conductor crea un viaje
     create_resp = client.post(

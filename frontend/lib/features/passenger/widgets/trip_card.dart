@@ -168,7 +168,7 @@ class _ReserveButton extends StatelessWidget {
 
     final (String label, Color background, Color foreground) = switch (state) {
       SeatRequestState.available => (
-        'Reservar cupo',
+        'Solicitar cupos',
         palette.brand,
         Colors.white,
       ),
@@ -194,7 +194,7 @@ class _ReserveButton extends StatelessWidget {
 
     final description = switch (state) {
       SeatRequestState.available =>
-        'Solicita un cupo en este viaje. El conductor decide si lo acepta.',
+        'Elige entre 1 y 4 cupos para solicitar. El conductor decide si acepta el grupo completo.',
       SeatRequestState.requested =>
         'La solicitud está en espera. No se puede retirar desde la app.',
       SeatRequestState.confirmed =>

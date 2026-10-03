@@ -1,5 +1,4 @@
 from typing import Annotated
-from app.modules.requests.infrastructure.router import _to_response as _to_request_response
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
@@ -15,7 +14,7 @@ from app.modules.trips.application.get_trips import (
 from app.modules.trips.application.reserve_seat import reserve_seat as reserve_seat_use_case
 from app.modules.trips.domain.exceptions import TripNotAuthorizedError, TripNotFoundError
 from app.modules.trips.infrastructure import schemas
-from app.modules.users.infrastructure.models import User
+from app.modules.users.application import UserIdentity
 
 router = APIRouter()
 
@@ -33,11 +32,23 @@ def _current_user_request_status(trip, current_user_id: int | None) -> str | Non
 def _to_response(trip, current_user_id: int | None = None) -> schemas.TripResponse:
     driver_name = f"{trip.driver.name} {trip.driver.last_name}" if trip.driver else None
 
-    trip_requests = (
-        [_to_request_response(r) for r in trip.requests]
-        if hasattr(trip, "requests") and trip.requests
-        else []
-    )
+    trip_requests = []
+    for request in getattr(trip, "requests", []):
+        passenger = request.passenger
+        trip_requests.append(
+            schemas.TripRequestSummary(
+                id=request.id,
+                trip_id=request.trip_id,
+                passenger_id=request.passenger_id,
+                seat_count=getattr(request, "seat_count", 1),
+                passenger_name=(
+                    f"{passenger.name} {passenger.last_name}" if passenger else None
+                ),
+                passenger_phone=passenger.phone if passenger else None,
+                status=request.status,
+                created_at=request.created_at,
+            )
+        )
 
     return schemas.TripResponse(
         id=trip.id,
@@ -58,7 +69,7 @@ def _to_response(trip, current_user_id: int | None = None) -> schemas.TripRespon
 def create_trip(
     trip: schemas.TripCreate,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User | None, Depends(get_optional_current_user)] = None,
+    current_user: Annotated[UserIdentity | None, Depends(get_optional_current_user)] = None,
 ):
     driver_id = current_user.id if current_user else None
     created = create_trip_use_case(db, trip, driver_id=driver_id)
@@ -70,7 +81,7 @@ def get_active_trips(
     db: Annotated[Session, Depends(get_db)],
     origin: str | None = Query(None),
     destination: str | None = Query(None),
-    current_user: Annotated[User | None, Depends(get_optional_current_user)] = None,
+    current_user: Annotated[UserIdentity | None, Depends(get_optional_current_user)] = None,
 ):
     trips = get_active_trips_use_case(db, origin=origin, destination=destination)
     current_user_id = current_user.id if current_user else None
@@ -80,7 +91,7 @@ def get_active_trips(
 @router.get("/my-trips", response_model=list[schemas.TripResponse])
 def get_my_trips(
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[UserIdentity, Depends(get_current_user)],
 ):
     trips = get_driver_trips_use_case(db, driver_id=current_user.id)
     return [_to_response(t) for t in trips]
@@ -90,7 +101,7 @@ def get_my_trips(
 def get_trip(
     trip_id: int,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User | None, Depends(get_optional_current_user)] = None,
+    current_user: Annotated[UserIdentity | None, Depends(get_optional_current_user)] = None,
 ):
     trip = get_trip_use_case(db, trip_id)
     if trip is None:

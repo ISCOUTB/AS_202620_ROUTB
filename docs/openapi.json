@@ -3,7 +3,7 @@
   "info": {
     "title": "ROUTB API",
     "description": "ROUTB",
-    "version": "0.2.0"
+    "version": "0.3.0"
   },
   "paths": {
     "/users/": {
@@ -436,6 +436,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/TripRequestCreate"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "description": "Successful Response",
@@ -749,6 +766,11 @@
             "type": "integer",
             "title": "Id"
           },
+          "seat_count": {
+            "type": "integer",
+            "title": "Seat Count",
+            "default": 1
+          },
           "status": {
             "type": "string",
             "title": "Status"
@@ -893,6 +915,19 @@
         ],
         "title": "TripCreate"
       },
+      "TripRequestCreate": {
+        "properties": {
+          "seat_count": {
+            "type": "integer",
+            "maximum": 4.0,
+            "minimum": 1.0,
+            "title": "Seat Count",
+            "default": 1
+          }
+        },
+        "type": "object",
+        "title": "TripRequestCreate"
+      },
       "TripRequestResponse": {
         "properties": {
           "id": {
@@ -906,6 +941,11 @@
           "passenger_id": {
             "type": "integer",
             "title": "Passenger Id"
+          },
+          "seat_count": {
+            "type": "integer",
+            "title": "Seat Count",
+            "default": 1
           },
           "passenger_name": {
             "anyOf": [
@@ -948,6 +988,67 @@
           "created_at"
         ],
         "title": "TripRequestResponse"
+      },
+      "TripRequestSummary": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "trip_id": {
+            "type": "integer",
+            "title": "Trip Id"
+          },
+          "passenger_id": {
+            "type": "integer",
+            "title": "Passenger Id"
+          },
+          "seat_count": {
+            "type": "integer",
+            "title": "Seat Count",
+            "default": 1
+          },
+          "passenger_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Passenger Name"
+          },
+          "passenger_phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Passenger Phone"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "trip_id",
+          "passenger_id",
+          "status",
+          "created_at"
+        ],
+        "title": "TripRequestSummary"
       },
       "TripResponse": {
         "properties": {
@@ -1020,6 +1121,13 @@
               }
             ],
             "title": "My Request Status"
+          },
+          "requests": {
+            "items": {
+              "$ref": "#/components/schemas/TripRequestSummary"
+            },
+            "type": "array",
+            "title": "Requests"
           }
         },
         "type": "object",

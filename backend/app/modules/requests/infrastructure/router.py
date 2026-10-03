@@ -18,6 +18,7 @@ from app.modules.requests.application.manage_request import (
 from app.modules.requests.domain.exceptions import (
     ActiveRequestAlreadyExistsError,
     DriverCannotRequestError,
+    InvalidRequestStateError,
     NoAvailableSeatsError,
     NoSeatsToAcceptError,
     TripNotActiveError,
@@ -25,7 +26,7 @@ from app.modules.requests.domain.exceptions import (
     UnauthorizedRequestActionError,
 )
 from app.modules.requests.infrastructure import schemas
-from app.modules.users.infrastructure.models import User
+from app.modules.users.application import UserIdentity
 
 router = APIRouter()
 
@@ -40,6 +41,7 @@ def _to_response(req) -> schemas.TripRequestResponse:
         passenger_name=p_name,
         passenger_phone=p_phone,
         status=req.status,
+        seat_count=req.seat_count,
         created_at=req.created_at,
     )
 
@@ -49,6 +51,7 @@ def _to_my_response(req) -> schemas.MyRequestResponse:
     driver = trip.driver if trip else None
     return schemas.MyRequestResponse(
         id=req.id,
+        seat_count=req.seat_count,
         status=req.status,
         created_at=req.created_at,
         trip_id=req.trip_id,
@@ -67,10 +70,16 @@ def _to_my_response(req) -> schemas.MyRequestResponse:
 def request_seat(
     trip_id: int,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[UserIdentity, Depends(get_current_user)],
+    payload: schemas.TripRequestCreate | None = None,
 ):
     try:
-        req = create_request_use_case(db, trip_id=trip_id, passenger_id=current_user.id)
+        req = create_request_use_case(
+            db,
+            trip_id=trip_id,
+            passenger_id=current_user.id,
+            seat_count=payload.seat_count if payload is not None else 1,
+        )
         return _to_response(req)
     except TripNotActiveError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=e.message)
@@ -86,7 +95,7 @@ def request_seat(
 def list_trip_requests(
     trip_id: int,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[UserIdentity, Depends(get_current_user)],
 ):
     requests = get_trip_requests_use_case(db, trip_id=trip_id)
     return [_to_response(r) for r in requests]
@@ -96,7 +105,7 @@ def list_trip_requests(
 def accept_request(
     request_id: int,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[UserIdentity, Depends(get_current_user)],
 ):
     try:
         req = accept_request_use_case(db, request_id=request_id, driver_id=current_user.id)
@@ -107,13 +116,15 @@ def accept_request(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=e.message)
     except NoSeatsToAcceptError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=e.message)
+    except InvalidRequestStateError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=e.message)
 
 
 @router.patch("/{request_id}/reject", response_model=schemas.TripRequestResponse)
 def reject_request(
     request_id: int,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[UserIdentity, Depends(get_current_user)],
 ):
     try:
         req = reject_request_use_case(db, request_id=request_id, driver_id=current_user.id)
@@ -122,12 +133,14 @@ def reject_request(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=e.message)
     except UnauthorizedRequestActionError as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=e.message)
+    except InvalidRequestStateError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=e.message)
 
 
 @router.get("/me", response_model=list[schemas.MyRequestResponse])
 def my_requests(
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[UserIdentity, Depends(get_current_user)],
 ):
     """Solicitudes del pasajero que entra, con los datos de su viaje.
 
@@ -152,4 +165,6 @@ def withdraw_request(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=e.message)
     except UnauthorizedRequestActionError as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=e.message)
+    except InvalidRequestStateError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=e.message)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

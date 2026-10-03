@@ -68,6 +68,12 @@ class RequestTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: RoutbText.headline(15, color: palette.ink),
                 ),
+                Text(
+                  '${request.seatCount} ${request.seatCount == 1 ? 'cupo' : 'cupos'} solicitados · incluye al pasajero',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: RoutbText.copy(12, color: palette.muted),
+                ),
                 if (request.hasPhone) ...[
                   const SizedBox(height: 2),
                   Text(

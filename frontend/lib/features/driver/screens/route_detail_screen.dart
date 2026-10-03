@@ -79,7 +79,10 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
   }
 
   Future<void> _cancel() async {
-    final accepted = _trip.requests.accepted.length;
+    final accepted = _trip.requests.accepted.fold<int>(
+      0,
+      (total, request) => total + request.seatCount,
+    );
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
@@ -132,6 +135,10 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
     final phase = _trip.phaseAt(DateTime.now());
     final arrival = _trip.estimatedArrival;
     final accepted = _trip.requests.accepted;
+    final acceptedSeatCount = accepted.fold<int>(
+      0,
+      (total, request) => total + request.seatCount,
+    );
 
     final (Color pillBackground, Color pillForeground) = switch (phase) {
       TripPhase.onCourse => (palette.mintSurface, palette.onMintSurface),
@@ -242,7 +249,7 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                       children: [
                         RoutbCardHeader(
                           title: 'Pasajeros confirmados',
-                          count: accepted.length,
+                          count: acceptedSeatCount,
                         ),
                         if (_busy && accepted.isEmpty)
                           const Padding(

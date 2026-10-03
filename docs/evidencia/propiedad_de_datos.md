@@ -9,19 +9,22 @@ deben colaborar mediante servicios o la API del backend.
 
 | Entidad | Módulo dueño | Modelo en el repositorio | Tabla PostgreSQL | Estado |
 |---|---|---|---|---|
-| Usuario | `users` | `backend/app/modules/users/models.py:4` | `users` | Implementada |
-| Recorrido | `trips` | `backend/app/modules/trips/models.py:7` | `trips` | Implementada |
-| Solicitud de viaje | `requests` | `backend/app/modules/requests/models.py:7` | `trip_requests` | Implementada |
-| Notificación | `notifications` | `backend/app/modules/notifications/models.py` | `notifications` | Pendiente: no existe una entidad ORM |
-| Administración | `admin` | `backend/app/modules/admin/models.py` | — | Pendiente: usa usuarios con rol administrativo; no tiene entidad propia |
+| Usuario | `users` | `backend/app/modules/users/infrastructure/models.py` | `users` | Implementada |
+| Recorrido | `trips` | `backend/app/modules/trips/infrastructure/models.py` | `trips` | Implementada |
+| Solicitud de viaje y cantidad pedida (`seat_count`) | `requests` | `backend/app/modules/requests/infrastructure/models.py` | `trip_requests` | Implementada; `seat_count` tiene valor por defecto 1 |
+| Notificación | `notifications` | `backend/app/modules/notifications/infrastructure/models.py` | `notifications` | Pendiente: verificar entidad y migración antes de declarar cobertura |
+| Administración | `admin` | `backend/app/modules/admin/infrastructure/models.py` | — | Usa usuarios con rol administrativo; verificar antes de asignar entidad propia |
 
 `auth` no posee una tabla propia: su responsabilidad es autenticar usuarios
 del contexto `users` y emitir tokens JWT.
 
-Las solicitudes de viaje se gestionan desde `requests`, que expone operaciones
-para crear, consultar, aceptar y rechazar solicitudes. La aceptación y el
-rechazo actualizan el cupo disponible del recorrido mediante la relación con
-`trips`.
+Las solicitudes y la cantidad solicitada pertenecen a `requests`; el contador
+de disponibilidad pertenece a `trips`. `requests` coordina aceptación y
+liberación mediante las operaciones públicas de aplicación
+`trips.application.reserve_request_seats` y
+`trips.application.release_request_seats`; estas aplican actualizaciones
+condicionales atómicas. El cambio de estado y el cambio de disponibilidad se
+confirman en la misma transacción.
 
 ## Cobertura del código persistente
 
@@ -38,7 +41,13 @@ Las migraciones están en `backend/migrations/versions` y se ejecutan con:
 cd backend
 alembic upgrade head
 ```
-# Registro de violaciones de propiedad de datos
+# Registro histórico de violaciones de propiedad de datos
+
+> **Nota de actualización:** la tabla que sigue conserva hallazgos y rutas de
+> una auditoría anterior; varias rutas ya no corresponden a la estructura
+> modular actual. No es el diagnóstico vigente. Para la revisión del código y
+> las correcciones comprobadas, consultar la
+> [auditoría de erosión de semana 9](auditoria-erosion-semana9.md).
 
 A continuación se detallan las violaciones arquitectónicas detectadas en el código base y el plan de acción concreto para su corrección:
 

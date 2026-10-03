@@ -3,13 +3,14 @@ import 'package:flutter/foundation.dart';
 import 'initials.dart';
 import 'trip_status.dart';
 
-/// Solicitud de cupo que un pasajero envía sobre un viaje.
+/// Solicitud de cupos que un pasajero envía sobre un viaje.
 @immutable
 class TripRequest {
   const TripRequest({
     required this.id,
     required this.tripId,
     required this.passengerId,
+    this.seatCount = 1,
     required this.passengerName,
     required this.passengerPhone,
     required this.status,
@@ -24,6 +25,9 @@ class TripRequest {
 
   /// Persona que solicitó el cupo.
   final int passengerId;
+
+  /// Personas que incluye esta reserva grupal, contando al titular.
+  final int seatCount;
 
   /// Nombre y apellido, tal como lo arma el backend en `_to_response`.
   final String passengerName;
@@ -47,6 +51,7 @@ class TripRequest {
       id: json['id'] as int? ?? 0,
       tripId: json['trip_id'] as int? ?? 0,
       passengerId: json['passenger_id'] as int? ?? 0,
+      seatCount: json['seat_count'] as int? ?? 1,
       passengerName: rawName == null || rawName.trim().isEmpty
           ? 'Pasajero'
           : rawName.trim(),
@@ -73,6 +78,7 @@ class TripRequest {
         id: id,
         tripId: tripId,
         passengerId: passengerId,
+        seatCount: seatCount,
         passengerName: passengerName,
         passengerPhone: passengerPhone,
         status: status ?? this.status,
@@ -85,6 +91,7 @@ class TripRequest {
       other.id == id &&
       other.tripId == tripId &&
       other.passengerId == passengerId &&
+      other.seatCount == seatCount &&
       other.passengerName == passengerName &&
       other.passengerPhone == passengerPhone &&
       other.status == status;
@@ -94,6 +101,7 @@ class TripRequest {
         id,
         tripId,
         passengerId,
+        seatCount,
         passengerName,
         passengerPhone,
         status,

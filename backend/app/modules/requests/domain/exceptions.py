@@ -39,3 +39,8 @@ class NoAvailableSeatsError(ConflictException):
 class NoSeatsToAcceptError(ConflictException):
     def __init__(self, message: str = "No hay cupos disponibles para aceptar más pasajeros"):
         super().__init__(message)
+
+
+class InvalidRequestStateError(ConflictException):
+    def __init__(self, message: str = "La solicitud ya no se puede gestionar"):
+        super().__init__(message)

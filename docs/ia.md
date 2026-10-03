@@ -110,3 +110,15 @@ Justificación: Las herramientas fueron utilizadas con propósitos diferentes. C
 La Inteligencia Artificial se utiliza como una herramienta de apoyo durante el desarrollo y la documentación del proyecto. Las respuestas generadas no se incorporan automáticamente: son revisadas, contrastadas con el contexto y los requisitos del proyecto y, cuando corresponde, modificadas o rechazadas por el equipo.
 
 Las decisiones relacionadas con el alcance, las restricciones, la arquitectura y los criterios de calidad son responsabilidad del equipo de desarrollo. La IA se emplea principalmente para apoyar el análisis, la organización de la información, la exploración de alternativas y la mejora de la documentación.
+
+### Semana 9
+
+- **Actividad realizada:** Análisis e implementación de solicitudes grupales de cupos en ROUTB, actualización del contrato y de la app móvil, revisión de límites entre `requests` y `trips`, y preparación de pruebas y evidencia arquitectónica.
+- **Herramienta utilizada:** Codex (OpenAI), en esta sesión de desarrollo.
+- **Contexto proporcionado:** El equipo seleccionó que un pasajero pueda reservar hasta cuatro cupos contando el suyo, para un máximo de tres acompañantes sin cuenta. El conductor decide sobre el grupo completo y cancelar la reserva debe liberar todos los cupos. También se indicó que no se integre IA al runtime ni se agregue una dependencia para esta Porción.
+- **Respuesta que se obtuvo:** Se propuso persistir la cantidad con compatibilidad por defecto de un cupo, coordinar estado y disponibilidad en una transacción, aplicar el ajuste de inventario mediante operaciones públicas de `trips`, exponer la cantidad por API y app móvil y probar la aceptación/cancelación de grupos y la concurrencia.
+- **Qué se aceptó:** Se aceptó el alcance grupal de 1–4 personas, la aceptación o rechazo completos, la liberación de todos los cupos al cancelar, el valor por defecto de uno y las operaciones condicionales atómicas del módulo `trips`. La implementación se revisa mediante el conjunto de pruebas y el contrato OpenAPI.
+- **Qué se corrigió:** La propuesta inicial permitía solicitar hasta la capacidad disponible sin máximo explícito. El equipo aclaró que el límite es cuatro personas incluyendo al pasajero. Se ajustaron validación, interfaz y persistencia a ese límite.
+- **Qué se rechazó:** Se rechazó añadir Excel/dependencias como extensión de la Porción y se descartó incorporar IA generativa dentro de ROUTB. No se crean cuentas ni se recolectan datos de acompañantes.
+- **Justificación:** El alcance y las reglas de negocio fueron definidos por el equipo. Las recomendaciones de implementación se contrastan con el código, la propiedad de datos y los resultados reales de pruebas; la IA no toma decisiones de aceptación ni de disponibilidad en producción.
+- **Fecha:** 2026-10-02

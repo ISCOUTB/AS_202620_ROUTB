@@ -7,19 +7,26 @@ from app.modules.requests.domain.exceptions import (
     TripNotActiveError,
 )
 from app.modules.requests.infrastructure.models import TripRequest
-from app.modules.trips.infrastructure.models import Trip
+from app.modules.trips.application import get_trip_request_context
 
 
-def create_request(db: Session, trip_id: int, passenger_id: int) -> TripRequest:
-    trip = db.get(Trip, trip_id)
+def create_request(
+    db: Session, trip_id: int, passenger_id: int, seat_count: int = 1
+) -> TripRequest:
+    if seat_count < 1 or seat_count > 4:
+        raise NoAvailableSeatsError("La solicitud debe ser de 1 a 4 cupos")
+
+    trip = get_trip_request_context(db, trip_id)
     if not trip or trip.status != "active":
         raise TripNotActiveError("El viaje no existe o no está activo")
 
     if trip.driver_id == passenger_id:
         raise DriverCannotRequestError("El conductor no puede solicitar cupo en su propio viaje")
 
-    if trip.available_seats <= 0:
-        raise NoAvailableSeatsError("No hay cupos disponibles en este viaje")
+    if trip.available_seats < seat_count:
+        raise NoAvailableSeatsError(
+            "No hay suficientes cupos disponibles para esta solicitud"
+        )
 
     existing = (
         db.query(TripRequest)
@@ -36,6 +43,7 @@ def create_request(db: Session, trip_id: int, passenger_id: int) -> TripRequest:
     request = TripRequest(
         trip_id=trip_id,
         passenger_id=passenger_id,
+        seat_count=seat_count,
         status="pending",
     )
     db.add(request)

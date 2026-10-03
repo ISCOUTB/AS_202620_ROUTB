@@ -182,7 +182,10 @@ class _DriverScreenState extends State<DriverScreen> {
   }
 
   Future<void> _confirmCancel(Trip trip) async {
-    final accepted = trip.requests.accepted.length;
+      final accepted = trip.requests.accepted.fold<int>(
+        0,
+        (total, request) => total + request.seatCount,
+      );
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {

@@ -78,7 +78,7 @@ class _MyTripScreenState extends State<MyTripScreen> {
       if (!mounted) return;
       widget.onWithdrawn();
       Navigator.of(context).pop();
-      RoutbToast.show(context, 'Cupo cancelado');
+      RoutbToast.show(context, 'Reserva cancelada');
     } on ApiException catch (error) {
       if (!mounted) return;
       RoutbToast.show(context, error.message);
@@ -146,8 +146,8 @@ class _MyTripScreenState extends State<MyTripScreen> {
                             Flexible(
                               child: Text(
                                 _request.isConfirmed
-                                    ? 'Tienes 1 cupo confirmado'
-                                    : 'Cupo en espera de confirmación',
+                                    ? 'Tienes ${_request.seatCount} ${_request.seatCount == 1 ? 'cupo confirmado' : 'cupos confirmados'}'
+                                    : '${_request.seatCount} ${_request.seatCount == 1 ? 'cupo en espera' : 'cupos en espera'}',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: RoutbText.copy(13, color: palette.ink),

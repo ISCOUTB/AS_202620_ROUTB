@@ -72,8 +72,11 @@ class TripRepository {
   }
 
   /// `POST /requests/trips/{id}`
-  Future<TripRequest> requestSeat(int tripId) async {
-    final response = await _api.post('/requests/trips/$tripId');
+  Future<TripRequest> requestSeat(int tripId, {int seatCount = 1}) async {
+    final response = await _api.post(
+      '/requests/trips/$tripId',
+      body: <String, Object?>{'seat_count': seatCount},
+    );
     return TripRequest.fromJson(_asMap(response));
   }
 

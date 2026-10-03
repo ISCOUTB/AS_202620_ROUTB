@@ -8,7 +8,7 @@ from app.modules.auth.application.login import login as login_use_case
 from app.modules.auth.domain.exceptions import InvalidCredentialsError
 from app.modules.auth.infrastructure import schemas
 from app.modules.auth.infrastructure.security import get_current_user
-from app.modules.users.infrastructure.models import User
+from app.modules.users.application import UserIdentity
 
 router = APIRouter()
 
@@ -19,7 +19,11 @@ def login(
     db: Annotated[Session, Depends(get_db)],
 ):
     try:
-        return login_use_case(db=db, credentials=credentials)
+        return login_use_case(
+            db=db,
+            phone=credentials.phone,
+            password=credentials.password,
+        )
     except InvalidCredentialsError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -29,7 +33,7 @@ def login(
 
 @router.get("/me")
 def current_user(
-    user: Annotated[User, Depends(get_current_user)],
+    user: Annotated[UserIdentity, Depends(get_current_user)],
 ):
     return {
         "id": user.id,
