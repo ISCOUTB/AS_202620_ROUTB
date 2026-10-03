@@ -1,11 +1,11 @@
 {
-    "name": "frontend",
-    "short_name": "frontend",
+    "name": "ROUTB",
+    "short_name": "ROUTB",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#E9E7FF",
+    "theme_color": "#6C5CFF",
+    "description": "ROUTB, plataforma de transporte compartido para estudiantes de la UTB.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
