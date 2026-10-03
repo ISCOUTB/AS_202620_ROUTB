@@ -213,7 +213,7 @@ class RoutbChipLabel extends StatelessWidget {
   }
 }
 
-/// Etiqueta atenuada de los subtítulos: «Así la verán los pasajeros».
+/// Etiqueta atenuada para subtítulos secundarios.
 class RoutbHint extends StatelessWidget {
   const RoutbHint(this.text, {this.margin, super.key});
 

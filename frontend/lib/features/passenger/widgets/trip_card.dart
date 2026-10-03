@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/models/trip.dart';
+import '../../../core/models/trip_schedule.dart';
 import '../../../core/theme/routb_palette.dart';
 import '../../../core/theme/routb_text.dart';
 import '../../../core/widgets/routb_card.dart';
@@ -83,9 +84,7 @@ class TripCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      arrival == null
-                          ? 'Sin hora de llegada estimada'
-                          : 'Llegada estimada ${arrival.label}',
+                      '${trip.departureDateLabel} · ${arrival == null ? 'llegada sin estimar' : 'llega ${arrival.label}'}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: RoutbText.copy(12, color: palette.muted),
@@ -114,6 +113,16 @@ class TripCard extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           TravelPath(origin: trip.origin, destination: trip.destination),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Encuentro: ${trip.meetingPoint}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: RoutbText.copy(12, color: palette.muted),
+            ),
+          ),
           const SizedBox(height: 16),
           const DashedDivider(),
           const SizedBox(height: 14),
@@ -168,7 +177,7 @@ class _ReserveButton extends StatelessWidget {
 
     final (String label, Color background, Color foreground) = switch (state) {
       SeatRequestState.available => (
-        'Reservar cupo',
+        'Solicitar cupos',
         palette.brand,
         Colors.white,
       ),
@@ -193,8 +202,7 @@ class _ReserveButton extends StatelessWidget {
     };
 
     final description = switch (state) {
-      SeatRequestState.available =>
-        'Solicita un cupo en este viaje. El conductor decide si lo acepta.',
+      SeatRequestState.available => 'Elige entre 1 y 4 cupos para solicitar. El conductor decide si acepta el grupo completo.',
       SeatRequestState.requested =>
         'La solicitud está en espera. No se puede retirar desde la app.',
       SeatRequestState.confirmed =>
@@ -253,6 +261,8 @@ class SearchCard extends StatelessWidget {
     required this.destination,
     required this.onOriginChanged,
     required this.onDestinationChanged,
+    required this.selectedDate,
+    required this.onDateTap,
     super.key,
   });
 
@@ -260,6 +270,8 @@ class SearchCard extends StatelessWidget {
   final TextEditingController destination;
   final ValueChanged<String> onOriginChanged;
   final ValueChanged<String> onDestinationChanged;
+  final DateTime selectedDate;
+  final VoidCallback onDateTap;
 
   @override
   Widget build(BuildContext context) {
@@ -294,6 +306,19 @@ class SearchCard extends StatelessWidget {
                   hint: 'Destino (ej. UTB)',
                   semanticLabel: 'Destino',
                   onChanged: onDestinationChanged,
+                ),
+                const Divider(height: 1),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: onDateTap,
+                    icon: const Icon(Icons.calendar_today_rounded, size: 16),
+                    label: Text(TripSchedule.dateLabel(selectedDate)),
+                    style: TextButton.styleFrom(
+                      foregroundColor: palette.brand,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                  ),
                 ),
               ],
             ),

@@ -55,7 +55,10 @@ class RequestTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          InitialsAvatar(name: request.passengerName, initials: request.initials),
+          InitialsAvatar(
+            name: request.passengerName,
+            initials: request.initials,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -68,6 +71,12 @@ class RequestTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: RoutbText.headline(15, color: palette.ink),
                 ),
+                Text(
+                  '${request.seatCount} ${request.seatCount == 1 ? 'cupo' : 'cupos'}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: RoutbText.copy(12, color: palette.muted),
+                ),
                 if (request.hasPhone) ...[
                   const SizedBox(height: 2),
                   Text(
@@ -79,7 +88,7 @@ class RequestTile extends StatelessWidget {
                 ],
                 const SizedBox(height: 2),
                 Text(
-                  '${trip.routeLabel} Â· ${trip.departureLabel}',
+                  '${trip.routeLabel} · ${trip.departureDateLabel} ${trip.departureLabel}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: RoutbText.copy(12, color: palette.muted),
@@ -200,6 +209,7 @@ class RouteCard extends StatelessWidget {
     final (Color pillBackground, Color pillForeground) = switch (phase) {
       TripPhase.onCourse => (palette.mintSurface, palette.onMintSurface),
       TripPhase.cancelled => (palette.roseSurface, palette.onRoseSurface),
+      TripPhase.completed => (palette.surface, palette.muted),
       TripPhase.scheduled => (palette.amberSurface, palette.onAmberSurface),
     };
 
@@ -238,7 +248,10 @@ class RouteCard extends StatelessWidget {
                       foreground: pillForeground,
                     ),
                     const SizedBox(width: 8),
-                    _ChevronButton(onTap: onOpenDetail, routeLabel: trip.routeLabel),
+                    _ChevronButton(
+                      onTap: onOpenDetail,
+                      routeLabel: trip.routeLabel,
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -246,7 +259,8 @@ class RouteCard extends StatelessWidget {
                   stops: <TimelineStop>[
                     TimelineStop(
                       title: trip.origin,
-                      subtitle: 'Salida ${trip.departureLabel}',
+                      subtitle:
+                          '${trip.departureDateLabel} · salida ${trip.departureLabel}',
                       reached: phase == TripPhase.onCourse,
                     ),
                     TimelineStop(
@@ -257,6 +271,16 @@ class RouteCard extends StatelessWidget {
                       reached: false,
                     ),
                   ],
+                ),
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Encuentro: ${trip.meetingPoint}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: RoutbText.copy(12, color: palette.muted),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -328,7 +352,7 @@ class HeroSeatSlots extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final confirmed = trip.requests.accepted;
+    final confirmed = _confirmedSeatInitials(trip);
     final occupied = trip.takenSeats;
 
     // El lado de cada pip sale del ancho disponible: cuatro pips de 32 px mÃ¡s
@@ -352,10 +376,10 @@ class HeroSeatSlots extends StatelessWidget {
                 child: _SeatPip(
                   size: size,
                   initials: seat < confirmed.length
-                      ? confirmed[seat].initials
+                      ? confirmed[seat]
                       : seat < occupied
-                          ? 'â€“'
-                          : null,
+                      ? 'â€“'
+                      : null,
                 ),
               ),
           ],
@@ -442,7 +466,7 @@ class OccupiedSeatsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final names = trip.requests.accepted.map((request) => request.initials).toList();
+    final names = _confirmedSeatInitials(trip);
 
     return SeatSlots(
       selected: trip.totalSeats,
@@ -452,3 +476,10 @@ class OccupiedSeatsCard extends StatelessWidget {
     );
   }
 }
+
+/// Repite las iniciales por cada cupo de la reserva grupal para que cada
+/// asiento confirmado quede identificado visualmente.
+List<String> _confirmedSeatInitials(Trip trip) => [
+  for (final request in trip.requests.accepted)
+    for (var seat = 0; seat < request.seatCount; seat++) request.initials,
+];

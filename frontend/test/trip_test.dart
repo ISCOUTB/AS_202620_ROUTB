@@ -17,20 +17,19 @@ Map<String, dynamic> tripPayload({
   String? driverName = 'Enzo Fernández',
   String? myRequestStatus,
   List<Map<String, dynamic>> requests = const <Map<String, dynamic>>[],
-}) =>
-    <String, dynamic>{
-      'id': id,
-      'origin': origin,
-      'destination': destination,
-      'total_seats': totalSeats,
-      'available_seats': availableSeats,
-      'departure_time': departure,
-      'status': status,
-      'driver_id': 9,
-      'driver_name': driverName,
-      'my_request_status': myRequestStatus,
-      'requests': requests,
-    };
+}) => <String, dynamic>{
+  'id': id,
+  'origin': origin,
+  'destination': destination,
+  'total_seats': totalSeats,
+  'available_seats': availableSeats,
+  'departure_time': departure,
+  'status': status,
+  'driver_id': 9,
+  'driver_name': driverName,
+  'my_request_status': myRequestStatus,
+  'requests': requests,
+};
 
 void main() {
   group('initialsOf', () {
@@ -56,7 +55,10 @@ void main() {
       expect(Trip.fromJson(tripPayload(availableSeats: 2)).takenSeats, 2);
       expect(Trip.fromJson(tripPayload(availableSeats: 0)).takenSeats, 4);
       expect(Trip.fromJson(tripPayload(availableSeats: 0)).isFull, isTrue);
-      expect(Trip.fromJson(tripPayload(availableSeats: 3)).acceptsRequests, isTrue);
+      expect(
+        Trip.fromJson(tripPayload(availableSeats: 3)).acceptsRequests,
+        isTrue,
+      );
     });
 
     test('una ruta cancelada ya no acepta solicitudes', () {
@@ -85,13 +87,19 @@ void main() {
     test('estima la llegada con los minutos del barrio', () {
       // Centro está a 25 minutos de la UTB.
       expect(
-        Trip.fromJson(tripPayload(departure: '7:00 AM')).estimatedArrival?.label,
+        Trip.fromJson(tripPayload(departure: '7:00 AM'))
+            .estimatedArrival
+            ?.label,
         '7:25 AM',
       );
       // Turbaco está a 20.
       expect(
         Trip.fromJson(
-          tripPayload(origin: 'Turbaco', destination: 'UTB', departure: '6:00 PM'),
+          tripPayload(
+            origin: 'Turbaco',
+            destination: 'UTB',
+            departure: '6:00 PM',
+          ),
         ).estimatedArrival?.label,
         '6:20 PM',
       );
@@ -125,7 +133,10 @@ void main() {
 
     test('una ruta cancelada nunca está en curso', () {
       final cancelada = Trip.fromJson(tripPayload(status: 'cancelled'));
-      expect(cancelada.phaseAt(DateTime(2026, 10, 1, 7, 10)), TripPhase.cancelled);
+      expect(
+        cancelada.phaseAt(DateTime(2026, 10, 1, 7, 10)),
+        TripPhase.cancelled,
+      );
     });
 
     test('una hora ilegible deja el viaje programado', () {
@@ -139,7 +150,8 @@ void main() {
 
     test('marca las salidas próximas con cupo libre', () {
       expect(
-        Trip.fromJson(tripPayload(departure: '7:00 AM', availableSeats: 2)).isImminent(now),
+        Trip.fromJson(tripPayload(departure: '7:00 AM', availableSeats: 2))
+            .isImminent(now),
         isTrue,
       );
     });
@@ -167,7 +179,10 @@ void main() {
 
   group('Trip: estado de la reserva', () {
     test('cada my_request_status produce un estado de botón', () {
-      expect(Trip.fromJson(tripPayload()).bookingState, SeatRequestState.available);
+      expect(
+        Trip.fromJson(tripPayload()).bookingState,
+        SeatRequestState.available,
+      );
       expect(
         Trip.fromJson(tripPayload(myRequestStatus: 'pending')).bookingState,
         SeatRequestState.requested,
@@ -227,15 +242,18 @@ void main() {
   });
 
   group('Trip: copias', () {
-    test('copyWith cambia solo lo indicado y deja el objeto original intacto', () {
-      final original = Trip.fromJson(tripPayload(availableSeats: 3));
-      final actualizado = original.copyWith(availableSeats: 1);
+    test(
+      'copyWith cambia solo lo indicado y deja el objeto original intacto',
+      () {
+        final original = Trip.fromJson(tripPayload(availableSeats: 3));
+        final actualizado = original.copyWith(availableSeats: 1);
 
-      expect(original.availableSeats, 3);
-      expect(actualizado.availableSeats, 1);
-      expect(actualizado.id, original.id);
-      expect(actualizado.origin, original.origin);
-    });
+        expect(original.availableSeats, 3);
+        expect(actualizado.availableSeats, 1);
+        expect(actualizado.id, original.id);
+        expect(actualizado.origin, original.origin);
+      },
+    );
 
     test('los objetos iguales se comparan por valor', () {
       expect(Trip.fromJson(tripPayload()), Trip.fromJson(tripPayload()));
@@ -248,14 +266,14 @@ void main() {
 
   group('TripRequest', () {
     TripRequest build(int id, String status) => TripRequest(
-          id: id,
-          tripId: 1,
-          passengerId: id + 100,
-          passengerName: 'Persona $id',
-          passengerPhone: '300000000$id',
-          status: SeatRequestStatus.fromWire(status),
-          createdAt: DateTime(2026, 10, 1),
-        );
+      id: id,
+      tripId: 1,
+      passengerId: id + 100,
+      passengerName: 'Persona $id',
+      passengerPhone: '300000000$id',
+      status: SeatRequestStatus.fromWire(status),
+      createdAt: DateTime(2026, 10, 1),
+    );
 
     test('agrupa por estado', () {
       final requests = <TripRequest>[
@@ -281,6 +299,26 @@ void main() {
       expect(request.passengerName, 'Pasajero');
       expect(request.initials, 'PA');
       expect(request.hasPhone, isFalse);
+    });
+
+    test('conserva la cantidad grupal que devuelve la API', () {
+      final trip = Trip.fromJson(
+        tripPayload(
+          requests: <Map<String, dynamic>>[
+            <String, dynamic>{
+              'id': 1,
+              'trip_id': 1,
+              'passenger_id': 2,
+              'seat_count': 4,
+              'passenger_name': 'Persona titular',
+              'status': 'pending',
+              'created_at': '2026-10-01T08:00:00',
+            },
+          ],
+        ),
+      );
+
+      expect(trip.requests.single.seatCount, 4);
     });
 
     test('un estado desconocido se trata como pendiente', () {

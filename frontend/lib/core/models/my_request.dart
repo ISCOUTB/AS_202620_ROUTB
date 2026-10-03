@@ -4,6 +4,7 @@ import '../constants/zones.dart';
 import 'initials.dart';
 import 'travel_time.dart';
 import 'trip_status.dart';
+import 'trip_schedule.dart';
 
 /// Solicitud propia del pasajero con una foto del viaje.
 ///
@@ -15,11 +16,15 @@ class MyRequest {
   const MyRequest({
     required this.id,
     required this.tripId,
+    this.seatCount = 1,
     required this.status,
     required this.origin,
     required this.destination,
     required this.rawDeparture,
     required this.departure,
+    this.departureDate,
+    this.meetingPoint = 'Por coordinar',
+    this.farePerSeat = 0,
     required this.totalSeats,
     required this.availableSeats,
     required this.tripStatus,
@@ -34,6 +39,9 @@ class MyRequest {
 
   /// Identificador del viaje.
   final int tripId;
+
+  /// Personas incluidas en la reserva, contando al pasajero titular.
+  final int seatCount;
 
   /// Estado de la solicitud: pendiente, confirmada o rechazada.
   final SeatRequestStatus status;
@@ -50,10 +58,19 @@ class MyRequest {
   /// Hora de salida interpretada, o `null` si el texto no tiene formato válido.
   final TravelTime? departure;
 
+  /// Día concreto de salida del viaje solicitado.
+  final DateTime? departureDate;
+
+  /// Punto de encuentro publicado por el conductor.
+  final String meetingPoint;
+
+  /// Aporte sugerido por cada cupo, en COP.
+  final int farePerSeat;
+
   /// Cupos que ofrece el viaje.
   final int totalSeats;
 
-  /// Cupos que quedan libres, ya descontando el de esta persona.
+  /// Cupos libres del viaje; una solicitud aceptada puede ocupar varios.
   final int availableSeats;
 
   /// Estado del viaje: activo o cancelado.
@@ -80,15 +97,23 @@ class MyRequest {
     return MyRequest(
       id: json['id'] as int? ?? 0,
       tripId: json['trip_id'] as int? ?? 0,
+      seatCount: json['seat_count'] as int? ?? 1,
       status: SeatRequestStatus.fromWire(json['status'] as String?),
       origin: (json['origin'] as String?)?.trim() ?? '',
       destination: (json['destination'] as String?)?.trim() ?? '',
       rawDeparture: rawDeparture,
       departure: TravelTime.tryParse(rawDeparture),
+      departureDate: DateTime.tryParse(json['departure_date'] as String? ?? ''),
+      meetingPoint:
+          (json['meeting_point'] as String?)?.trim().isNotEmpty == true
+          ? (json['meeting_point'] as String).trim()
+          : 'Por coordinar',
+      farePerSeat: (json['fare_per_seat'] as int?) ?? 0,
       totalSeats: json['total_seats'] as int? ?? 0,
       availableSeats: json['available_seats'] as int? ?? 0,
       tripStatus: TripStatus.fromWire(json['trip_status'] as String?),
-      createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ??
+      createdAt:
+          DateTime.tryParse(json['created_at'] as String? ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0),
       driverName: (json['driver_name'] as String?)?.trim(),
       driverPhone: (json['driver_phone'] as String?)?.trim(),
@@ -107,9 +132,22 @@ class MyRequest {
   /// `true` cuando el viaje ya no sale, porque se canceló.
   bool get isOrphaned => !tripStatus.isActive;
 
+  /// `true` cuando ya pasó el día y la duración estimada del viaje.
+  bool get isPast {
+    final date = departureDate;
+    if (date == null) return false;
+    final today = TripSchedule.dateOnly(DateTime.now());
+    final scheduled = TripSchedule.dateOnly(date);
+    if (scheduled.isBefore(today)) return true;
+    if (scheduled.isAfter(today) || departure == null) return false;
+    final duration = routeZone?.minutes ?? 30;
+    return departure!.minutesUntil(DateTime.now()) < -duration;
+  }
+
   /// Texto de la píldora de estado.
   String get statusLabel {
     if (isOrphaned) return 'Viaje cancelado';
+    if (isPast) return 'Viaje finalizado';
     if (isConfirmed) return 'Cupo confirmado';
     if (isPending) return 'Solicitud enviada';
     return 'No aceptada';
@@ -120,6 +158,10 @@ class MyRequest {
 
   /// Hora de salida, con el texto original como respaldo.
   String get departureLabel => departure?.label ?? rawDeparture;
+
+  String get departureDateLabel => departureDate == null
+      ? 'Fecha por confirmar'
+      : TripSchedule.dateLabel(departureDate!);
 
   /// Solo la hora sin indicador: `7:00`.
   String get departureClockLabel => departure?.clockLabel ?? rawDeparture;
@@ -152,31 +194,35 @@ class MyRequest {
     SeatRequestStatus? status,
     TripStatus? tripStatus,
     bool? canWithdraw,
-  }) =>
-      MyRequest(
-        id: id,
-        tripId: tripId,
-        status: status ?? this.status,
-        origin: origin,
-        destination: destination,
-        rawDeparture: rawDeparture,
-        departure: departure,
-        totalSeats: totalSeats,
-        availableSeats: availableSeats,
-        tripStatus: tripStatus ?? this.tripStatus,
-        createdAt: createdAt,
-        driverName: driverName,
-        driverPhone: driverPhone,
-        canWithdraw: canWithdraw ?? this.canWithdraw,
-      );
+  }) => MyRequest(
+    id: id,
+    tripId: tripId,
+    seatCount: seatCount,
+    status: status ?? this.status,
+    origin: origin,
+    destination: destination,
+    rawDeparture: rawDeparture,
+    departure: departure,
+    departureDate: departureDate,
+    meetingPoint: meetingPoint,
+    farePerSeat: farePerSeat,
+    totalSeats: totalSeats,
+    availableSeats: availableSeats,
+    tripStatus: tripStatus ?? this.tripStatus,
+    createdAt: createdAt,
+    driverName: driverName,
+    driverPhone: driverPhone,
+    canWithdraw: canWithdraw ?? this.canWithdraw,
+  );
 
   @override
   bool operator ==(Object other) =>
       other is MyRequest &&
       other.id == id &&
       other.tripId == tripId &&
-      other.status == status;
+      other.status == status &&
+      other.seatCount == seatCount;
 
   @override
-  int get hashCode => Object.hash(id, tripId, status);
+  int get hashCode => Object.hash(id, tripId, seatCount, status);
 }

@@ -6,6 +6,7 @@ import '../../../app/app_routes.dart';
 import '../../../app/dependencies.dart';
 import '../../../core/models/my_request.dart';
 import '../../../core/models/trip.dart';
+import '../../../core/models/trip_schedule.dart';
 import '../../../core/models/user_role.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/routb_palette.dart';
@@ -27,6 +28,8 @@ import 'my_trip_screen.dart';
 
 /// Estado de la lista de viajes del pasajero.
 enum PassengerStatus { loading, ready, failed }
+
+enum _PassengerTab { search, myTrips }
 
 /// Modo pasajero: busca viajes, compara horarios y solicita cupos.
 ///
@@ -53,6 +56,10 @@ class _PassengerScreenState extends State<PassengerScreen> {
   String _errorMessage = '';
   Timer? _debounce;
   bool _filtering = false;
+  DateTime _selectedDate = TripSchedule.dateOnly(DateTime.now());
+  _PassengerTab _selectedTab = _PassengerTab.search;
+  bool _myRequestsLoading = true;
+  bool _myRequestsFailed = false;
   int? _busyTripId;
   bool _asked = false;
 
@@ -79,70 +86,76 @@ class _PassengerScreenState extends State<PassengerScreen> {
   TripRepository get _repository => RoutbScopeDependencies.of(context).trips;
 
   Future<void> _load() async {
-    setState(() {
-      _status = PassengerStatus.loading;
-      _errorMessage = '';
-    });
+    if (_status != PassengerStatus.ready) {
+      setState(() {
+        _status = PassengerStatus.loading;
+        _errorMessage = '';
+      });
+    }
 
     try {
       final trips = await _repository.listAvailable(
         origin: _origin.text,
         destination: _destination.text,
+        departureDate: _selectedDate,
       );
       if (!mounted) return;
       setState(() {
         _trips = trips;
         _status = PassengerStatus.ready;
+        _filtering = false;
       });
       // Las solicitudes propias van aparte: si fallan, el buscador sigue
-      // funcionando y solo se pierde la tarjeta de «Mi viaje».
-      unawaited(_loadMyRequests());
+      // funcionando y solo se pierde la lista de «Mis viajes».
+      await _loadMyRequests();
     } on Exception catch (error, stack) {
       logFailure('la carga de viajes', error, stack);
       if (!mounted) return;
       setState(() {
         _status = PassengerStatus.failed;
         _errorMessage = describeFailure(error);
+        _filtering = false;
       });
     }
   }
 
   Future<void> _loadMyRequests() async {
+    if (mounted) {
+      setState(() {
+        _myRequestsLoading = true;
+        _myRequestsFailed = false;
+      });
+    }
     try {
       final requests = await _repository.myRequests();
       if (!mounted) return;
-      setState(() => _myRequests = requests);
+      setState(() {
+        _myRequests = requests;
+        _myRequestsLoading = false;
+      });
     } on Exception catch (error, stack) {
       logFailure('la carga de mis solicitudes', error, stack);
+      if (!mounted) return;
+      setState(() {
+        _myRequestsLoading = false;
+        _myRequestsFailed = true;
+      });
     }
   }
 
-  /// La solicitud viva que se muestra en la tarjeta: la más reciente que sigue
-  /// en curso o confirmada.
-  ///
-  /// Las rechazadas se dejan fuera a propósito: no tienen cupo, así que no
-  /// describen un viaje, y `POST /requests/trips/{id}` vuelve a admitirlas.
-  MyRequest? get _currentRequest {
-    for (final request in _myRequests) {
-      if (request.isActive) return request;
-    }
-    return null;
-  }
-
-  void _openMyTrip(MyRequest request) {
-    unawaited(
-      Navigator.of(context).push(
-        RoutbPageRoute<void>(
-          child: MyTripScreen(
-            request: request,
-            onWithdrawn: () {
-              unawaited(_loadMyRequests());
-              unawaited(_load());
-            },
-          ),
+  Future<void> _openMyTrip(MyRequest request) async {
+    await Navigator.of(context).push(
+      RoutbPageRoute<void>(
+        child: MyTripScreen(
+          request: request,
+          onWithdrawn: () {
+            unawaited(_loadMyRequests());
+            unawaited(_load());
+          },
         ),
       ),
     );
+    if (mounted) await _loadMyRequests();
   }
 
   void _openFullMap() {
@@ -169,27 +182,81 @@ class _PassengerScreenState extends State<PassengerScreen> {
     setState(() => _filtering = true);
     _debounce = Timer(const Duration(milliseconds: 320), () {
       if (!mounted) return;
-      setState(() => _filtering = false);
       unawaited(_load());
     });
   }
 
+  Future<void> _chooseDate() async {
+    final today = TripSchedule.dateOnly(DateTime.now());
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate.isBefore(today) ? today : _selectedDate,
+      firstDate: today,
+      lastDate: today.add(const Duration(days: 30)),
+      helpText: '¿Qué día viajas?',
+      cancelText: 'Cancelar',
+      confirmText: 'Elegir día',
+    );
+    if (selected == null || !mounted) return;
+    setState(() {
+      _selectedDate = TripSchedule.dateOnly(selected);
+      _filtering = true;
+    });
+    await _load();
+  }
+
+  Future<void> _selectTab(_PassengerTab tab) async {
+    setState(() => _selectedTab = tab);
+    if (tab == _PassengerTab.myTrips) await _loadMyRequests();
+  }
+
+  Future<void> _clearFilters() async {
+    _debounce?.cancel();
+    _origin.clear();
+    _destination.clear();
+    setState(() {
+      _selectedDate = TripSchedule.dateOnly(DateTime.now());
+      _filtering = true;
+    });
+    await _load();
+  }
+
   Future<void> _reserve(Trip trip) async {
     if (_busyTripId != null) return;
+    final maximum = trip.availableSeats.clamp(1, 4).toInt();
+    final seatCount = await showDialog<int>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('¿Para cuántas personas?'),
+        children: [
+          for (final count in List<int>.generate(maximum, (index) => index + 1))
+            SimpleDialogOption(
+              onPressed: () => Navigator.of(context).pop(count),
+              child: Text(
+                '$count ${count == 1 ? 'cupo (solo tú)' : 'cupos (tú y ${count - 1} más)'}',
+              ),
+            ),
+        ],
+      ),
+    );
+    if (seatCount == null || !mounted) return;
     setState(() => _busyTripId = trip.id);
 
     try {
-      final request = await _repository.requestSeat(trip.id);
+      final request = await _repository.requestSeat(
+        trip.id,
+        seatCount: seatCount,
+      );
       if (!mounted) return;
-      // El backend descuenta el cupo al aceptar el conductor, no al solicitar, así
-      // que aquí solo se marca la solicitud en curso.
+      // El backend descuenta los cupos al aceptar el conductor, no al solicitar,
+      // así que aquí solo se marca la solicitud en curso.
       _replaceTrip(trip.copyWith(myRequestStatus: request.status));
-      // Y con ella aparece la tarjeta de «Mi viaje» de una vez, sin esperar al
-      // siguiente refresco del buscador.
+      // Y con ella aparece la solicitud en «Mis viajes» sin esperar al
+      // siguiente refresco.
       unawaited(_loadMyRequests());
       RoutbToast.show(
         context,
-        'Solicitud enviada a ${trip.hasDriverName ? trip.driverName!.split(' ').first : 'el conductor'}',
+        'Solicitud de $seatCount ${seatCount == 1 ? 'cupo' : 'cupos'} enviada a ${trip.hasDriverName ? trip.driverName!.split(' ').first : 'el conductor'}',
       );
     } on ApiException catch (error) {
       if (!mounted) return;
@@ -228,48 +295,64 @@ class _PassengerScreenState extends State<PassengerScreen> {
       backgroundColor: palette.background,
       body: SafeArea(
         bottom: false,
-        child: LayoutBuilder(
-          builder: (context, constraints) => Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxWidth: RoutbTheme.contentMaxWidth,
-              ),
-              child: Column(
-                children: [
-                  _PassengerHero(
-                    userName: widget.account.name,
-                    origin: _origin,
-                    destination: _destination,
-                    onOriginChanged: _onQueryChanged,
-                    onDestinationChanged: _onQueryChanged,
-                    onLogout: _logout,
-                    onOpenMap: _openFullMap,
-                  ),
-                  Expanded(
-                    child: switch (_status) {
-                      PassengerStatus.loading => const _TripsLoading(),
-                      PassengerStatus.failed => _TripsFailed(
-                        message: _errorMessage,
-                        onRetry: _load,
-                      ),
-                      PassengerStatus.ready => _TripsList(
-                        trips: _trips,
-                        busyTripId: _busyTripId,
-                        filtering: _filtering,
-                        origin: _origin.text.trim(),
-                        destination: _destination.text.trim(),
-                        myRequest: _currentRequest,
-                        onOpenMyTrip: _openMyTrip,
-                        onReserve: _reserve,
-                        onRefresh: _load,
-                      ),
-                    },
-                  ),
-                ],
-              ),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: RoutbTheme.contentMaxWidth,
             ),
+            child: _selectedTab == _PassengerTab.search
+                ? Column(
+                    children: [
+                      _PassengerHero(
+                        userName: widget.account.name,
+                        origin: _origin,
+                        destination: _destination,
+                        selectedDate: _selectedDate,
+                        onOriginChanged: _onQueryChanged,
+                        onDestinationChanged: _onQueryChanged,
+                        onDateTap: _chooseDate,
+                        onLogout: _logout,
+                        onOpenMap: _openFullMap,
+                      ),
+                      Expanded(
+                        child: switch (_status) {
+                          PassengerStatus.loading => const _TripsLoading(),
+                          PassengerStatus.failed => _TripsFailed(
+                            message: _errorMessage,
+                            onRetry: _load,
+                          ),
+                          PassengerStatus.ready => _TripsList(
+                            trips: _trips,
+                            busyTripId: _busyTripId,
+                            filtering: _filtering,
+                            origin: _origin.text.trim(),
+                            destination: _destination.text.trim(),
+                            selectedDate: _selectedDate,
+                            onReserve: _reserve,
+                            onRefresh: _load,
+                            onClearFilters: _clearFilters,
+                          ),
+                        },
+                      ),
+                    ],
+                  )
+                : _MyTripsTab(
+                    userName: widget.account.name,
+                    requests: _myRequests,
+                    loading: _myRequestsLoading,
+                    failed: _myRequestsFailed,
+                    onLogout: _logout,
+                    onRefresh: _loadMyRequests,
+                    onRetry: _loadMyRequests,
+                    onOpen: _openMyTrip,
+                  ),
           ),
         ),
+      ),
+      bottomNavigationBar: _PassengerNavigationBar(
+        selected: _selectedTab,
+        activeTrips: _myRequests.where((request) => request.isActive).length,
+        onSelected: _selectTab,
       ),
     );
   }
@@ -281,8 +364,10 @@ class _PassengerHero extends StatelessWidget {
     required this.userName,
     required this.origin,
     required this.destination,
+    required this.selectedDate,
     required this.onOriginChanged,
     required this.onDestinationChanged,
+    required this.onDateTap,
     required this.onLogout,
     required this.onOpenMap,
   });
@@ -290,8 +375,10 @@ class _PassengerHero extends StatelessWidget {
   final String userName;
   final TextEditingController origin;
   final TextEditingController destination;
+  final DateTime selectedDate;
   final ValueChanged<String> onOriginChanged;
   final ValueChanged<String> onDestinationChanged;
+  final VoidCallback onDateTap;
   final VoidCallback onLogout;
   final VoidCallback onOpenMap;
 
@@ -369,6 +456,8 @@ class _PassengerHero extends StatelessWidget {
             destination: destination,
             onOriginChanged: onOriginChanged,
             onDestinationChanged: onDestinationChanged,
+            selectedDate: selectedDate,
+            onDateTap: onDateTap,
           ),
         ],
       ),
@@ -384,10 +473,10 @@ class _TripsList extends StatelessWidget {
     required this.filtering,
     required this.origin,
     required this.destination,
-    required this.myRequest,
-    required this.onOpenMyTrip,
+    required this.selectedDate,
     required this.onReserve,
     required this.onRefresh,
+    required this.onClearFilters,
   });
 
   final List<Trip> trips;
@@ -395,10 +484,10 @@ class _TripsList extends StatelessWidget {
   final bool filtering;
   final String origin;
   final String destination;
-  final MyRequest? myRequest;
-  final ValueChanged<MyRequest> onOpenMyTrip;
+  final DateTime selectedDate;
   final ValueChanged<Trip> onReserve;
   final Future<void> Function() onRefresh;
+  final Future<void> Function() onClearFilters;
 
   @override
   Widget build(BuildContext context) {
@@ -410,19 +499,6 @@ class _TripsList extends StatelessWidget {
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
-          // La tarjeta va antes que el encabezado, incluso con cero resultados:
-          // el viaje confirmado desaparece del listado cuando se llena, que es
-          // justo cuando el pasajero necesita verlo.
-          if (myRequest != null)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
-                child: MyTripCard(
-                  request: myRequest!,
-                  onTap: () => onOpenMyTrip(myRequest!),
-                ),
-              ),
-            ),
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
@@ -485,19 +561,17 @@ class _TripsList extends StatelessWidget {
               child: RoutbEmptyState(
                 icon: Icons.search_off_rounded,
                 message: origin.isEmpty && destination.isEmpty
-                    ? 'Todavía no hay ningún viaje publicado. Vuelve en un '
-                          'ratito o crea el tuyo como conductor.'
+                    ? 'No hay viajes para ${TripSchedule.dateLabel(selectedDate)}. '
+                          'Prueba con otro día.'
                     : 'No hay viajes con esa búsqueda. Prueba con otro origen o '
                           'destino.',
-                action: (origin.isEmpty && destination.isEmpty)
-                    ? null
-                    : RoutbButton(
-                        label: 'Quitar el filtro',
-                        variant: RoutbButtonVariant.secondary,
-                        expand: false,
-                        height: 44,
-                        onPressed: null,
-                      ),
+                action: RoutbButton(
+                  label: 'Limpiar búsqueda',
+                  variant: RoutbButtonVariant.secondary,
+                  expand: false,
+                  height: 44,
+                  onPressed: onClearFilters,
+                ),
               ),
             )
           else
@@ -570,6 +644,229 @@ class _TripsFailed extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Vista accesible desde la navegación inferior para consultar todas las
+/// solicitudes del pasajero, incluidas las rutas que ya se llenaron.
+class _MyTripsTab extends StatelessWidget {
+  const _MyTripsTab({
+    required this.userName,
+    required this.requests,
+    required this.loading,
+    required this.failed,
+    required this.onLogout,
+    required this.onRefresh,
+    required this.onRetry,
+    required this.onOpen,
+  });
+
+  final String userName;
+  final List<MyRequest> requests;
+  final bool loading;
+  final bool failed;
+  final VoidCallback onLogout;
+  final Future<void> Function() onRefresh;
+  final Future<void> Function() onRetry;
+  final ValueChanged<MyRequest> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return Column(
+      children: [
+        Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            gradient: palette.heroGradient,
+            borderRadius: const BorderRadius.vertical(
+              bottom: Radius.circular(30),
+            ),
+          ),
+          padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              HeroBar(
+                role: UserRole.passenger,
+                userName: userName,
+                onLogout: onLogout,
+                isDarkBackground: true,
+                wave: true,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Mis viajes',
+                style: RoutbText.headline(22, color: Colors.white),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: loading
+              ? const _TripsLoading()
+              : failed
+              ? _TripsFailed(
+                  message: 'No se pudieron cargar tus viajes.',
+                  onRetry: onRetry,
+                )
+              : RefreshIndicator(
+                  onRefresh: onRefresh,
+                  child: requests.isEmpty
+                      ? ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.all(24),
+                          children: const [
+                            SizedBox(height: 90),
+                            RoutbEmptyState(
+                              icon: Icons.luggage_outlined,
+                              message: 'Todavía no tienes solicitudes. Cuando pidas cupo, podrás seguir su estado aquí.',
+                            ),
+                          ],
+                        )
+                      : ListView.builder(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.fromLTRB(14, 16, 14, 24),
+                          itemCount: requests.length,
+                          itemBuilder: (context, index) => Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: MyTripCard(
+                              request: requests[index],
+                              onTap: () => onOpen(requests[index]),
+                            ),
+                          ),
+                        ),
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Barra compacta que conserva la paleta y las superficies de ROUTB.
+class _PassengerNavigationBar extends StatelessWidget {
+  const _PassengerNavigationBar({
+    required this.selected,
+    required this.activeTrips,
+    required this.onSelected,
+  });
+
+  final _PassengerTab selected;
+  final int activeTrips;
+  final ValueChanged<_PassengerTab> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return Container(
+      decoration: BoxDecoration(
+        color: palette.card,
+        border: Border(top: BorderSide(color: palette.line)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 64,
+          child: Row(
+            children: [
+              _PassengerNavItem(
+                label: 'Buscar',
+                icon: Icons.search_rounded,
+                selected: selected == _PassengerTab.search,
+                onTap: () => onSelected(_PassengerTab.search),
+              ),
+              _PassengerNavItem(
+                label: 'Mis viajes',
+                icon: Icons.luggage_outlined,
+                selected: selected == _PassengerTab.myTrips,
+                badge: activeTrips,
+                onTap: () => onSelected(_PassengerTab.myTrips),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PassengerNavItem extends StatelessWidget {
+  const _PassengerNavItem({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+    this.badge = 0,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final int badge;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final color = selected ? palette.brand : palette.muted;
+    return Expanded(
+      child: Semantics(
+        button: true,
+        selected: selected,
+        label: badge > 0 ? '$label, $badge activos' : label,
+        child: InkWell(
+          onTap: onTap,
+          child: Center(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              decoration: BoxDecoration(
+                color: selected ? palette.brandSurface : Colors.transparent,
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Icon(icon, size: 20, color: color),
+                      if (badge > 0)
+                        Positioned(
+                          right: -8,
+                          top: -5,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            decoration: BoxDecoration(
+                              color: palette.mint,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            constraints: const BoxConstraints(minWidth: 15),
+                            child: Text(
+                              badge > 9 ? '9+' : '$badge',
+                              textAlign: TextAlign.center,
+                              style: RoutbText.copy(9, color: palette.onMint),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(width: 7),
+                  Text(
+                    label,
+                    style: RoutbText.copy(
+                      12,
+                      color: color,
+                      weight: selected ? FontWeight.w700 : FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -123,7 +123,10 @@ class _DriverScreenState extends State<DriverScreen> {
     try {
       final accepted = await _trips.accept(request.id);
       final updated = trip.copyWith(
-        availableSeats: (trip.availableSeats - 1).clamp(0, trip.totalSeats),
+        availableSeats: (trip.availableSeats - accepted.seatCount).clamp(
+          0,
+          trip.totalSeats,
+        ),
         requests: _replaceRequest(trip.requests, accepted),
       );
       _replaceTrip(updated);
@@ -152,7 +155,7 @@ class _DriverScreenState extends State<DriverScreen> {
       final rejected = await _trips.reject(request.id);
       // Si estaba confirmada, el backend devuelve el cupo al viaje.
       final availableSeats = request.isAccepted
-          ? (trip.availableSeats + 1).clamp(0, trip.totalSeats)
+          ? (trip.availableSeats + request.seatCount).clamp(0, trip.totalSeats)
           : trip.availableSeats;
       _replaceTrip(
         trip.copyWith(
@@ -182,7 +185,10 @@ class _DriverScreenState extends State<DriverScreen> {
   }
 
   Future<void> _confirmCancel(Trip trip) async {
-    final accepted = trip.requests.accepted.length;
+    final accepted = trip.requests.accepted.fold<int>(
+      0,
+      (total, request) => total + request.seatCount,
+    );
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
@@ -251,6 +257,9 @@ class _DriverScreenState extends State<DriverScreen> {
         origin: draft.origin,
         destination: draft.destination,
         departureTime: draft.departure.label,
+        departureDate: draft.departureDate,
+        meetingPoint: draft.meetingPoint.trim(),
+        farePerSeat: draft.farePerSeat,
         seats: draft.seats,
       );
       if (!mounted) return;

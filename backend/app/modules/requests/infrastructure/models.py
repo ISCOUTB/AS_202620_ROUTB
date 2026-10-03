@@ -10,6 +10,7 @@ class TripRequest(Base):
     id = Column(Integer, primary_key=True, index=True)
     trip_id = Column(Integer, ForeignKey("trips.id", ondelete="CASCADE"), nullable=False, index=True)
     passenger_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    seat_count = Column(Integer, nullable=False, default=1, server_default="1")
     status = Column(String, nullable=False, default="pending", server_default="pending")
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
 

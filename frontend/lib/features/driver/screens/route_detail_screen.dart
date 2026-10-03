@@ -79,7 +79,10 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
   }
 
   Future<void> _cancel() async {
-    final accepted = _trip.requests.accepted.length;
+    final accepted = _trip.requests.accepted.fold<int>(
+      0,
+      (total, request) => total + request.seatCount,
+    );
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
@@ -132,10 +135,15 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
     final phase = _trip.phaseAt(DateTime.now());
     final arrival = _trip.estimatedArrival;
     final accepted = _trip.requests.accepted;
+    final acceptedSeatCount = accepted.fold<int>(
+      0,
+      (total, request) => total + request.seatCount,
+    );
 
     final (Color pillBackground, Color pillForeground) = switch (phase) {
       TripPhase.onCourse => (palette.mintSurface, palette.onMintSurface),
       TripPhase.cancelled => (palette.roseSurface, palette.onRoseSurface),
+      TripPhase.completed => (palette.surface, palette.muted),
       TripPhase.scheduled => (palette.amberSurface, palette.onAmberSurface),
     };
 
@@ -188,7 +196,8 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                           stops: [
                             TimelineStop(
                               title: _trip.origin,
-                              subtitle: 'Salida ${_trip.departureLabel}',
+                              subtitle:
+                                  '${_trip.departureDateLabel} · salida ${_trip.departureLabel}',
                               reached: phase == TripPhase.onCourse,
                             ),
                             TimelineStop(
@@ -220,6 +229,12 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                             ),
                           ],
                         ),
+                        const SizedBox(height: 10),
+                        Text(
+                          'Encuentro: ${_trip.meetingPoint}',
+                          style: RoutbText.copy(13, color: palette.ink),
+                        ),
+                        const SizedBox(height: 4),
                       ],
                     ),
                   ),
@@ -242,7 +257,7 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                       children: [
                         RoutbCardHeader(
                           title: 'Pasajeros confirmados',
-                          count: accepted.length,
+                          count: acceptedSeatCount,
                         ),
                         if (_busy && accepted.isEmpty)
                           const Padding(

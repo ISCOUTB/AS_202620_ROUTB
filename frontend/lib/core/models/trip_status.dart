@@ -16,8 +16,9 @@ enum TripStatus {
 
   /// Interpreta el valor de la API; cualquier cosa desconocida se trata como
   /// [TripStatus.active], que es el valor por defecto del backend.
-  static TripStatus fromWire(String? raw) =>
-      raw == TripStatus.cancelled.wire ? TripStatus.cancelled : TripStatus.active;
+  static TripStatus fromWire(String? raw) => raw == TripStatus.cancelled.wire
+      ? TripStatus.cancelled
+      : TripStatus.active;
 }
 
 /// Estado de una solicitud de cupo.
@@ -45,10 +46,10 @@ enum SeatRequestStatus {
   /// Interpreta el valor de la API; cualquier cosa desconocida se trata como
   /// [SeatRequestStatus.pending].
   static SeatRequestStatus fromWire(String? raw) => switch (raw) {
-        'accepted' => SeatRequestStatus.accepted,
-        'rejected' => SeatRequestStatus.rejected,
-        _ => SeatRequestStatus.pending,
-      };
+    'accepted' => SeatRequestStatus.accepted,
+    'rejected' => SeatRequestStatus.rejected,
+    _ => SeatRequestStatus.pending,
+  };
 }
 
 /// Fase de un viaje tal como se muestra en pantalla.
@@ -58,6 +59,7 @@ enum SeatRequestStatus {
 enum TripPhase {
   scheduled('Programada'),
   onCourse('En curso'),
+  completed('Finalizado'),
   cancelled('Cancelada');
 
   const TripPhase(this.label);
