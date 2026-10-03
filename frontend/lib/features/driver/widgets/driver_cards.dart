@@ -69,7 +69,7 @@ class RequestTile extends StatelessWidget {
                   style: RoutbText.headline(15, color: palette.ink),
                 ),
                 Text(
-                  '${request.seatCount} ${request.seatCount == 1 ? 'cupo' : 'cupos'} solicitados · incluye al pasajero',
+                  '${request.seatCount} ${request.seatCount == 1 ? 'cupo' : 'cupos'} solicitados',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: RoutbText.copy(12, color: palette.muted),
