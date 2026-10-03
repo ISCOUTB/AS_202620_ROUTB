@@ -143,6 +143,7 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
     final (Color pillBackground, Color pillForeground) = switch (phase) {
       TripPhase.onCourse => (palette.mintSurface, palette.onMintSurface),
       TripPhase.cancelled => (palette.roseSurface, palette.onRoseSurface),
+      TripPhase.completed => (palette.surface, palette.muted),
       TripPhase.scheduled => (palette.amberSurface, palette.onAmberSurface),
     };
 
@@ -195,7 +196,8 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                           stops: [
                             TimelineStop(
                               title: _trip.origin,
-                              subtitle: 'Salida ${_trip.departureLabel}',
+                              subtitle:
+                                  '${_trip.departureDateLabel} · salida ${_trip.departureLabel}',
                               reached: phase == TripPhase.onCourse,
                             ),
                             TimelineStop(
@@ -227,6 +229,12 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                             ),
                           ],
                         ),
+                        const SizedBox(height: 10),
+                        Text(
+                          'Encuentro: ${_trip.meetingPoint}',
+                          style: RoutbText.copy(13, color: palette.ink),
+                        ),
+                        const SizedBox(height: 4),
                       ],
                     ),
                   ),

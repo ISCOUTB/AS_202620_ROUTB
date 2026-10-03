@@ -3,7 +3,7 @@
   "info": {
     "title": "ROUTB API",
     "description": "ROUTB",
-    "version": "0.3.0"
+    "version": "0.4.0"
   },
   "paths": {
     "/users/": {
@@ -151,6 +151,23 @@
                 }
               ],
               "title": "Destination"
+            }
+          },
+          {
+            "name": "departure_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Departure Date"
             }
           }
         ],
@@ -803,6 +820,28 @@
             ],
             "title": "Departure Time"
           },
+          "departure_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Departure Date"
+          },
+          "meeting_point": {
+            "type": "string",
+            "title": "Meeting Point",
+            "default": "Por coordinar"
+          },
+          "fare_per_seat": {
+            "type": "integer",
+            "title": "Fare Per Seat",
+            "default": 0
+          },
           "total_seats": {
             "type": "integer",
             "title": "Total Seats"
@@ -906,6 +945,25 @@
             ],
             "title": "Departure Time",
             "default": "7:00 AM"
+          },
+          "departure_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Departure Date"
+          },
+          "meeting_point": {
+            "type": "string",
+            "maxLength": 140,
+            "minLength": 3,
+            "title": "Meeting Point",
+            "default": "Por coordinar"
+          },
+          "fare_per_seat": {
+            "type": "integer",
+            "maximum": 1000000.0,
+            "minimum": 0.0,
+            "title": "Fare Per Seat",
+            "default": 0
           }
         },
         "type": "object",
@@ -1083,6 +1141,21 @@
             ],
             "title": "Departure Time",
             "default": "7:00 AM"
+          },
+          "departure_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Departure Date"
+          },
+          "meeting_point": {
+            "type": "string",
+            "title": "Meeting Point",
+            "default": "Por coordinar"
+          },
+          "fare_per_seat": {
+            "type": "integer",
+            "title": "Fare Per Seat",
+            "default": 0
           },
           "status": {
             "type": "string",

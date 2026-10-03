@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
@@ -57,6 +58,9 @@ def _to_response(trip, current_user_id: int | None = None) -> schemas.TripRespon
         total_seats=trip.total_seats,
         available_seats=trip.available_seats,
         departure_time=trip.departure_time,
+        departure_date=trip.departure_date,
+        meeting_point=trip.meeting_point,
+        fare_per_seat=trip.fare_per_seat,
         status=trip.status,
         driver_id=trip.driver_id,
         driver_name=driver_name,
@@ -81,9 +85,15 @@ def get_active_trips(
     db: Annotated[Session, Depends(get_db)],
     origin: str | None = Query(None),
     destination: str | None = Query(None),
+    departure_date: date | None = Query(None),
     current_user: Annotated[UserIdentity | None, Depends(get_optional_current_user)] = None,
 ):
-    trips = get_active_trips_use_case(db, origin=origin, destination=destination)
+    trips = get_active_trips_use_case(
+        db,
+        origin=origin,
+        destination=destination,
+        departure_date=departure_date,
+    )
     current_user_id = current_user.id if current_user else None
     return [_to_response(t, current_user_id=current_user_id) for t in trips]
 

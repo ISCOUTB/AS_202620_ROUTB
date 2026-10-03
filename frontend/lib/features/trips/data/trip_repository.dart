@@ -20,12 +20,16 @@ class TripRepository {
   Future<List<Trip>> listAvailable({
     String? origin,
     String? destination,
+    DateTime? departureDate,
   }) async {
     final response = await _api.get(
       '/trips/',
       query: <String, String?>{
         'origin': origin?.trim(),
         'destination': destination?.trim(),
+        'departure_date': departureDate == null
+            ? null
+            : _dateParameter(departureDate),
       },
     );
     return _asTrips(response);
@@ -45,6 +49,9 @@ class TripRepository {
     required String origin,
     required String destination,
     required String departureTime,
+    required DateTime departureDate,
+    required String meetingPoint,
+    required int farePerSeat,
     required int seats,
   }) async {
     final response = await _api.post(
@@ -53,6 +60,9 @@ class TripRepository {
         'origin': origin,
         'destination': destination,
         'departure_time': departureTime,
+        'departure_date': _dateParameter(departureDate),
+        'meeting_point': meetingPoint,
+        'fare_per_seat': farePerSeat,
         'total_seats': seats.clamp(1, 4),
       },
     );
@@ -123,7 +133,8 @@ class TripRepository {
     return <MyRequest>[
       for (final trip in trips)
         if (trip.myRequestStatus != null &&
-            (trip.myRequestStatus!.isPending || trip.myRequestStatus!.isAccepted))
+            (trip.myRequestStatus!.isPending ||
+                trip.myRequestStatus!.isAccepted))
           MyRequest(
             // Sin endpoint no hay forma de saber el id de la solicitud, y sin id
             // no hay retiro.
@@ -134,6 +145,9 @@ class TripRepository {
             destination: trip.destination,
             rawDeparture: trip.rawDeparture,
             departure: trip.departure,
+            departureDate: trip.departureDate,
+            meetingPoint: trip.meetingPoint,
+            farePerSeat: trip.farePerSeat,
             totalSeats: trip.totalSeats,
             availableSeats: trip.availableSeats,
             tripStatus: trip.status,
@@ -179,5 +193,11 @@ class TripRepository {
   static Map<String, dynamic> _asMap(Object? response) {
     if (response is Map<String, dynamic>) return response;
     throw StateError('El backend no devolvió un objeto: $response');
+  }
+
+  static String _dateParameter(DateTime value) {
+    final month = value.month.toString().padLeft(2, '0');
+    final day = value.day.toString().padLeft(2, '0');
+    return '${value.year}-$month-$day';
   }
 }

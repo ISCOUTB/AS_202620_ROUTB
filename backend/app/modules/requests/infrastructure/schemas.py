@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -51,6 +51,9 @@ class MyRequestResponse(BaseModel):
     origin: str
     destination: str
     departure_time: str | None = None
+    departure_date: date | None = None
+    meeting_point: str = "Por coordinar"
+    fare_per_seat: int = 0
     total_seats: int
     available_seats: int
     trip_status: str

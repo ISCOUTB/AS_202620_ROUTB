@@ -11,6 +11,9 @@ def create_trip(db: Session, trip_data: TripCreate, driver_id: int | None = None
         total_seats=trip_data.total_seats,
         available_seats=trip_data.total_seats,
         departure_time=trip_data.departure_time or "7:00 AM",
+        departure_date=trip_data.departure_date,
+        meeting_point=trip_data.meeting_point.strip(),
+        fare_per_seat=trip_data.fare_per_seat,
         driver_id=driver_id,
         status="active",
     )

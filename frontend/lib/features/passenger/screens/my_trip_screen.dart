@@ -22,7 +22,11 @@ import '../widgets/my_trip_card.dart';
 /// despliegue viejo la retirada no es posible, y es mejor decirlo con claridad
 /// que dejar un botón que revienta.
 class MyTripScreen extends StatefulWidget {
-  const MyTripScreen({required this.request, required this.onWithdrawn, super.key});
+  const MyTripScreen({
+    required this.request,
+    required this.onWithdrawn,
+    super.key,
+  });
 
   /// Solicitud que se muestra.
   final MyRequest request;
@@ -49,10 +53,10 @@ class _MyTripScreenState extends State<MyTripScreen> {
         content: Text(
           _request.isConfirmed
               ? 'Vas a liberar el cupo confirmado con '
-                  '${_request.driverName ?? 'el conductor'}. '
-                  'Queda libre para otra persona.'
+                    '${_request.driverName ?? 'el conductor'}. '
+                    'Queda libre para otra persona.'
               : 'Tu solicitud al conductor se descarta. '
-                  'Podrás volver a pedir cupo en otro viaje.',
+                    'Podrás volver a pedir cupo en otro viaje.',
         ),
         actions: [
           TextButton(
@@ -74,7 +78,8 @@ class _MyTripScreenState extends State<MyTripScreen> {
 
     setState(() => _busy = true);
     try {
-      await RoutbScopeDependencies.of(context).trips.withdrawRequest(_request.id);
+      await RoutbScopeDependencies.of(context).trips
+          .withdrawRequest(_request.id);
       if (!mounted) return;
       widget.onWithdrawn();
       Navigator.of(context).pop();
@@ -123,6 +128,11 @@ class _MyTripScreenState extends State<MyTripScreen> {
                           overflow: TextOverflow.ellipsis,
                           style: RoutbText.headline(20, color: palette.ink),
                         ),
+                        const SizedBox(height: 6),
+                        Text(
+                          '${_request.departureDateLabel} · salida ${_request.departureLabel}',
+                          style: RoutbText.copy(13, color: palette.muted),
+                        ),
                         const SizedBox(height: 14),
                         DashedTimeline(
                           stops: [
@@ -164,6 +174,12 @@ class _MyTripScreenState extends State<MyTripScreen> {
                             ),
                           ],
                         ),
+                        const SizedBox(height: 10),
+                        Text(
+                          'Encuentro: ${_request.meetingPoint}',
+                          style: RoutbText.copy(13, color: palette.ink),
+                        ),
+                        const SizedBox(height: 4),
                       ],
                     ),
                   ),
@@ -192,25 +208,38 @@ class _MyTripScreenState extends State<MyTripScreen> {
                                         : 'Conductor sin asignar',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: RoutbText.headline(15, color: palette.ink),
+                                    style: RoutbText.headline(
+                                      15,
+                                      color: palette.ink,
+                                    ),
                                   ),
                                   if (_request.hasDriverPhone)
                                     Text(
                                       _request.driverPhone!,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: RoutbText.copy(12, color: palette.muted),
+                                      style: RoutbText.copy(
+                                        12,
+                                        color: palette.muted,
+                                      ),
                                     )
                                   else
                                     Text(
                                       'Teléfono no disponible',
-                                      style: RoutbText.copy(12, color: palette.muted),
+                                      style: RoutbText.copy(
+                                        12,
+                                        color: palette.muted,
+                                      ),
                                     ),
                                 ],
                               ),
                             ),
                             if (_request.hasDriverPhone)
-                              Icon(Icons.phone_rounded, size: 18, color: palette.muted),
+                              Icon(
+                                Icons.phone_rounded,
+                                size: 18,
+                                color: palette.muted,
+                              ),
                           ],
                         ),
                       ],
@@ -225,8 +254,11 @@ class _MyTripScreenState extends State<MyTripScreen> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.info_outline_rounded,
-                              size: 18, color: palette.rose),
+                          Icon(
+                            Icons.info_outline_rounded,
+                            size: 18,
+                            color: palette.rose,
+                          ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(

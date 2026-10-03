@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../constants/zones.dart';
 import 'initials.dart';
+import 'trip_schedule.dart';
 import 'travel_time.dart';
 import 'trip_request.dart';
 import 'trip_status.dart';
@@ -20,6 +21,9 @@ class Trip {
     required this.availableSeats,
     required this.rawDeparture,
     required this.departure,
+    this.departureDate,
+    this.meetingPoint = 'Por coordinar',
+    this.farePerSeat = 0,
     required this.status,
     required this.requests,
     this.driverId,
@@ -48,6 +52,15 @@ class Trip {
 
   /// Hora de salida interpretada, o `null` si el texto no tiene formato válido.
   final TravelTime? departure;
+
+  /// Día concreto de salida de esta publicación.
+  final DateTime? departureDate;
+
+  /// Referencia donde conductor y grupo se encuentran.
+  final String meetingPoint;
+
+  /// Aporte voluntario sugerido por cada cupo, en COP.
+  final int farePerSeat;
 
   /// Estado persistido.
   final TripStatus status;
@@ -84,6 +97,12 @@ class Trip {
       availableSeats: (json['available_seats'] as int?) ?? 0,
       rawDeparture: rawDeparture,
       departure: TravelTime.tryParse(rawDeparture),
+      departureDate: DateTime.tryParse(json['departure_date'] as String? ?? ''),
+      meetingPoint:
+          (json['meeting_point'] as String?)?.trim().isNotEmpty == true
+          ? (json['meeting_point'] as String).trim()
+          : 'Por coordinar',
+      farePerSeat: (json['fare_per_seat'] as int?) ?? 0,
       status: TripStatus.fromWire(json['status'] as String?),
       driverId: json['driver_id'] as int?,
       driverName: (json['driver_name'] as String?)?.trim(),
@@ -95,9 +114,9 @@ class Trip {
       requests: rawRequests == null
           ? const <TripRequest>[]
           : rawRequests
-              .whereType<Map<String, dynamic>>()
-              .map(TripRequest.fromJson)
-              .toList(growable: false),
+                .whereType<Map<String, dynamic>>()
+                .map(TripRequest.fromJson)
+                .toList(growable: false),
     );
   }
 
@@ -132,6 +151,10 @@ class Trip {
   /// Texto del trayecto tal como lo muestra el conductor: «Centro → UTB».
   String get routeLabel => '$origin → $destination';
 
+  String get departureDateLabel => departureDate == null
+      ? 'Fecha por confirmar'
+      : TripSchedule.dateLabel(departureDate!);
+
   // --- Horarios ---------------------------------------------------------------
 
   /// Hora de salida para mostrar: la interpretada o, si no se pudo leer, el
@@ -157,11 +180,18 @@ class Trip {
 
   /// Fase del viaje en el instante [now].
   ///
-  /// Cancelada y Programada vienen del backend. «En curso» se deriva del
-  /// reloj: la API guarda la hora como texto sin fecha, así que la comparación
-  /// es aproximada y solo mira la hora del día.
+  /// La fecha viene del backend; la fase «En curso» se estima con la duración
+  /// por zona porque ROUTB todavía no recibe la posición real del vehículo.
   TripPhase phaseAt(DateTime now) {
     if (!status.isActive) return TripPhase.cancelled;
+
+    final scheduledDate = departureDate;
+    if (scheduledDate != null) {
+      final date = TripSchedule.dateOnly(scheduledDate);
+      final today = TripSchedule.dateOnly(now);
+      if (date.isAfter(today)) return TripPhase.scheduled;
+      if (date.isBefore(today)) return TripPhase.completed;
+    }
 
     final start = departure;
     if (start == null) return TripPhase.scheduled;
@@ -173,17 +203,25 @@ class Trip {
     // cuando el viaje ya salió. «En curso» es la ventana entre que sale y que
     // termina de recorrer el barrio.
     final remaining = start.minutesUntil(now);
-    return remaining <= 0 && remaining >= -window
-        ? TripPhase.onCourse
+    if (remaining <= 0 && remaining >= -window) return TripPhase.onCourse;
+    return remaining < -window && departureDate != null
+        ? TripPhase.completed
         : TripPhase.scheduled;
   }
 
   /// `true` si el viaje sale dentro de [window] y todavía tiene cupo.
   ///
-  /// Es el criterio de la insignia «Nuevo» de la lista del pasajero: sin
-  /// `created_at` en la base de datos, «reciente» se aproxima con «próximo».
-  bool isImminent(DateTime now, {Duration window = const Duration(minutes: 90)}) {
+  /// Criterio de la insignia «Nuevo» para los viajes que salen pronto hoy.
+  bool isImminent(
+    DateTime now, {
+    Duration window = const Duration(minutes: 90),
+  }) {
     if (!status.isActive || isFull) return false;
+    if (departureDate != null &&
+        !TripSchedule.dateOnly(departureDate!)
+            .isAtSameMomentAs(TripSchedule.dateOnly(now))) {
+      return false;
+    }
     return departure?.isWithin(now, window: window) ?? false;
   }
 
@@ -209,24 +247,29 @@ class Trip {
   /// Copia con los campos indicados sustituidos.
   Trip copyWith({
     int? availableSeats,
+    DateTime? departureDate,
+    String? meetingPoint,
+    int? farePerSeat,
     TripStatus? status,
     SeatRequestStatus? myRequestStatus,
     List<TripRequest>? requests,
-  }) =>
-      Trip(
-        id: id,
-        origin: origin,
-        destination: destination,
-        totalSeats: totalSeats,
-        availableSeats: availableSeats ?? this.availableSeats,
-        rawDeparture: rawDeparture,
-        departure: departure,
-        status: status ?? this.status,
-        driverId: driverId,
-        driverName: driverName,
-        myRequestStatus: myRequestStatus ?? this.myRequestStatus,
-        requests: requests ?? this.requests,
-      );
+  }) => Trip(
+    id: id,
+    origin: origin,
+    destination: destination,
+    totalSeats: totalSeats,
+    availableSeats: availableSeats ?? this.availableSeats,
+    rawDeparture: rawDeparture,
+    departure: departure,
+    departureDate: departureDate ?? this.departureDate,
+    meetingPoint: meetingPoint ?? this.meetingPoint,
+    farePerSeat: farePerSeat ?? this.farePerSeat,
+    status: status ?? this.status,
+    driverId: driverId,
+    driverName: driverName,
+    myRequestStatus: myRequestStatus ?? this.myRequestStatus,
+    requests: requests ?? this.requests,
+  );
 
   @override
   bool operator ==(Object other) =>
@@ -237,6 +280,9 @@ class Trip {
       other.totalSeats == totalSeats &&
       other.availableSeats == availableSeats &&
       other.rawDeparture == rawDeparture &&
+      other.departureDate == departureDate &&
+      other.meetingPoint == meetingPoint &&
+      other.farePerSeat == farePerSeat &&
       other.status == status &&
       other.driverId == driverId &&
       other.driverName == driverName &&
@@ -244,17 +290,20 @@ class Trip {
 
   @override
   int get hashCode => Object.hash(
-        id,
-        origin,
-        destination,
-        totalSeats,
-        availableSeats,
-        rawDeparture,
-        status,
-        driverId,
-        driverName,
-        myRequestStatus,
-      );
+    id,
+    origin,
+    destination,
+    totalSeats,
+    availableSeats,
+    rawDeparture,
+    departureDate,
+    meetingPoint,
+    farePerSeat,
+    status,
+    driverId,
+    driverName,
+    myRequestStatus,
+  );
 }
 
 /// Estado del botón de reserva en la tarjeta de un viaje.

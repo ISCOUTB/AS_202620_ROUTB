@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/zones.dart';
 import '../../../core/models/travel_time.dart';
+import '../../../core/models/trip_schedule.dart';
 import '../../../core/theme/routb_palette.dart';
 import '../../../core/theme/routb_text.dart';
 import '../../../core/widgets/routb_button.dart';
@@ -21,9 +22,17 @@ class DraftRoute {
     Zone? zone,
     this.toCampus = true,
     TravelTime? departure,
+    DateTime? departureDate,
     this.seats = 3,
-  })  : zone = zone ?? Zones.neighborhoods.first,
-        departure = departure ?? const TravelTime.fromClock(7, 30);
+    this.meetingPoint = '',
+    this.farePerSeat = 0,
+  }) : zone = zone ?? Zones.neighborhoods.first,
+       departure = departure ?? const TravelTime.fromClock(7, 30),
+       departureDate =
+           departureDate ??
+           TripSchedule.nextOccurrence(
+             departure ?? const TravelTime.fromClock(7, 30),
+           );
 
   /// Barrio del trayecto.
   Zone zone;
@@ -34,8 +43,17 @@ class DraftRoute {
   /// Hora de salida.
   TravelTime departure;
 
+  /// Día concreto para el que se publica la ruta.
+  DateTime departureDate;
+
   /// Número de cupos ofrecidos, de 1 a 4.
   int seats;
+
+  /// Punto de encuentro descrito para los pasajeros.
+  String meetingPoint;
+
+  /// Aporte sugerido por cada cupo, en pesos colombianos.
+  int farePerSeat;
 
   /// Nombre del conductor, para la vista previa.
   final String driverName;
@@ -82,10 +100,8 @@ Future<DraftRoute?> showPublishRouteSheet({
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
     ),
-    builder: (sheetContext) => _PublishSheet(
-      driverName: driverName,
-      driverInitials: driverInitials,
-    ),
+    builder: (sheetContext) =>
+        _PublishSheet(driverName: driverName, driverInitials: driverInitials),
   );
 }
 
@@ -104,6 +120,31 @@ class _PublishSheetState extends State<_PublishSheet> {
     driverName: widget.driverName,
     driverInitials: widget.driverInitials,
   );
+  final TextEditingController _meetingPoint = TextEditingController();
+
+  @override
+  void dispose() {
+    _meetingPoint.dispose();
+    super.dispose();
+  }
+
+  Future<void> _chooseDate() async {
+    final today = TripSchedule.dateOnly(DateTime.now());
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _draft.departureDate.isBefore(today)
+          ? today
+          : _draft.departureDate,
+      firstDate: today,
+      lastDate: today.add(const Duration(days: 30)),
+      helpText: '¿Qué día viajas?',
+      cancelText: 'Cancelar',
+      confirmText: 'Elegir día',
+    );
+    if (picked != null && mounted) {
+      setState(() => _draft.departureDate = TripSchedule.dateOnly(picked));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -112,10 +153,15 @@ class _PublishSheetState extends State<_PublishSheet> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const RoutbHint('Así la verán los pasajeros'),
-          const SizedBox(height: 10),
-          DraftPreview(draft: _draft),
-          const SizedBox(height: 20),
+          const SectionLabel(title: 'Fecha del viaje'),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              onPressed: _chooseDate,
+              icon: const Icon(Icons.calendar_today_rounded, size: 16),
+              label: Text(TripSchedule.dateLabel(_draft.departureDate)),
+            ),
+          ),
 
           SectionLabel(
             title: 'Trayecto',
@@ -163,6 +209,18 @@ class _PublishSheetState extends State<_PublishSheet> {
             ),
           ),
 
+          const SizedBox(height: 18),
+          const SectionLabel(title: 'Punto de encuentro'),
+          RoutbField(
+            hint: 'Ej. Portería principal de la UTB',
+            icon: Icons.place_outlined,
+            controller: _meetingPoint,
+            textCapitalization: TextCapitalization.sentences,
+            onChanged: (value) {
+              setState(() => _draft.meetingPoint = value);
+            },
+          ),
+
           const RoutbHint(
             'El trayecto del mapa es una estimación entre los dos barrios: '
             'ROUTB no guarda rutas reales.',
@@ -172,7 +230,9 @@ class _PublishSheetState extends State<_PublishSheet> {
       ),
       footer: RoutbButton(
         label: 'Publicar ruta',
-        onPressed: () => Navigator.of(context).pop(_draft),
+        onPressed: _draft.meetingPoint.trim().length < 3
+            ? null
+            : () => Navigator.of(context).pop(_draft),
       ),
     );
   }
@@ -186,11 +246,8 @@ class SeatPicker extends StatelessWidget {
   final ValueChanged<int> onChanged;
 
   @override
-  Widget build(BuildContext context) => SeatSlots(
-        selected: seats,
-        onChanged: onChanged,
-        maxSeats: 4,
-      );
+  Widget build(BuildContext context) =>
+      SeatSlots(selected: seats, onChanged: onChanged, maxSeats: 4);
 }
 
 /// `.tm`: ajuste de la hora de salida en saltos de quince minutos.
@@ -285,117 +342,13 @@ class _StepButton extends StatelessWidget {
             width: 48,
             height: 48,
             child: Center(
-              child: Text(label, style: RoutbText.headline(22, color: palette.brand)),
+              child: Text(
+                label,
+                style: RoutbText.headline(22, color: palette.brand),
+              ),
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// Vista previa de cómo verá el viaje un pasajero.
-class DraftPreview extends StatelessWidget {
-  const DraftPreview({required this.draft, super.key});
-
-  final DraftRoute draft;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-
-    return RoutbCard(
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              InitialsAvatar(
-                name: draft.driverName,
-                initials: draft.driverInitials,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      draft.driverName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: RoutbText.headline(15, color: palette.ink),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Llegada estimada ${draft.estimatedArrival.label}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: RoutbText.copy(12, color: palette.muted),
-                    ),
-                  ],
-                ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    draft.departure.clockLabel,
-                    style: RoutbText.headline(24, color: palette.ink, height: 1),
-                  ),
-                  Text(
-                    draft.departure.meridiem,
-                    style: RoutbText.copy(11, color: palette.muted),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Text(
-            draft.routeLabel,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: RoutbText.headline(15, color: palette.ink),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              SeatDots(total: 4, available: draft.seats),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  '${draft.seats}/4 cupos libres',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: RoutbText.copy(12, color: palette.muted),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-                  decoration: BoxDecoration(
-                    gradient: palette.primaryGradient,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Text(
-                    'Reservar cupo',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: RoutbText.copy(
-                      13,
-                      color: palette.onBrand,
-                      weight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
       ),
     );
   }
@@ -417,7 +370,10 @@ class SectionLabel extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Text(title, style: RoutbText.headline(14, color: palette.ink)),
+            child: Text(
+              title,
+              style: RoutbText.headline(14, color: palette.ink),
+            ),
           ),
           if (trailing != null)
             Text(trailing!, style: RoutbText.copy(12, color: palette.muted)),

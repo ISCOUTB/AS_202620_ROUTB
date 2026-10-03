@@ -18,20 +18,25 @@ class MyTripStatusPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
 
-    final (Color background, Color foreground, IconData icon) =
-        request.isOrphaned
-            ? (palette.roseSurface, palette.onRoseSurface, Icons.cancel_rounded)
-            : request.isConfirmed
-                ? (
-                    palette.mintSurface,
-                    palette.onMintSurface,
-                    Icons.check_circle_rounded
-                  )
-                : (
-                    palette.amberSurface,
-                    palette.onAmberSurface,
-                    Icons.schedule_rounded
-                  );
+    final (
+      Color background,
+      Color foreground,
+      IconData icon,
+    ) = request.isOrphaned
+        ? (palette.roseSurface, palette.onRoseSurface, Icons.cancel_rounded)
+        : request.isPast
+        ? (palette.surface, palette.muted, Icons.check_circle_outline_rounded)
+        : request.isConfirmed
+        ? (
+            palette.mintSurface,
+            palette.onMintSurface,
+            Icons.check_circle_rounded,
+          )
+        : (
+            palette.amberSurface,
+            palette.onAmberSurface,
+            Icons.schedule_rounded,
+          );
 
     return RoutbStatusPill(
       label: request.statusLabel,
@@ -68,7 +73,11 @@ class MyTripCard extends StatelessWidget {
     return RoutbCard(
       onTap: onTap,
       semanticLabel: 'Mi viaje: ${request.routeLabel}. ${request.statusLabel}',
-      borderColor: request.isConfirmed ? palette.mint : palette.amber,
+      borderColor: request.isPast
+          ? palette.line
+          : request.isConfirmed
+          ? palette.mint
+          : palette.amber,
       borderWidth: 1,
       child: Row(
         children: [
@@ -99,7 +108,7 @@ class MyTripCard extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   [
-                    'Sale ${request.departureLabel}',
+                    '${request.departureDateLabel} · ${request.departureLabel}',
                     if (arrival != null) 'llega ${arrival.label}',
                   ].join(' · '),
                   maxLines: 1,

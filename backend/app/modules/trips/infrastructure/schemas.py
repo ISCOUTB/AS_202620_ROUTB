@@ -1,6 +1,11 @@
-from datetime import datetime
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+def _colombia_today() -> date:
+    return datetime.now(ZoneInfo("America/Bogota")).date()
 
 
 class TripCreate(BaseModel):
@@ -8,6 +13,17 @@ class TripCreate(BaseModel):
     destination: str = Field(..., min_length=1)
     total_seats: int = Field(default=4, ge=1)
     departure_time: str | None = Field(default="7:00 AM")
+    departure_date: date = Field(default_factory=_colombia_today)
+    meeting_point: str = Field(default="Por coordinar", min_length=3, max_length=140)
+    fare_per_seat: int = Field(default=0, ge=0, le=1_000_000)
+
+    @field_validator("meeting_point")
+    @classmethod
+    def normalize_meeting_point(cls, value: str) -> str:
+        normalized = value.strip()
+        if len(normalized) < 3:
+            raise ValueError("El punto de encuentro debe tener al menos 3 caracteres")
+        return normalized
 
 
 class TripRequestSummary(BaseModel):
@@ -30,6 +46,9 @@ class TripResponse(BaseModel):
     total_seats: int
     available_seats: int
     departure_time: str | None = "7:00 AM"
+    departure_date: date = Field(default_factory=_colombia_today)
+    meeting_point: str = "Por coordinar"
+    fare_per_seat: int = 0
     status: str = "active"
     driver_id: int | None = None
     driver_name: str | None = None

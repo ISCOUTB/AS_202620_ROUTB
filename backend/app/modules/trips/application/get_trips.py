@@ -1,3 +1,6 @@
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
+
 from sqlalchemy.orm import Session, joinedload
 
 from app.modules.trips.infrastructure.models import Trip
@@ -8,12 +11,17 @@ def get_trip(db: Session, trip_id: int) -> Trip | None:
 
 
 def get_active_trips(
-    db: Session, origin: str | None = None, destination: str | None = None
+    db: Session,
+    origin: str | None = None,
+    destination: str | None = None,
+    departure_date: date | None = None,
 ) -> list[Trip]:
+    selected_date = departure_date or datetime.now(ZoneInfo("America/Bogota")).date()
     query = (
         db.query(Trip)
         .options(joinedload(Trip.driver))
         .filter(Trip.status == "active", Trip.available_seats > 0)
+        .filter(Trip.departure_date == selected_date)
     )
     if origin:
         query = query.filter(Trip.origin.ilike(f"%{origin.strip()}%"))
