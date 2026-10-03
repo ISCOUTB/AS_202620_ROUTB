@@ -60,7 +60,6 @@ def _to_response(trip, current_user_id: int | None = None) -> schemas.TripRespon
         departure_time=trip.departure_time,
         departure_date=trip.departure_date,
         meeting_point=trip.meeting_point,
-        fare_per_seat=trip.fare_per_seat,
         status=trip.status,
         driver_id=trip.driver_id,
         driver_name=driver_name,
@@ -123,7 +122,7 @@ def get_trip(
 def cancel_trip(
     trip_id: int,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User | None, Depends(get_optional_current_user)] = None,
+    current_user: Annotated[UserIdentity | None, Depends(get_optional_current_user)] = None,
 ):
     driver_id = current_user.id if current_user else None
     try:

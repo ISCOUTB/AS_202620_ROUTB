@@ -31,13 +31,3 @@ diagnóstico vigente hasta verificarlos.
 - Los routers consumen `UserIdentity` como principal de autenticación. La
   consulta ORM queda en `users.application`; la clase ORM no se comparte con
   `auth`, `requests` ni `trips` como contrato de usuario autenticado.
-
-## Resultados de verificación
-
-- **Suite backend:** corrida final de `pytest tests -q` sobre una base SQLite temporal aislada de Supabase: `21 passed, 2 warnings` en 12,83 s; código de salida 0.
-- **Búsqueda de imports:** `rg` confirmó que los módulos de aplicación solo importan modelos ORM de su propio módulo. No quedan imports de modelos `trips` en `requests.application`, de `users` ORM en `auth`/`requests`/`trips`, ni imports entre routers `requests` y `trips`.
-- **Contrato:** `docs/openapi.json` regenerado desde FastAPI en versión 0.3.0; `test_openapi_contract_matches_implementation` pasó dentro de la suite.
-- **Migración:** `alembic upgrade head` desde la revisión 002 sobre SQLite temporal llegó a `003_group_trip_request_seats`; una solicitud legacy recibió `seat_count=1`.
-- **Erosión detectada por mutación:** retirar el condicional de disponibilidad permitió aceptar ambos grupos y la prueba falló con `[200, 200]` frente al resultado esperado `[200, 409]`; la condición fue restaurada.
-- **Credenciales:** el barrido descrito en [barrido de credenciales](barrido-credenciales-semana9.md) no detectó patrones de secretos.
-- **Frontend:** `flutter analyze --no-pub` finalizó con `No issues found`. `flutter test --no-pub` no pudo iniciar los tests porque Windows App Control bloqueó `flutter_tester.exe`.

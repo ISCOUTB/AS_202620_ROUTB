@@ -1,6 +1,6 @@
 import 'travel_time.dart';
 
-/// Formatos compartidos para la fecha y el aporte de un viaje.
+/// Formatos compartidos para la fecha de un viaje.
 abstract final class TripSchedule {
   static const List<String> _weekdays = <String>[
     'lun',

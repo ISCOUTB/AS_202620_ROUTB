@@ -24,7 +24,6 @@ class MyRequest {
     required this.departure,
     this.departureDate,
     this.meetingPoint = 'Por coordinar',
-    this.farePerSeat = 0,
     required this.totalSeats,
     required this.availableSeats,
     required this.tripStatus,
@@ -63,9 +62,6 @@ class MyRequest {
 
   /// Punto de encuentro publicado por el conductor.
   final String meetingPoint;
-
-  /// Aporte sugerido por cada cupo, en COP.
-  final int farePerSeat;
 
   /// Cupos que ofrece el viaje.
   final int totalSeats;
@@ -108,7 +104,6 @@ class MyRequest {
           (json['meeting_point'] as String?)?.trim().isNotEmpty == true
           ? (json['meeting_point'] as String).trim()
           : 'Por coordinar',
-      farePerSeat: (json['fare_per_seat'] as int?) ?? 0,
       totalSeats: json['total_seats'] as int? ?? 0,
       availableSeats: json['available_seats'] as int? ?? 0,
       tripStatus: TripStatus.fromWire(json['trip_status'] as String?),
@@ -205,7 +200,6 @@ class MyRequest {
     departure: departure,
     departureDate: departureDate,
     meetingPoint: meetingPoint,
-    farePerSeat: farePerSeat,
     totalSeats: totalSeats,
     availableSeats: availableSeats,
     tripStatus: tripStatus ?? this.tripStatus,

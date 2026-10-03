@@ -23,7 +23,6 @@ class Trip {
     required this.departure,
     this.departureDate,
     this.meetingPoint = 'Por coordinar',
-    this.farePerSeat = 0,
     required this.status,
     required this.requests,
     this.driverId,
@@ -58,9 +57,6 @@ class Trip {
 
   /// Referencia donde conductor y grupo se encuentran.
   final String meetingPoint;
-
-  /// Aporte voluntario sugerido por cada cupo, en COP.
-  final int farePerSeat;
 
   /// Estado persistido.
   final TripStatus status;
@@ -102,7 +98,6 @@ class Trip {
           (json['meeting_point'] as String?)?.trim().isNotEmpty == true
           ? (json['meeting_point'] as String).trim()
           : 'Por coordinar',
-      farePerSeat: (json['fare_per_seat'] as int?) ?? 0,
       status: TripStatus.fromWire(json['status'] as String?),
       driverId: json['driver_id'] as int?,
       driverName: (json['driver_name'] as String?)?.trim(),
@@ -249,7 +244,6 @@ class Trip {
     int? availableSeats,
     DateTime? departureDate,
     String? meetingPoint,
-    int? farePerSeat,
     TripStatus? status,
     SeatRequestStatus? myRequestStatus,
     List<TripRequest>? requests,
@@ -263,7 +257,6 @@ class Trip {
     departure: departure,
     departureDate: departureDate ?? this.departureDate,
     meetingPoint: meetingPoint ?? this.meetingPoint,
-    farePerSeat: farePerSeat ?? this.farePerSeat,
     status: status ?? this.status,
     driverId: driverId,
     driverName: driverName,
@@ -282,7 +275,6 @@ class Trip {
       other.rawDeparture == rawDeparture &&
       other.departureDate == departureDate &&
       other.meetingPoint == meetingPoint &&
-      other.farePerSeat == farePerSeat &&
       other.status == status &&
       other.driverId == driverId &&
       other.driverName == driverName &&
@@ -298,7 +290,6 @@ class Trip {
     rawDeparture,
     departureDate,
     meetingPoint,
-    farePerSeat,
     status,
     driverId,
     driverName,

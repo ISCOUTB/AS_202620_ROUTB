@@ -25,7 +25,6 @@ class DraftRoute {
     DateTime? departureDate,
     this.seats = 3,
     this.meetingPoint = '',
-    this.farePerSeat = 0,
   }) : zone = zone ?? Zones.neighborhoods.first,
        departure = departure ?? const TravelTime.fromClock(7, 30),
        departureDate =
@@ -51,9 +50,6 @@ class DraftRoute {
 
   /// Punto de encuentro descrito para los pasajeros.
   String meetingPoint;
-
-  /// Aporte sugerido por cada cupo, en pesos colombianos.
-  int farePerSeat;
 
   /// Nombre del conductor, para la vista previa.
   final String driverName;

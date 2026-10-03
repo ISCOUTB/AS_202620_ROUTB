@@ -51,7 +51,6 @@ class TripRepository {
     required String departureTime,
     required DateTime departureDate,
     required String meetingPoint,
-    required int farePerSeat,
     required int seats,
   }) async {
     final response = await _api.post(
@@ -62,7 +61,6 @@ class TripRepository {
         'departure_time': departureTime,
         'departure_date': _dateParameter(departureDate),
         'meeting_point': meetingPoint,
-        'fare_per_seat': farePerSeat,
         'total_seats': seats.clamp(1, 4),
       },
     );
@@ -147,7 +145,6 @@ class TripRepository {
             departure: trip.departure,
             departureDate: trip.departureDate,
             meetingPoint: trip.meetingPoint,
-            farePerSeat: trip.farePerSeat,
             totalSeats: trip.totalSeats,
             availableSeats: trip.availableSeats,
             tripStatus: trip.status,

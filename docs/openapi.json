@@ -837,11 +837,6 @@
             "title": "Meeting Point",
             "default": "Por coordinar"
           },
-          "fare_per_seat": {
-            "type": "integer",
-            "title": "Fare Per Seat",
-            "default": 0
-          },
           "total_seats": {
             "type": "integer",
             "title": "Total Seats"
@@ -957,13 +952,6 @@
             "minLength": 3,
             "title": "Meeting Point",
             "default": "Por coordinar"
-          },
-          "fare_per_seat": {
-            "type": "integer",
-            "maximum": 1000000.0,
-            "minimum": 0.0,
-            "title": "Fare Per Seat",
-            "default": 0
           }
         },
         "type": "object",
@@ -1151,11 +1139,6 @@
             "type": "string",
             "title": "Meeting Point",
             "default": "Por coordinar"
-          },
-          "fare_per_seat": {
-            "type": "integer",
-            "title": "Fare Per Seat",
-            "default": 0
           },
           "status": {
             "type": "string",

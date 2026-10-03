@@ -60,33 +60,12 @@ def _to_my_response(req) -> schemas.MyRequestResponse:
         departure_time=trip.departure_time if trip else None,
         departure_date=trip.departure_date if trip else None,
         meeting_point=trip.meeting_point if trip else "Por coordinar",
-        fare_per_seat=trip.fare_per_seat if trip else 0,
         total_seats=trip.total_seats if trip else 0,
         available_seats=trip.available_seats if trip else 0,
         trip_status=trip.status if trip else "cancelled",
         driver_name=f"{driver.name} {driver.last_name}" if driver else None,
         driver_phone=driver.phone if driver else None,
     )
-
-
-def _to_my_response(req) -> schemas.MyRequestResponse:
-    trip = req.trip
-    driver = trip.driver if trip else None
-    return schemas.MyRequestResponse(
-        id=req.id,
-        status=req.status,
-        created_at=req.created_at,
-        trip_id=req.trip_id,
-        origin=trip.origin if trip else "",
-        destination=trip.destination if trip else "",
-        departure_time=trip.departure_time if trip else None,
-        total_seats=trip.total_seats if trip else 0,
-        available_seats=trip.available_seats if trip else 0,
-        trip_status=trip.status if trip else "cancelled",
-        driver_name=f"{driver.name} {driver.last_name}" if driver else None,
-        driver_phone=driver.phone if driver else None,
-    )
-
 
 @router.post("/trips/{trip_id}", response_model=schemas.TripRequestResponse, status_code=status.HTTP_201_CREATED)
 def request_seat(
@@ -178,7 +157,7 @@ def my_requests(
 def withdraw_request(
     request_id: int,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[UserIdentity, Depends(get_current_user)],
 ):
     """Retira la solicitud del pasajero que entra y libera el cupo ocupado."""
     try:

@@ -15,7 +15,6 @@ class TripCreate(BaseModel):
     departure_time: str | None = Field(default="7:00 AM")
     departure_date: date = Field(default_factory=_colombia_today)
     meeting_point: str = Field(default="Por coordinar", min_length=3, max_length=140)
-    fare_per_seat: int = Field(default=0, ge=0, le=1_000_000)
 
     @field_validator("meeting_point")
     @classmethod
@@ -48,7 +47,6 @@ class TripResponse(BaseModel):
     departure_time: str | None = "7:00 AM"
     departure_date: date = Field(default_factory=_colombia_today)
     meeting_point: str = "Por coordinar"
-    fare_per_seat: int = 0
     status: str = "active"
     driver_id: int | None = None
     driver_name: str | None = None

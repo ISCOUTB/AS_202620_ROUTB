@@ -14,6 +14,26 @@ Si la aceptación descuenta cupos sin condicionar la actualización a que la dis
 - Se conserva `test_reservas_concurrentes_no_sobrevenden_cupos`: 20 intentos concurrentes sobre 4 cupos producen exactamente 4 reservas exitosas.
 - Al aceptar o rechazar desde la app del conductor, la disponibilidad se actualiza por la cantidad de cupos de la solicitud, no por una unidad fija.
 
+## Run en rojo y correcciones posteriores
+
+El commit [`7d72888`](https://github.com/ISCOUTB/AS_202620_ROUTB/commit/7d72888e880e00a5355d0583b3398362f1f4b0e2),
+publicado en `master`, activó el [run de CI en rojo](https://github.com/ISCOUTB/AS_202620_ROUTB/actions/runs/37099414142/job/111135836830).
+
+Podemos resumir la evidencia de regresión en tres pasos:
+
+1. `7d72888` funciona como evidencia del estado inicial: el pipeline detecta los
+   fallos y termina en rojo.
+2. Cada fallo se corrige en el código, sin ocultar ni desactivar la prueba que
+   lo detectó.
+3. Los commits posteriores vuelven a ejecutar el mismo pipeline. Cuando las
+   correcciones son completas, esos runs deben terminar en verde y sirven como
+   evidencia de que el estado corregido supera la verificación automática.
+
+Por tanto, el run rojo es la evidencia del defecto inicial y los runs posteriores
+verdes son la evidencia de la corrección. No se debe interpretar el run rojo como
+el resultado final de la porción, sino como el punto de partida que permitió
+detectar y corregir los fallos.
+
 ## Comprobación de regresión (mutación)
 
 Para verificar que la prueba detecta el defecto, se retiró temporalmente la condición `Trip.available_seats >= seat_count` de la actualización atómica en `backend/app/modules/trips/application/request_seats.py`. Con ese defecto, la prueba `test_aceptaciones_grupales_concurrentes_no_sobrevenden` debe quedar roja porque se aceptan ambos grupos o la disponibilidad se hace negativa. Después se restauró la condición y se repitió el caso y la suite.
