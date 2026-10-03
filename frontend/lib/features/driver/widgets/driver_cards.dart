@@ -85,7 +85,7 @@ class RequestTile extends StatelessWidget {
                 ],
                 const SizedBox(height: 2),
                 Text(
-                  '${trip.routeLabel} Â· ${trip.departureLabel}',
+                  '${trip.routeLabel} - ${trip.departureLabel}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: RoutbText.copy(12, color: palette.muted),

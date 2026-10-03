@@ -12,6 +12,7 @@ Si la aceptación descuenta cupos sin condicionar la actualización a que la dis
 - Una solicitud de 4 permanece pendiente y sin descuento parcial si solo quedan 3 cupos cuando el conductor intenta aceptarla.
 - Dos grupos de 3 compiten por un viaje de 4: solo una aceptación puede tener éxito y queda 1 cupo.
 - Se conserva `test_reservas_concurrentes_no_sobrevenden_cupos`: 20 intentos concurrentes sobre 4 cupos producen exactamente 4 reservas exitosas.
+- Al aceptar o rechazar desde la app del conductor, la disponibilidad se actualiza por la cantidad de cupos de la solicitud, no por una unidad fija.
 
 ## Comprobación de regresión (mutación)
 
@@ -28,3 +29,9 @@ pytest tests/test_requests_flow.py::test_aceptaciones_grupales_concurrentes_no_s
 - **Mutante defectuoso:** se retiró la condición `available_seats >= seat_count`. Resultado: `1 failed`; la aserción recibió `[200, 200]` en vez de `[200, 409]`. Código de salida 1. El test detecta la sobreventa.
 - **Código restaurado:** la corrida final de `pytest tests -q` dio `21 passed, 2 warnings` en 12,83 s; código de salida 0. Incluye la prueba de concurrencia y el contrato OpenAPI.
 - Las advertencias son deprecaciones existentes de `httpx`/Starlette TestClient.
+
+## Verificación del despliegue reportado (2 de octubre de 2026)
+
+Al reproducir el reporte de una solicitud de 4 cupos que aparece como 1, se consultó en modo lectura el OpenAPI de producción (`https://as-202620-routb.onrender.com/openapi.json`). La API pública responde `version: 0.2.0`; `TripRequestResponse` no declara `seat_count` y no existe el esquema de entrada para la solicitud grupal. El código de este repositorio ya corresponde al contrato 0.3.0, que recibe y devuelve ese campo, y la migración `003_group_trip_request_seats.py` agrega el dato persistido.
+
+Esto explica el síntoma: producción descarta la cantidad enviada y aplica el valor histórico de 1; luego la app tampoco puede reconstruir el valor elegido porque la respuesta del servidor no lo incluye. Para que la prueba real funcione es necesario publicar esta versión del backend y aplicar su migración. La corrección cliente hace que el contador visual reste o reponga la cantidad devuelta por el servidor; por sí sola no puede recuperar datos que el backend 0.2.0 no guarda ni devuelve.

@@ -123,7 +123,8 @@ class _DriverScreenState extends State<DriverScreen> {
     try {
       final accepted = await _trips.accept(request.id);
       final updated = trip.copyWith(
-        availableSeats: (trip.availableSeats - 1).clamp(0, trip.totalSeats),
+        availableSeats: (trip.availableSeats - accepted.seatCount)
+            .clamp(0, trip.totalSeats),
         requests: _replaceRequest(trip.requests, accepted),
       );
       _replaceTrip(updated);
@@ -152,7 +153,8 @@ class _DriverScreenState extends State<DriverScreen> {
       final rejected = await _trips.reject(request.id);
       // Si estaba confirmada, el backend devuelve el cupo al viaje.
       final availableSeats = request.isAccepted
-          ? (trip.availableSeats + 1).clamp(0, trip.totalSeats)
+          ? (trip.availableSeats + request.seatCount)
+              .clamp(0, trip.totalSeats)
           : trip.availableSeats;
       _replaceTrip(
         trip.copyWith(
