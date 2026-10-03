@@ -259,7 +259,6 @@ class _DriverScreenState extends State<DriverScreen> {
         departureTime: draft.departure.label,
         departureDate: draft.departureDate,
         meetingPoint: draft.meetingPoint.trim(),
-        farePerSeat: draft.farePerSeat,
         seats: draft.seats,
       );
       if (!mounted) return;

@@ -27,7 +27,6 @@ class Trip(Base):
     meeting_point = Column(
         String, nullable=False, default="Por coordinar", server_default="Por coordinar"
     )
-    fare_per_seat = Column(Integer, nullable=False, default=0, server_default="0")
     status = Column(String, nullable=False, default="active", server_default="active")
 
     driver = relationship("User")
