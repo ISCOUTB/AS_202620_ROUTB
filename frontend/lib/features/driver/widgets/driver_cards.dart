@@ -334,7 +334,7 @@ class HeroSeatSlots extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final confirmed = trip.requests.accepted;
+    final confirmed = _confirmedSeatInitials(trip);
     final occupied = trip.takenSeats;
 
     // El lado de cada pip sale del ancho disponible: cuatro pips de 32 px mÃ¡s
@@ -358,7 +358,7 @@ class HeroSeatSlots extends StatelessWidget {
                 child: _SeatPip(
                   size: size,
                   initials: seat < confirmed.length
-                      ? confirmed[seat].initials
+                      ? confirmed[seat]
                       : seat < occupied
                           ? 'â€“'
                           : null,
@@ -448,7 +448,7 @@ class OccupiedSeatsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final names = trip.requests.accepted.map((request) => request.initials).toList();
+    final names = _confirmedSeatInitials(trip);
 
     return SeatSlots(
       selected: trip.totalSeats,
@@ -458,3 +458,10 @@ class OccupiedSeatsCard extends StatelessWidget {
     );
   }
 }
+
+/// Repite las iniciales por cada cupo de la reserva grupal para que cada
+/// asiento confirmado quede identificado visualmente.
+List<String> _confirmedSeatInitials(Trip trip) => [
+      for (final request in trip.requests.accepted)
+        for (var seat = 0; seat < request.seatCount; seat++) request.initials,
+    ];
