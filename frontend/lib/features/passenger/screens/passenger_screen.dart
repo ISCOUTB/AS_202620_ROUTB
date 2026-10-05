@@ -163,7 +163,7 @@ class _PassengerScreenState extends State<PassengerScreen> {
       context: context,
       title: 'Trayecto estimado',
       subtitle:
-          'La línea une los dos barrios del catálogo, no es un ruteo real',
+          'El mapa sitúa origen y destino con las coordenadas reales del texto',
       heightFactor: 0.8,
       body: RouteMap(
         origin: _origin.text,

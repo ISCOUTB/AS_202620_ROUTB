@@ -6,7 +6,8 @@ import '../../../core/widgets/route_map.dart';
 /// Mapa de la ruta de un viaje guardado.
 ///
 /// La lógica del mapa vive en [RouteMap], que también usa el pasajero. Aquí solo
-/// se le pasa el viaje: origen, destino y la fase para la píldora de estado.
+/// se le pasa el viaje: origen y destino, que el mapa geocodifica, y la fase
+/// para la píldora de estado.
 class RoutbTripMap extends StatelessWidget {
   const RoutbTripMap({
     required this.trip,
