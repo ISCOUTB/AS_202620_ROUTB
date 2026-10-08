@@ -3,7 +3,6 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../theme/routb_palette.dart';
-import '../theme/routb_text.dart';
 import 'routb_button.dart';
 import 'routb_field.dart';
 import '../../features/trips/data/geocode_repository.dart';
@@ -128,7 +127,7 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final textTheme = context.textTheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -138,8 +137,7 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
             Expanded(
               child: RoutbField(
                 controller: _queryController,
-                label: widget.label,
-                hint: 'Ej: Carrera 6 # 32-10, Centro',
+                hint: widget.label,
                 onSubmitted: (_) => _search(),
               ),
             ),
@@ -159,21 +157,21 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
             decoration: BoxDecoration(
               color: palette.surface,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: palette.border),
+              border: Border.all(color: palette.line),
             ),
             constraints: const BoxConstraints(maxHeight: 180),
             child: ListView.separated(
               shrinkWrap: true,
               itemCount: _suggestions.length,
-              separatorBuilder: (_, __) => Divider(height: 1, color: palette.border),
+              separatorBuilder: (_, _) => Divider(height: 1, color: palette.line),
               itemBuilder: (context, index) {
                 final item = _suggestions[index];
                 return ListTile(
                   dense: true,
-                  leading: Icon(Icons.location_pin, color: palette.accent, size: 20),
+                  leading: Icon(Icons.location_pin, color: palette.brand, size: 20),
                   title: Text(
                     item.displayName,
-                    style: textTheme.bodySmall.copyWith(color: palette.onSurface),
+                    style: textTheme.bodySmall?.copyWith(color: palette.ink),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -185,7 +183,7 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
         const SizedBox(height: 12),
         Text(
           'Ajusta el marcador arrastrando el mapa al punto exacto:',
-          style: textTheme.labelMedium.copyWith(color: palette.textMuted),
+          style: textTheme.labelMedium?.copyWith(color: palette.muted),
         ),
         const SizedBox(height: 6),
         ClipRRect(
@@ -200,7 +198,7 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
                     initialCenter: _pinnedPoint ?? _defaultCenter,
                     initialZoom: 14.5,
                     onPositionChanged: (pos, hasGesture) {
-                      if (hasGesture && pos.center != null) {
+                      if (hasGesture) {
                         setState(() {
                           _pinnedPoint = pos.center;
                         });
@@ -222,7 +220,7 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
                     child: Icon(
                       Icons.location_on,
                       size: 38,
-                      color: palette.accent,
+                      color: palette.brand,
                     ),
                   ),
                 ),

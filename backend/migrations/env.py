@@ -18,7 +18,12 @@ if config.config_file_name is not None:
 
 from app.core.config import settings
 
-database_url = config.get_main_option("sqlalchemy.url") or settings.effective_database_url
+configured_database_url = config.get_main_option("sqlalchemy.url")
+database_url = (
+    configured_database_url
+    if configured_database_url and configured_database_url != "postgresql://"
+    else settings.effective_database_url
+)
 config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
 
 target_metadata = Base.metadata

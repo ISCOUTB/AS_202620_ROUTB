@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../theme/routb_palette.dart';
-import '../theme/routb_text.dart';
 import 'routb_button.dart';
 
 /// Diálogo explicativo de tratamiento de ubicación geográfica.
@@ -25,21 +24,21 @@ class LocationConsentDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final textTheme = context.textTheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       backgroundColor: palette.surface,
       title: Row(
         children: [
-          Icon(Icons.location_on_outlined, color: palette.accent),
+          Icon(Icons.location_on_outlined, color: palette.brand),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               'Uso de tu ubicación',
-              style: textTheme.titleMedium.copyWith(
+              style: textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
-                color: palette.onSurface,
+                color: palette.ink,
               ),
             ),
           ),
@@ -52,7 +51,7 @@ class LocationConsentDialog extends StatelessWidget {
           children: [
             Text(
               'Para sugerirte rutas y calcular puntos de encuentro precisos hacia y desde la UTB, ROUTB necesita recopilar tus coordenadas geográficas.',
-              style: textTheme.bodyMedium.copyWith(color: palette.onSurface),
+              style: textTheme.bodyMedium?.copyWith(color: palette.ink),
             ),
             const SizedBox(height: 12),
             _BulletPoint(
@@ -83,7 +82,7 @@ class LocationConsentDialog extends StatelessWidget {
           onPressed: () => Navigator.of(context).pop(false),
           child: Text(
             'Ahora no',
-            style: textTheme.labelLarge.copyWith(color: palette.textMuted),
+            style: textTheme.labelLarge?.copyWith(color: palette.muted),
           ),
         ),
         RoutbButton(
@@ -106,19 +105,19 @@ class _BulletPoint extends StatelessWidget {
   final IconData icon;
   final String text;
   final RoutbPalette palette;
-  final RoutbTextTheme textTheme;
+  final TextTheme textTheme;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 18, color: palette.accent),
+        Icon(icon, size: 18, color: palette.brand),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
             text,
-            style: textTheme.bodySmall.copyWith(color: palette.textMuted),
+            style: textTheme.bodySmall?.copyWith(color: palette.muted),
           ),
         ),
       ],
