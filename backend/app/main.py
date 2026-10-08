@@ -7,6 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.modules.auth.infrastructure.router import router as auth_router
+from app.modules.geocode.infrastructure.router import router as geocode_router
 from app.modules.requests.infrastructure.router import router as requests_router
 from app.modules.trips.infrastructure.router import router as trips_router
 from app.modules.users.infrastructure.router import router as users_router
@@ -56,6 +57,7 @@ app.include_router(users_router, prefix="/users", tags=["users"])
 app.include_router(trips_router, prefix="/trips", tags=["trips"])
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
 app.include_router(requests_router, prefix="/requests", tags=["requests"])
+app.include_router(geocode_router, prefix="/geocode", tags=["geocode"])
 
 
 @app.get("/health")

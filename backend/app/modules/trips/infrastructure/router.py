@@ -75,7 +75,18 @@ def create_trip(
     current_user: Annotated[UserIdentity | None, Depends(get_optional_current_user)] = None,
 ):
     driver_id = current_user.id if current_user else None
-    created = create_trip_use_case(db, trip, driver_id=driver_id)
+    try:
+        created = create_trip_use_case(db, trip, driver_id=driver_id)
+    except PermissionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(exc),
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        )
     return _to_response(created)
 
 

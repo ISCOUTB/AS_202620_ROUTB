@@ -19,6 +19,14 @@ class Settings:
     UTB_CAMPUS_LNG: float = float(os.getenv("UTB_CAMPUS_LNG", "-75.5510"))
     GEOCODE_BBOX: str = os.getenv("GEOCODE_BBOX", "-75.6,10.35,-75.45,10.5")
 
+    # Geocodificación (Fase 1)
+    PHOTON_BASE_URL: str = os.getenv("PHOTON_BASE_URL", "https://photon.komoot.io")
+    NOMINATIM_BASE_URL: str = os.getenv("NOMINATIM_BASE_URL", "https://nominatim.openstreetmap.org")
+    NOMINATIM_USER_AGENT: str = os.getenv("NOMINATIM_USER_AGENT", "ROUTB/1.0 (contacto@utb.edu.co)")
+
+    # Routing (Fase 1)
+    ROUTING_BASE_URL: str = os.getenv("ROUTING_BASE_URL", "https://router.project-osrm.org")
+
     # Retención de privacidad (días)
     RETENTION_TRIP_DAYS: int = int(os.getenv("RETENTION_TRIP_DAYS", "30"))
     RETENTION_CACHE_DAYS: int = int(os.getenv("RETENTION_CACHE_DAYS", "7"))

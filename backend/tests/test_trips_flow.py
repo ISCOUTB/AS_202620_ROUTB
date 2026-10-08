@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+from unittest.mock import patch
 
 from app.core.database import SessionLocal
 from app.main import app
@@ -6,6 +7,26 @@ from app.modules.auth.application.tokens import create_access_token
 from app.modules.users.infrastructure.models import User
 
 client = TestClient(app)
+
+
+def _create_driver_with_consent(db_session, phone: str) -> tuple[User, str]:
+    """Crea un conductor con consentimiento de ubicación y devuelve (user, token)."""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    driver = User(
+        name="Carlos",
+        last_name="Conductor",
+        phone=phone,
+        hashed_password="hash",
+        role="driver",
+        location_consent_at=datetime.now(ZoneInfo("America/Bogota")),
+    )
+    db_session.add(driver)
+    db_session.commit()
+    db_session.refresh(driver)
+    token = create_access_token(driver.id, driver.role)
+    return driver, token
 
 
 def test_flujo_completo_viajes_y_solicitudes():
@@ -117,4 +138,172 @@ def test_flujo_completo_viajes_y_solicitudes():
             db.delete(u1)
         if u2:
             db.delete(u2)
+        db.commit()
+
+
+def test_crear_viaje_con_direction_to_campus():
+    """Un conductor con consentimiento puede publicar un viaje con dirección y driver_point."""
+    with SessionLocal() as db:
+        driver, token = _create_driver_with_consent(db, "3110001001")
+        driver_id = driver.id
+
+    _fake_route = {
+        "distance_m": 3000,
+        "duration_s": 400,
+        "geometry": [[-75.55, 10.42], [-75.55, 10.42]],
+        "degraded": False,
+        "source": "osrm",
+    }
+
+    with patch("app.shared.routing.service._call_osrm", return_value=_fake_route):
+        resp = client.post(
+            "/trips/",
+            headers={"Authorization": f"Bearer {token}"},
+            json={
+                "origin": "Barrio La Esperanza",
+                "destination": "UTB Campus",
+                "total_seats": 2,
+                "departure_time": "7:30 AM",
+                "direction": "to_campus",
+                "driver_point": {
+                    "lat": 10.42,
+                    "lng": -75.55,
+                    "address_text": "Calle 30 # 15-20, Cartagena",
+                },
+            },
+        )
+
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["status"] == "active"
+
+    # Limpieza
+    with SessionLocal() as db:
+        u = db.get(User, driver_id)
+        if u:
+            db.delete(u)
+        db.commit()
+
+
+def test_crear_viaje_con_direction_from_campus():
+    """Viaje en sentido from_campus: campus es el origen, el punto del conductor es el destino."""
+    with SessionLocal() as db:
+        driver, token = _create_driver_with_consent(db, "3110001002")
+        driver_id = driver.id
+
+    _fake_route = {
+        "distance_m": 2500,
+        "duration_s": 300,
+        "geometry": [[-75.55, 10.42], [-75.50, 10.40]],
+        "degraded": False,
+        "source": "osrm",
+    }
+
+    with patch("app.shared.routing.service._call_osrm", return_value=_fake_route):
+        resp = client.post(
+            "/trips/",
+            headers={"Authorization": f"Bearer {token}"},
+            json={
+                "origin": "UTB Campus",
+                "destination": "Barrio Manga",
+                "total_seats": 3,
+                "departure_time": "6:00 PM",
+                "direction": "from_campus",
+                "driver_point": {
+                    "lat": 10.40,
+                    "lng": -75.50,
+                    "address_text": "Avenida El Lago, Manga",
+                },
+            },
+        )
+
+    assert resp.status_code == 201
+    assert resp.json()["status"] == "active"
+
+    # Limpieza
+    with SessionLocal() as db:
+        u = db.get(User, driver_id)
+        if u:
+            db.delete(u)
+        db.commit()
+
+
+def test_crear_viaje_sin_consentimiento_falla_403():
+    """Un conductor sin location_consent_at recibe 403 al publicar con driver_point."""
+    with SessionLocal() as db:
+        driver = User(
+            name="Sin",
+            last_name="Consentimiento",
+            phone="3110001003",
+            hashed_password="hash",
+            role="driver",
+        )
+        db.add(driver)
+        db.commit()
+        db.refresh(driver)
+        driver_id = driver.id
+        token = create_access_token(driver.id, driver.role)
+
+    resp = client.post(
+        "/trips/",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "origin": "Origen",
+            "destination": "Destino",
+            "total_seats": 2,
+            "direction": "to_campus",
+            "driver_point": {
+                "lat": 10.42,
+                "lng": -75.55,
+                "address_text": "Calle Test",
+            },
+        },
+    )
+
+    assert resp.status_code == 403
+    assert "location_consent_required" in resp.json()["detail"]
+
+    # Limpieza
+    with SessionLocal() as db:
+        u = db.get(User, driver_id)
+        if u:
+            db.delete(u)
+        db.commit()
+
+
+def test_viaje_legado_sin_coordenadas_sigue_funcionando():
+    """Los viajes sin direction ni driver_point se crean igual que antes."""
+    with SessionLocal() as db:
+        driver = User(
+            name="Legado",
+            last_name="Driver",
+            phone="3110001004",
+            hashed_password="hash",
+            role="driver",
+        )
+        db.add(driver)
+        db.commit()
+        db.refresh(driver)
+        driver_id = driver.id
+        token = create_access_token(driver.id, driver.role)
+
+    resp = client.post(
+        "/trips/",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "origin": "Barrio Histórico",
+            "destination": "UTB",
+            "total_seats": 4,
+        },
+    )
+
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["origin"] == "Barrio Histórico"
+
+    # Limpieza
+    with SessionLocal() as db:
+        u = db.get(User, driver_id)
+        if u:
+            db.delete(u)
         db.commit()

@@ -8,6 +8,14 @@ def _colombia_today() -> date:
     return datetime.now(ZoneInfo("America/Bogota")).date()
 
 
+class DriverPoint(BaseModel):
+    """Punto de partida o llegada del conductor (dirección exacta)."""
+
+    lat: float = Field(..., ge=-90, le=90)
+    lng: float = Field(..., ge=-180, le=180)
+    address_text: str = Field(..., min_length=1, max_length=300)
+
+
 class TripCreate(BaseModel):
     origin: str = Field(..., min_length=1)
     destination: str = Field(..., min_length=1)
@@ -15,6 +23,15 @@ class TripCreate(BaseModel):
     departure_time: str | None = Field(default="7:00 AM")
     departure_date: date = Field(default_factory=_colombia_today)
     meeting_point: str = Field(default="Por coordinar", min_length=3, max_length=140)
+    # Campos opcionales de la Fase 1
+    direction: str | None = Field(
+        default=None,
+        description="'to_campus' | 'from_campus'. Nulo en viajes legados.",
+    )
+    driver_point: DriverPoint | None = Field(
+        default=None,
+        description="Coordenada exacta del punto de partida o llegada del conductor.",
+    )
 
     @field_validator("meeting_point")
     @classmethod

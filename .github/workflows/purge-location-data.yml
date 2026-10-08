@@ -1,0 +1,22 @@
+name: Purga periódica de datos de ubicación
+
+on:
+  schedule:
+    # Ejecutar todos los días a las 08:00 UTC (03:00 hora de Colombia)
+    - cron: '0 8 * * *'
+  workflow_dispatch:
+
+jobs:
+  purge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ejecutar purga de ubicación en base de datos
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "DATABASE_URL no configurada en los secretos del repositorio. Omitiendo."
+            exit 0
+          fi
+          # Invoca la función SQL idempotente purge_location_data()
+          psql "$DATABASE_URL" -c "SELECT purge_location_data();"
