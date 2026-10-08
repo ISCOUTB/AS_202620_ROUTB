@@ -3,6 +3,7 @@ import '../../../core/models/trip.dart';
 import '../../../core/models/trip_request.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../core/widgets/address_search_field.dart';
 
 /// Acceso a los viajes, sin importar quién los pide.
 ///
@@ -52,6 +53,8 @@ class TripRepository {
     required DateTime departureDate,
     required String meetingPoint,
     required int seats,
+    String? direction,
+    SelectedLocation? driverPoint,
   }) async {
     final response = await _api.post(
       '/trips/',
@@ -62,6 +65,18 @@ class TripRepository {
         'departure_date': _dateParameter(departureDate),
         'meeting_point': meetingPoint,
         'total_seats': seats.clamp(1, 4),
+        ...?direction == null
+            ? null
+            : <String, Object?>{'direction': direction},
+        ...?driverPoint == null
+            ? null
+            : <String, Object?>{
+                'driver_point': <String, Object?>{
+                  'lat': driverPoint.lat,
+                  'lng': driverPoint.lng,
+                  'address_text': driverPoint.addressText,
+                },
+              },
       },
     );
     return Trip.fromJson(_asMap(response));

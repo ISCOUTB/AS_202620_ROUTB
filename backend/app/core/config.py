@@ -15,8 +15,8 @@ class Settings:
     JWT_EXPIRE_MINUTES: int = int(os.getenv("JWT_EXPIRE_MINUTES", "60"))
 
     # Parámetros espaciales y de matching
-    UTB_CAMPUS_LAT: float = float(os.getenv("UTB_CAMPUS_LAT", "10.4238"))
-    UTB_CAMPUS_LNG: float = float(os.getenv("UTB_CAMPUS_LNG", "-75.5510"))
+    UTB_CAMPUS_LAT: float = float(os.getenv("UTB_CAMPUS_LAT", "10.371078").strip())
+    UTB_CAMPUS_LNG: float = float(os.getenv("UTB_CAMPUS_LNG", "-75.466261").strip())
     GEOCODE_BBOX: str = os.getenv("GEOCODE_BBOX", "-75.6,10.35,-75.45,10.5")
 
     # Geocodificación (Fase 1)

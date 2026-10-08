@@ -6,13 +6,19 @@ llamadas reales a Photon o Nominatim.
 
 from __future__ import annotations
 
+from datetime import datetime
 import json
 from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
+from fastapi.testclient import TestClient
 
-from app.shared.geocode.service import _normalize_query, geocode
+from app.core.database import get_db
+from app.main import app
+from app.modules.auth.infrastructure.security import get_current_user
+from app.modules.users.application import UserIdentity
+from app.shared.geocode.service import GeocodeUnavailable, _normalize_query, geocode
 
 
 # ---------------------------------------------------------------------------
@@ -129,7 +135,7 @@ def test_geocode_falls_back_to_nominatim_when_photon_fails():
 
 
 def test_geocode_returns_empty_when_both_fail():
-    """Si ambos fallan, devuelve lista vacía (sin error)."""
+    """Una respuesta exitosa sin coincidencias se distingue de una caída."""
     db = _make_db(cached=None)
 
     with (
@@ -140,6 +146,48 @@ def test_geocode_returns_empty_when_both_fail():
         result = geocode(db, "Dirección inexistente xyz")
 
     assert result == []
+
+
+def test_geocode_raises_when_both_providers_are_unavailable():
+    db = _make_db(cached=None)
+    with (
+        patch("app.shared.geocode.service._call_photon", return_value=None),
+        patch("app.shared.geocode.service._call_nominatim", return_value=None),
+        pytest.raises(GeocodeUnavailable),
+    ):
+        geocode(db, "Dirección de prueba")
+
+
+def test_geocode_endpoint_returns_503_when_both_providers_fail():
+    user = UserIdentity(123456, "Test", "User", "3000000000", "passenger", datetime.now())
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_db] = lambda: _make_db()
+    try:
+        with (
+            patch("app.modules.geocode.infrastructure.router.geocode", side_effect=GeocodeUnavailable()),
+            TestClient(app) as client,
+        ):
+            response = client.get("/geocode/search", params={"q": "UTB"})
+        assert response.status_code == 503
+        assert response.json()["detail"] == "geocode_unavailable"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_geocode_endpoint_returns_429_when_user_exceeds_limit():
+    user = UserIdentity(123457, "Test", "User", "3000000001", "passenger", datetime.now())
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_db] = lambda: _make_db()
+    try:
+        with (
+            patch("app.modules.geocode.infrastructure.router.geocode_search_rate_limit.allow", return_value=False),
+            TestClient(app) as client,
+        ):
+            response = client.get("/geocode/search", params={"q": "UTB"})
+        assert response.status_code == 429
+        assert response.json()["detail"] == "geocode_rate_limit_exceeded"
+    finally:
+        app.dependency_overrides.clear()
 
 
 # ---------------------------------------------------------------------------

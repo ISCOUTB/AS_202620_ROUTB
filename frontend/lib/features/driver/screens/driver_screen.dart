@@ -20,6 +20,7 @@ import '../../../core/widgets/routb_seats.dart';
 import '../../../core/widgets/routb_toast.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../auth/screens/auth_flow.dart';
+import '../../auth/screens/location_privacy_screen.dart';
 import '../../trips/data/trip_repository.dart';
 import '../state/driver_state.dart';
 import '../widgets/driver_cards.dart';
@@ -249,6 +250,7 @@ class _DriverScreenState extends State<DriverScreen> {
       context: context,
       driverName: widget.account.name,
       driverInitials: initialsOf(widget.account.name),
+      geocodeRepository: RoutbScopeDependencies.of(context).geocode,
     );
     if (draft == null || !mounted) return;
 
@@ -260,6 +262,8 @@ class _DriverScreenState extends State<DriverScreen> {
         departureDate: draft.departureDate,
         meetingPoint: draft.meetingPoint.trim(),
         seats: draft.seats,
+        direction: draft.direction,
+        driverPoint: draft.driverPoint,
       );
       if (!mounted) return;
       setState(() {
@@ -286,6 +290,10 @@ class _DriverScreenState extends State<DriverScreen> {
     );
     RoutbToast.show(context, 'Cerraste sesión');
   }
+
+  Future<void> _openLocationPrivacy() => Navigator.of(context).push(
+    RoutbPageRoute<void>(child: const LocationPrivacyScreen()),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -324,6 +332,7 @@ class _DriverScreenState extends State<DriverScreen> {
                     onCancel: _confirmCancel,
                     onOpenDetail: _openDetail,
                     onLogout: _logout,
+                    onLocationPrivacy: _openLocationPrivacy,
                     onRefresh: _load,
                   ),
                 },
@@ -386,6 +395,7 @@ class _Body extends StatelessWidget {
     required this.onCancel,
     required this.onOpenDetail,
     required this.onLogout,
+    required this.onLocationPrivacy,
     required this.onRefresh,
   });
 
@@ -399,6 +409,7 @@ class _Body extends StatelessWidget {
   final ValueChanged<Trip> onCancel;
   final ValueChanged<Trip> onOpenDetail;
   final VoidCallback onLogout;
+  final VoidCallback onLocationPrivacy;
   final Future<void> Function() onRefresh;
 
   @override
@@ -414,6 +425,7 @@ class _Body extends StatelessWidget {
               role: UserRole.driver,
               trip: state.selected,
               onLogout: onLogout,
+              onLocationPrivacy: onLocationPrivacy,
             ),
           ),
           // El cuerpo queda ligeramente separado del hero para que las
@@ -511,6 +523,7 @@ class HeroSection extends StatelessWidget {
     required this.role,
     required this.trip,
     required this.onLogout,
+    required this.onLocationPrivacy,
     super.key,
   });
 
@@ -518,6 +531,7 @@ class HeroSection extends StatelessWidget {
   final UserRole role;
   final Trip? trip;
   final VoidCallback onLogout;
+  final VoidCallback onLocationPrivacy;
 
   @override
   Widget build(BuildContext context) {
@@ -541,6 +555,7 @@ class HeroSection extends StatelessWidget {
             role: role,
             userName: userName,
             onLogout: onLogout,
+            onLocationPrivacy: onLocationPrivacy,
             isDarkBackground: true,
           ),
           const SizedBox(height: 16),

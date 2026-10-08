@@ -18,8 +18,9 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import get_db
 from app.modules.auth.infrastructure.security import get_current_user
+from app.modules.geocode.application.rate_limit import geocode_search_rate_limit
 from app.modules.users.application import UserIdentity
-from app.shared.geocode.service import geocode
+from app.shared.geocode.service import GeocodeUnavailable, geocode
 
 router = APIRouter()
 
@@ -49,7 +50,13 @@ def _validate_bbox(lat: float | None, lng: float | None) -> None:
         )
 
 
-@router.get("/search")
+@router.get(
+    "/search",
+    responses={
+        429: {"description": "geocode_rate_limit_exceeded"},
+        503: {"description": "geocode_unavailable"},
+    },
+)
 def geocode_search(
     q: Annotated[str, Query(min_length=2, max_length=200, description="Dirección a buscar")],
     db: Annotated[Session, Depends(get_db)],
@@ -57,19 +64,24 @@ def geocode_search(
 ) -> list[dict]:
     """Busca una dirección y devuelve hasta 5 resultados geocodificados.
 
-    Requiere consentimiento de ubicación. Rate-limit: 30 req/min por usuario
-    (aplicado externamente por middleware o proxy; aquí se documenta el contrato).
+    Requiere consentimiento de ubicación. Rate-limit: 30 req/min por usuario.
 
     Respuestas:
     - **200**: lista de resultados (puede ser vacía).
     - **403**: ``location_consent_required`` si falta el consentimiento.
     - **503**: si fallan Photon y Nominatim.
+    - **429**: si se exceden 30 búsquedas en un minuto.
     """
     _check_location_consent(current_user)
+    if not geocode_search_rate_limit.allow(current_user.id):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="geocode_rate_limit_exceeded",
+        )
 
     try:
         results = geocode(db, q)
-    except Exception:
+    except GeocodeUnavailable:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="geocode_unavailable",

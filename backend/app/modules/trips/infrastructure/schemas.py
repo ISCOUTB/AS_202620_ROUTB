@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from typing import Literal
 from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -24,7 +25,7 @@ class TripCreate(BaseModel):
     departure_date: date = Field(default_factory=_colombia_today)
     meeting_point: str = Field(default="Por coordinar", min_length=3, max_length=140)
     # Campos opcionales de la Fase 1
-    direction: str | None = Field(
+    direction: Literal["to_campus", "from_campus"] | None = Field(
         default=None,
         description="'to_campus' | 'from_campus'. Nulo en viajes legados.",
     )

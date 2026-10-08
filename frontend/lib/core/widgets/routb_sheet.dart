@@ -45,12 +45,18 @@ class RoutbSheet {
           top: Radius.circular(RoutbTheme.radiusSheet),
         ),
       ),
-      builder: (sheetContext) => RoutbSheetScaffold(
-        title: title,
-        subtitle: subtitle,
-        body: body,
-        footer: footer,
-        heightFactor: heightFactor,
+      builder: (sheetContext) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: heightFactor.clamp(0.5, 1.0).toDouble(),
+        minChildSize: 0.5,
+        maxChildSize: 1.0,
+        builder: (context, scrollController) => RoutbSheetScaffold(
+          title: title,
+          subtitle: subtitle,
+          body: body,
+          footer: footer,
+          scrollController: scrollController,
+        ),
       ),
     );
   }
@@ -63,7 +69,7 @@ class RoutbSheetScaffold extends StatelessWidget {
     required this.body,
     this.subtitle,
     this.footer,
-    this.heightFactor = 0.91,
+    this.scrollController,
     super.key,
   });
 
@@ -79,8 +85,8 @@ class RoutbSheetScaffold extends StatelessWidget {
   /// Pie fijo, normalmente un botón.
   final Widget? footer;
 
-  /// Proporción de la pantalla que ocupa la hoja.
-  final double heightFactor;
+  /// Controlador de desplazamiento de la hoja redimensionable.
+  final ScrollController? scrollController;
 
   @override
   Widget build(BuildContext context) {
@@ -89,10 +95,9 @@ class RoutbSheetScaffold extends StatelessWidget {
 
     return Padding(
       padding: EdgeInsets.only(top: media.padding.top),
-      child: SizedBox(
-        height: (media.size.height - media.padding.top) * heightFactor,
-        child: Column(
-          children: [
+      child: Column(
+        mainAxisSize: MainAxisSize.max,
+        children: [
             // `.sg`: asa.
             Container(
               width: 44,
@@ -112,7 +117,10 @@ class RoutbSheetScaffold extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(title, style: RoutbText.headline(22, color: palette.ink)),
+                        Text(
+                          title,
+                          style: RoutbText.headline(22, color: palette.ink),
+                        ),
                         if (subtitle != null) ...[
                           const SizedBox(height: 4),
                           Text(
@@ -123,33 +131,35 @@ class RoutbSheetScaffold extends StatelessWidget {
                       ],
                     ),
                   ),
-                  _SheetCloseButton(onPressed: () => Navigator.of(context).pop()),
+                  _SheetCloseButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
                 ],
               ),
             ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.fromLTRB(
-                  16,
-                  6,
-                  16,
-                  12 + media.viewInsets.bottom,
-                ),
-                child: body,
+          Expanded(
+            child: SingleChildScrollView(
+              controller: scrollController,
+              padding: EdgeInsets.fromLTRB(
+                16,
+                6,
+                16,
+                12 + media.viewInsets.bottom,
               ),
+              child: body,
             ),
-            if (footer != null)
-              Padding(
-                padding: EdgeInsets.fromLTRB(
-                  16,
-                  6,
-                  16,
-                  20 + media.viewInsets.bottom,
-                ),
-                child: footer,
+          ),
+          if (footer != null)
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                16,
+                6,
+                16,
+                20 + media.viewInsets.bottom,
               ),
-          ],
-        ),
+              child: footer,
+            ),
+        ],
       ),
     );
   }

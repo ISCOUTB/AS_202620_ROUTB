@@ -21,6 +21,7 @@ import '../../../core/widgets/routb_sheet.dart';
 import '../../../core/widgets/routb_toast.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../auth/screens/auth_flow.dart';
+import '../../auth/screens/location_privacy_screen.dart';
 import '../../trips/data/trip_repository.dart';
 import '../widgets/my_trip_card.dart';
 import '../widgets/trip_card.dart';
@@ -287,6 +288,10 @@ class _PassengerScreenState extends State<PassengerScreen> {
     RoutbToast.show(context, 'Cerraste sesión');
   }
 
+  Future<void> _openLocationPrivacy() => Navigator.of(context).push(
+    RoutbPageRoute<void>(child: const LocationPrivacyScreen()),
+  );
+
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
@@ -312,6 +317,7 @@ class _PassengerScreenState extends State<PassengerScreen> {
                         onDestinationChanged: _onQueryChanged,
                         onDateTap: _chooseDate,
                         onLogout: _logout,
+                        onLocationPrivacy: _openLocationPrivacy,
                         onOpenMap: _openFullMap,
                       ),
                       Expanded(
@@ -342,6 +348,7 @@ class _PassengerScreenState extends State<PassengerScreen> {
                     loading: _myRequestsLoading,
                     failed: _myRequestsFailed,
                     onLogout: _logout,
+                    onLocationPrivacy: _openLocationPrivacy,
                     onRefresh: _loadMyRequests,
                     onRetry: _loadMyRequests,
                     onOpen: _openMyTrip,
@@ -369,6 +376,7 @@ class _PassengerHero extends StatelessWidget {
     required this.onDestinationChanged,
     required this.onDateTap,
     required this.onLogout,
+    required this.onLocationPrivacy,
     required this.onOpenMap,
   });
 
@@ -380,6 +388,7 @@ class _PassengerHero extends StatelessWidget {
   final ValueChanged<String> onDestinationChanged;
   final VoidCallback onDateTap;
   final VoidCallback onLogout;
+  final VoidCallback onLocationPrivacy;
   final VoidCallback onOpenMap;
 
   @override
@@ -403,6 +412,7 @@ class _PassengerHero extends StatelessWidget {
             role: UserRole.passenger,
             userName: userName,
             onLogout: onLogout,
+            onLocationPrivacy: onLocationPrivacy,
             isDarkBackground: true,
             wave: true,
           ),
@@ -657,6 +667,7 @@ class _MyTripsTab extends StatelessWidget {
     required this.loading,
     required this.failed,
     required this.onLogout,
+    required this.onLocationPrivacy,
     required this.onRefresh,
     required this.onRetry,
     required this.onOpen,
@@ -667,6 +678,7 @@ class _MyTripsTab extends StatelessWidget {
   final bool loading;
   final bool failed;
   final VoidCallback onLogout;
+  final VoidCallback onLocationPrivacy;
   final Future<void> Function() onRefresh;
   final Future<void> Function() onRetry;
   final ValueChanged<MyRequest> onOpen;
@@ -692,6 +704,7 @@ class _MyTripsTab extends StatelessWidget {
                 role: UserRole.passenger,
                 userName: userName,
                 onLogout: onLogout,
+                onLocationPrivacy: onLocationPrivacy,
                 isDarkBackground: true,
                 wave: true,
               ),

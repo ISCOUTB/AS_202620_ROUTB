@@ -1,35 +1,23 @@
-"""Caso de uso: crear un viaje (Fase 1 — con geocodificación y routing).
-
-Flujo de escritura:
-1. Validar consentimiento de ubicación si el conductor aporta coordenadas.
-2. Calcular ``origin_geom`` y ``dest_geom`` a partir de ``driver_point``
-   y la ubicación del campus (según el sentido del viaje).
-3. ``commit`` del viaje (transacción corta, sin llamadas HTTP dentro).
-4. Fuera de la transacción: llamar a ``RoutingService`` y persistir
-   ``route_geom``, ``route_distance_m``, ``route_duration_s`` y
-   ``route_source`` en el viaje recién creado.
-
-Los viajes sin ``direction`` ni coordenadas siguen funcionando como antes.
-"""
+"""Caso de uso: crear un viaje (Fase 1 — con geocodificación y routing)."""
 
 from __future__ import annotations
-
+ 
 import json
 import logging
 from datetime import datetime
 import re
 from zoneinfo import ZoneInfo
-
+ 
 from geoalchemy2.functions import ST_GeomFromGeoJSON
 from sqlalchemy.orm import Session
-
+ 
 from app.core.config import settings
 from app.modules.trips.infrastructure.models import Trip
 from app.modules.trips.infrastructure.schemas import TripCreate
-
+ 
 logger = logging.getLogger(__name__)
-
-
+ 
+ 
 def _parse_departure_to_timestamptz(date_val, time_str: str | None) -> datetime | None:
     if not date_val or not time_str:
         return None
@@ -53,19 +41,19 @@ def _parse_departure_to_timestamptz(date_val, time_str: str | None) -> datetime 
         return dt.replace(tzinfo=ZoneInfo("America/Bogota"))
     except Exception:
         return None
-
-
+ 
+ 
 def _point_geojson(lat: float, lng: float) -> str:
     """Devuelve el GeoJSON de un punto para usarlo con ST_GeomFromGeoJSON."""
     return json.dumps({"type": "Point", "coordinates": [lng, lat]})
-
-
+ 
+ 
 def _validate_consent(db: Session, driver_id: int | None) -> None:
-    """Lanza ValueError si el conductor no ha dado consentimiento."""
+    """Lanza PermissionError si el conductor no ha dado consentimiento."""
     if driver_id is None:
         return
     from sqlalchemy import text
-
+ 
     row = db.execute(
         text(
             "SELECT location_consent_at FROM users WHERE id = :uid"
@@ -73,8 +61,8 @@ def _validate_consent(db: Session, driver_id: int | None) -> None:
     ).fetchone()
     if row is None or row[0] is None:
         raise PermissionError("location_consent_required")
-
-
+ 
+ 
 def _validate_bbox(lat: float, lng: float) -> None:
     """Lanza ValueError si la coordenada está fuera del GEOCODE_BBOX."""
     try:
@@ -84,21 +72,60 @@ def _validate_bbox(lat: float, lng: float) -> None:
         return
     if not (lon_min <= lng <= lon_max and lat_min <= lat <= lat_max):
         raise ValueError("Las coordenadas del viaje están fuera del área de operación.")
-
-
+ 
+ 
+def _extract_coords(driver_point) -> tuple[float | None, float | None]:
+    """Obtiene (lat, lng) de un ``driver_point`` que puede ser dict u objeto."""
+    if driver_point is None:
+        return None, None
+    if isinstance(driver_point, dict):
+        return driver_point.get("lat"), driver_point.get("lng")
+    return getattr(driver_point, "lat", None), getattr(driver_point, "lng", None)
+ 
+ 
+def _validate_driver_location(
+    db: Session,
+    driver_id: int | None,
+    lat: float | None,
+    lng: float | None,
+) -> None:
+    """Valida consentimiento y bounding box cuando el conductor aporta coordenadas."""
+    if driver_id is None:
+        raise PermissionError("location_consent_required")
+    _validate_consent(db, driver_id)
+    if lat is not None and lng is not None:
+        _validate_bbox(lat, lng)
+ 
+ 
+def _build_trip_geoms(direction: str | None, lat: float, lng: float):
+    """Devuelve ``(origin_geom, dest_geom)`` según el sentido del viaje."""
+    campus_geom = ST_GeomFromGeoJSON(
+        _point_geojson(settings.UTB_CAMPUS_LAT, settings.UTB_CAMPUS_LNG)
+    )
+    driver_geom = ST_GeomFromGeoJSON(_point_geojson(lat, lng))
+ 
+    if direction == "to_campus":
+        # El conductor sale desde su punto hacia el campus
+        return driver_geom, campus_geom
+    if direction == "from_campus":
+        # El conductor sale del campus hacia su destino
+        return campus_geom, driver_geom
+    return None, None
+ 
+ 
 def create_trip(db: Session, trip_data: TripCreate, driver_id: int | None = None) -> Trip:
     """Crea un viaje y, si se aportan coordenadas, calcula la ruta.
-
+ 
     Args:
         db: sesión de base de datos.
         trip_data: datos del viaje (incluye los nuevos campos opcionales
             ``direction`` y ``driver_point``).
         driver_id: ID del conductor autenticado (puede ser ``None`` en tests
             anónimos).
-
+ 
     Returns:
         El objeto ``Trip`` persistido y refrescado.
-
+ 
     Raises:
         PermissionError: si el conductor no tiene consentimiento de ubicación
             y aporta coordenadas.
@@ -106,36 +133,20 @@ def create_trip(db: Session, trip_data: TripCreate, driver_id: int | None = None
     """
     dep_time = trip_data.departure_time or "7:00 AM"
     dep_at = _parse_departure_to_timestamptz(trip_data.departure_date, dep_time)
-
+ 
     driver_point = getattr(trip_data, "driver_point", None)
     direction = getattr(trip_data, "direction", None)
-
-    lat = getattr(driver_point, "lat", None) if driver_point is not None and not isinstance(driver_point, dict) else (driver_point.get("lat") if isinstance(driver_point, dict) else None)
-    lng = getattr(driver_point, "lng", None) if driver_point is not None and not isinstance(driver_point, dict) else (driver_point.get("lng") if isinstance(driver_point, dict) else None)
-
-    # Si el conductor aporta coordenadas, validar consentimiento y bbox
-    if driver_point and driver_id:
-        _validate_consent(db, driver_id)
-        if lat is not None and lng is not None:
-            _validate_bbox(lat, lng)
-
-    # Calcular geometrías
-    origin_geom = None
-    dest_geom = None
-
-    if driver_point and direction and lat is not None and lng is not None:
-        campus_geojson = _point_geojson(settings.UTB_CAMPUS_LAT, settings.UTB_CAMPUS_LNG)
-        driver_geojson = _point_geojson(lat, lng)
-
-        if direction == "to_campus":
-            # El conductor sale desde su punto hacia el campus
-            origin_geom = ST_GeomFromGeoJSON(driver_geojson)
-            dest_geom = ST_GeomFromGeoJSON(campus_geojson)
-        elif direction == "from_campus":
-            # El conductor sale del campus hacia su destino
-            origin_geom = ST_GeomFromGeoJSON(campus_geojson)
-            dest_geom = ST_GeomFromGeoJSON(driver_geojson)
-
+    lat, lng = _extract_coords(driver_point)
+ 
+    if driver_point:
+        _validate_driver_location(db, driver_id, lat, lng)
+ 
+    has_route_inputs = bool(driver_point and direction and lat is not None and lng is not None)
+ 
+    origin_geom, dest_geom = (
+        _build_trip_geoms(direction, lat, lng) if has_route_inputs else (None, None)
+    )
+ 
     trip = Trip(
         origin=trip_data.origin,
         destination=trip_data.destination,
@@ -154,14 +165,14 @@ def create_trip(db: Session, trip_data: TripCreate, driver_id: int | None = None
     db.add(trip)
     db.commit()
     db.refresh(trip)
-
+ 
     # Calcular ruta fuera de la transacción (llamadas HTTP)
-    if driver_point and direction and lat is not None and lng is not None:
+    if has_route_inputs:
         _calculate_and_persist_route(db, trip, lat, lng, direction)
-
+ 
     return trip
-
-
+ 
+ 
 def _calculate_and_persist_route(
     db: Session,
     trip: Trip,
@@ -170,27 +181,27 @@ def _calculate_and_persist_route(
     direction: str,
 ) -> None:
     """Llama a RoutingService y actualiza el viaje con la geometría de la ruta.
-
+ 
     Si OSRM falla se guarda el respaldo geodésico. Los errores se registran
     pero no propagan (el viaje ya está creado y el usuario no debe ver un error
     por el cálculo de la ruta).
     """
     try:
         from app.shared.routing.service import calculate_route
-
+ 
         campus = (settings.UTB_CAMPUS_LAT, settings.UTB_CAMPUS_LNG)
         driver = (driver_lat, driver_lng)
         coords = [driver, campus] if direction == "to_campus" else [campus, driver]
-
+ 
         route = calculate_route(db, coords)
-
+ 
         # Construir LineString GeoJSON a partir de la geometría devuelta por OSRM
         line_geojson = json.dumps(
             {"type": "LineString", "coordinates": route["geometry"]}
         )
-
+ 
         from sqlalchemy import text
-
+ 
         db.execute(
             text(
                 """

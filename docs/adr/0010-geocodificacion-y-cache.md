@@ -34,9 +34,13 @@ Requisitos y restricciones:
 4. **Rate limiting y control de acceso:**
    - El endpoint `GET /geocode/search` exige autenticación JWT.
    - Se restringe a usuarios que hayan otorgado consentimiento explícito de ubicación (`location_consent_required`).
+   - Se limita cada usuario a 30 búsquedas por minuto. El contador usa una ventana móvil en memoria, coherente con el despliegue actual de una instancia; al escalar horizontalmente debe trasladarse a un limitador compartido.
+   - Si Photon y Nominatim no responden, la API responde `503 geocode_unavailable`; una respuesta válida sin resultados sigue siendo `200 []`.
 
 ## Consecuencias
 
 - Las búsquedas repetidas responden en milisegundos gracias a la tabla de caché.
 - El sistema es resiliente: una caída de Photon no interrumpe el servicio gracias al fallback hacia Nominatim.
 - Cumplimiento de políticas de uso justo de OSM mediante control estricto de frecuencia de peticiones.
+- La app solicita permiso GPS del sistema solo después de pulsar «Usar mi ubicación»; sin permiso se conserva el pin manual.
+- Android declara permisos de ubicación aproximada y precisa para ese flujo en primer plano; no solicita ubicación en segundo plano.

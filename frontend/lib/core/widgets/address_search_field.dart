@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -31,6 +32,7 @@ class AddressSearchField extends StatefulWidget {
     required this.onLocationSelected,
     this.initialLocation,
     this.label = 'Dirección o punto exacto',
+    this.locateCurrentPosition,
     super.key,
   });
 
@@ -38,6 +40,9 @@ class AddressSearchField extends StatefulWidget {
   final ValueChanged<SelectedLocation> onLocationSelected;
   final SelectedLocation? initialLocation;
   final String label;
+
+  @visibleForTesting
+  final Future<SelectedLocation?> Function()? locateCurrentPosition;
 
   @override
   State<AddressSearchField> createState() => _AddressSearchFieldState();
@@ -49,11 +54,13 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
 
   List<GeocodeResult> _suggestions = const [];
   bool _isLoading = false;
+  bool _showMap = false;
+  String? _errorMessage;
   LatLng? _pinnedPoint;
   String? _selectedAddress;
 
   // Centro por defecto: Cartagena / UTB
-  static const LatLng _defaultCenter = LatLng(10.4238, -75.5510);
+  static const LatLng _defaultCenter = LatLng(10.371078, -75.466261);
 
   @override
   void initState() {
@@ -83,6 +90,7 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
     setState(() {
       _isLoading = true;
       _suggestions = const [];
+      _errorMessage = null;
     });
 
     try {
@@ -93,9 +101,12 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
           _isLoading = false;
         });
       }
-    } catch (_) {
+    } on Exception catch (error) {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _isLoading = false;
+          _errorMessage = error.toString();
+        });
       }
     }
   }
@@ -124,6 +135,48 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
     }
   }
 
+  Future<void> _useMyLocation() async {
+    setState(() => _errorMessage = null);
+    try {
+      final selected = widget.locateCurrentPosition == null
+          ? await _locateCurrentPosition()
+          : await widget.locateCurrentPosition!();
+      if (selected == null || !mounted) return;
+      final point = LatLng(selected.lat, selected.lng);
+      setState(() {
+        _pinnedPoint = point;
+        _selectedAddress = selected.addressText;
+        _queryController.text = selected.addressText;
+      });
+      _notifyChange();
+    } on Exception {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = 'No se pudo obtener tu ubicación. Puedes ajustar el pin manualmente.';
+      });
+    }
+  }
+
+  Future<SelectedLocation?> _locateCurrentPosition() async {
+    if (!await Geolocator.isLocationServiceEnabled()) {
+      throw const LocationServiceDisabledException();
+    }
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      throw const PermissionDeniedException('Permiso de ubicación denegado');
+    }
+    final position = await Geolocator.getCurrentPosition();
+    return SelectedLocation(
+      lat: position.latitude,
+      lng: position.longitude,
+      addressText: 'Mi ubicación actual',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
@@ -142,11 +195,13 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
               ),
             ),
             const SizedBox(width: 8),
-            Padding(
-              padding: const EdgeInsets.only(top: 14),
-              child: RoutbButton(
-                label: _isLoading ? '...' : 'Buscar',
-                onPressed: _isLoading ? null : _search,
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 14),
+                child: RoutbButton(
+                  label: _isLoading ? '...' : 'Buscar',
+                  onPressed: _isLoading ? null : _search,
+                ),
               ),
             ),
           ],
@@ -185,55 +240,78 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
               },
             ),
           ),
-        const SizedBox(height: 12),
-        Text(
-          'Ajusta el marcador arrastrando el mapa al punto exacto:',
-          style: textTheme.labelMedium?.copyWith(color: palette.muted),
-        ),
-        const SizedBox(height: 6),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: SizedBox(
-            height: 180,
-            child: Stack(
-              children: [
-                FlutterMap(
-                  mapController: _mapController,
-                  options: MapOptions(
-                    initialCenter: _pinnedPoint ?? _defaultCenter,
-                    initialZoom: 14.5,
-                    onPositionChanged: (pos, hasGesture) {
-                      if (hasGesture) {
-                        setState(() {
-                          _pinnedPoint = pos.center;
-                        });
-                        _notifyChange();
-                      }
-                    },
-                  ),
-                  children: [
-                    TileLayer(
-                      urlTemplate:
-                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'co.edu.utb.routb',
-                    ),
-                  ],
-                ),
-                // Pin centrado fijo (el usuario mueve el mapa debajo del pin)
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 24),
-                    child: Icon(
-                      Icons.location_on,
-                      size: 38,
-                      color: palette.brand,
-                    ),
-                  ),
-                ),
-              ],
+        if (_errorMessage != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              _errorMessage!,
+              style: textTheme.bodySmall?.copyWith(color: palette.rose),
             ),
           ),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed: _useMyLocation,
+          icon: const Icon(Icons.my_location),
+          label: const Text('Usar mi ubicación'),
         ),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: () => setState(() => _showMap = !_showMap),
+          icon: Icon(_showMap ? Icons.keyboard_arrow_up : Icons.map_outlined),
+          label: Text(
+            _showMap ? 'Ocultar mapa' : 'Ajustar ubicación en el mapa',
+          ),
+        ),
+        if (_showMap) ...[
+          const SizedBox(height: 8),
+          Text(
+            'Mueve el mapa para dejar el marcador en el punto exacto:',
+            style: textTheme.labelMedium?.copyWith(color: palette.muted),
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: SizedBox(
+              height: 180,
+              child: Stack(
+                children: [
+                  FlutterMap(
+                    mapController: _mapController,
+                    options: MapOptions(
+                      initialCenter: _pinnedPoint ?? _defaultCenter,
+                      initialZoom: 14.5,
+                      onPositionChanged: (pos, hasGesture) {
+                        if (hasGesture) {
+                          setState(() {
+                            _pinnedPoint = pos.center;
+                          });
+                          _notifyChange();
+                        }
+                      },
+                    ),
+                    children: [
+                      TileLayer(
+                        urlTemplate:
+                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        userAgentPackageName: 'co.edu.utb.routb',
+                      ),
+                    ],
+                  ),
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 24),
+                      child: Icon(
+                        Icons.location_on,
+                        size: 38,
+                        color: palette.brand,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }

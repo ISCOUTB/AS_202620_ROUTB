@@ -19,6 +19,12 @@ Dependencias directas del backend (`backend/requirements.in`). El resto de paque
 | pytest | 9.0.1 | Framework de pruebas |
 | geoalchemy2 | 0.20.0 | Soporte geoespacial / PostGIS para SQLAlchemy |
 
+Dependencia directa de la app Flutter (`frontend/pubspec.yaml`):
+
+| Paquete | Versión | Propósito |
+|---|---|---|
+| geolocator | 14.1.1 | Solicitar ubicación del dispositivo únicamente al pulsar «Usar mi ubicación». |
+
 ## Instalación
 
 ```bash

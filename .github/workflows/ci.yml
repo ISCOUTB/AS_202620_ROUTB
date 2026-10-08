@@ -10,6 +10,20 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:16-3.5
+        env:
+          POSTGRES_USER: routb
+          POSTGRES_PASSWORD: routb_test
+          POSTGRES_DB: routb_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U routb -d routb_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -23,28 +37,23 @@ jobs:
         working-directory: backend
         run: "pip install --only-binary :all: --require-hashes -r requirements.txt"
 
-      - name: Aplicar migraciones Alembic en Supabase
+      - name: Verificar ciclo de migraciones Alembic
         working-directory: backend
         run: |
-          if [ -z "$DATABASE_URL" ]; then
-            echo "::error::El secreto DATABASE_URL no está configurado en GitHub."
-            exit 1
-          fi
+          alembic upgrade head
+          alembic downgrade -1
           alembic upgrade head
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_URL_TEST: postgresql://routb:routb_test@localhost:5432/routb_test
+          TESTING: "1"
 
       - name: Ejecutar pruebas unitarias y de contrato OpenAPI
         working-directory: backend
         run: |
-          if [ -z "$DATABASE_URL_TEST" ]; then
-            echo "::error::El secreto DATABASE_URL_TEST no está configurado en GitHub."
-            exit 1
-          fi
           pytest -v
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          DATABASE_URL_TEST: ${{ secrets.DATABASE_URL_TEST }}
+          DATABASE_URL_TEST: postgresql://routb:routb_test@localhost:5432/routb_test
+          TESTING: "1"
           JWT_SECRET_KEY: ci-test-secret-key
           JWT_ALGORITHM: HS256
           JWT_EXPIRE_MINUTES: "60"

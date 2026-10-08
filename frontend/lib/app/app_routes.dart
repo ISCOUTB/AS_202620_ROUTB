@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../app/dependencies.dart';
 import '../core/models/user_role.dart';
 import '../core/theme/routb_motion.dart';
+import '../core/widgets/location_consent_dialog.dart';
 import '../features/auth/data/auth_repository.dart';
 import '../features/driver/screens/driver_screen.dart';
 import '../features/passenger/screens/passenger_screen.dart';
@@ -85,17 +87,17 @@ class RoutbSlideTransition extends StatelessWidget {
 /// Página con el deslizamiento del diseño.
 class RoutbPageRoute<T> extends PageRouteBuilder<T> {
   RoutbPageRoute({required Widget child})
-      : super(
-          transitionDuration: RoutbMotion.view,
-          reverseTransitionDuration: RoutbMotion.view,
-          pageBuilder: (context, _, _) => child,
-          transitionsBuilder: (_, animation, secondaryAnimation, routeChild) =>
-              RoutbSlideTransition(
-            animation: animation,
-            secondaryAnimation: secondaryAnimation,
-            child: routeChild,
-          ),
-        );
+    : super(
+        transitionDuration: RoutbMotion.view,
+        reverseTransitionDuration: RoutbMotion.view,
+        pageBuilder: (context, _, _) => child,
+        transitionsBuilder: (_, animation, secondaryAnimation, routeChild) =>
+            RoutbSlideTransition(
+              animation: animation,
+              secondaryAnimation: secondaryAnimation,
+              child: routeChild,
+            ),
+      );
 }
 
 /// Fábrica de rutas por defecto de la app.
@@ -111,24 +113,24 @@ PageRoute<T> routbPageRoute<T>(RouteSettings settings, WidgetBuilder builder) {
     pageBuilder: (context, _, _) => builder(context),
     transitionsBuilder: (_, animation, secondaryAnimation, child) =>
         RoutbSlideTransition(
-      animation: animation,
-      secondaryAnimation: secondaryAnimation,
-      child: child,
-    ),
+          animation: animation,
+          secondaryAnimation: secondaryAnimation,
+          child: child,
+        ),
   );
 }
 
 /// Página con un fundido corto, para cambiar de una pantalla completa a otra.
 class RoutbFadeRoute<T> extends PageRouteBuilder<T> {
   RoutbFadeRoute({required Widget child})
-      : super(
-          transitionDuration: const Duration(milliseconds: 500),
-          pageBuilder: (context, _, _) => child,
-          transitionsBuilder: (_, animation, _, routeChild) => FadeTransition(
-            opacity: CurvedAnimation(parent: animation, curve: Curves.easeInOut),
-            child: routeChild,
-          ),
-        );
+    : super(
+        transitionDuration: const Duration(milliseconds: 500),
+        pageBuilder: (context, _, _) => child,
+        transitionsBuilder: (_, animation, _, routeChild) => FadeTransition(
+          opacity: CurvedAnimation(parent: animation, curve: Curves.easeInOut),
+          child: routeChild,
+        ),
+      );
 }
 
 /// Elige la pantalla del modo que corresponde a la cuenta.
@@ -139,15 +141,49 @@ class RoutbFadeRoute<T> extends PageRouteBuilder<T> {
 ///   RoutbFadeRoute(child: ModeRoute(account: account)),
 /// );
 /// ```
-class ModeRoute extends StatelessWidget {
+class ModeRoute extends StatefulWidget {
   const ModeRoute({required this.account, super.key});
 
   /// Cuenta que acaba de ingresar o registrarse.
   final Account account;
 
   @override
-  Widget build(BuildContext context) => switch (account.role) {
-        UserRole.driver => DriverScreen(account: account),
-        UserRole.passenger => PassengerScreen(account: account),
-      };
+  State<ModeRoute> createState() => _ModeRouteState();
+}
+
+class _ModeRouteState extends State<ModeRoute> {
+  bool _checked = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_checked) return;
+    _checked = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _askForLocationConsent();
+    });
+  }
+
+  Future<void> _askForLocationConsent() async {
+    final dependencies = RoutbScopeDependencies.of(context);
+    if (await dependencies.session.readLocationConsentPrompted()) return;
+    if (!mounted) return;
+
+    final accepted = await LocationConsentDialog.show(context);
+    await dependencies.session.saveLocationConsentPrompted();
+    if (!accepted || !mounted) return;
+
+    try {
+      await dependencies.auth.grantLocationConsent();
+    } on Exception catch (error, stack) {
+      debugPrint('ROUTB · no se pudo registrar el consentimiento: $error');
+      debugPrintStack(stackTrace: stack, label: 'consentimiento');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => switch (widget.account.role) {
+    UserRole.driver => DriverScreen(account: widget.account),
+    UserRole.passenger => PassengerScreen(account: widget.account),
+  };
 }

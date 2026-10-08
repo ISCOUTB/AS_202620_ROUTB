@@ -18,7 +18,7 @@ from app.shared.routing.service import _geodesic_fallback, _haversine_m, calcula
 # Helpers
 # ---------------------------------------------------------------------------
 
-_COORDS = [(10.4238, -75.5510), (10.40, -75.50)]  # campus UTB → punto ficticio
+_COORDS = [(10.371078, -75.466261), (10.40, -75.50)]  # campus UTB → punto ficticio
 
 
 def _make_db(cached=None):

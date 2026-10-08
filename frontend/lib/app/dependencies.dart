@@ -4,6 +4,7 @@ import '../core/network/api_client.dart';
 import '../core/storage/session_store.dart';
 import '../core/theme/theme_controller.dart';
 import '../features/auth/data/auth_repository.dart';
+import '../features/trips/data/geocode_repository.dart';
 import '../features/trips/data/trip_repository.dart';
 
 /// Repositorios y sesión que comparten todos los módulos.
@@ -14,6 +15,7 @@ class RoutbDependencies {
   RoutbDependencies({
     required this.session,
     required this.auth,
+    required this.geocode,
     required this.trips,
     required this.theme,
   });
@@ -23,6 +25,9 @@ class RoutbDependencies {
 
   /// Ingreso, registro y cierre de sesión.
   final AuthRepository auth;
+
+  /// Búsqueda de direcciones y coordenadas exactas.
+  final GeocodeRepository geocode;
 
   /// Viajes y solicitudes de cupo.
   final TripRepository trips;
@@ -41,6 +46,7 @@ class RoutbDependencies {
     return RoutbDependencies(
       session: session,
       auth: AuthRepository(api, session),
+      geocode: GeocodeRepository(api),
       trips: TripRepository(api),
       theme: theme,
     );
@@ -67,8 +73,8 @@ class RoutbScopeDependencies extends InheritedWidget {
   /// final trips = RoutbScopeDependencies.of(context).trips;
   /// ```
   static RoutbDependencies of(BuildContext context) {
-    final scope =
-        context.dependOnInheritedWidgetOfExactType<RoutbScopeDependencies>();
+    final scope = context
+        .dependOnInheritedWidgetOfExactType<RoutbScopeDependencies>();
     assert(scope != null, 'No hay RoutbScopeDependencies en el árbol.');
     return scope!.dependencies;
   }

@@ -5,11 +5,13 @@ import '../../../core/models/travel_time.dart';
 import '../../../core/models/trip_schedule.dart';
 import '../../../core/theme/routb_palette.dart';
 import '../../../core/theme/routb_text.dart';
+import '../../../core/widgets/address_search_field.dart';
 import '../../../core/widgets/routb_button.dart';
 import '../../../core/widgets/routb_card.dart';
 import '../../../core/widgets/routb_field.dart';
 import '../../../core/widgets/routb_seats.dart';
 import '../../../core/widgets/routb_sheet.dart';
+import '../../trips/data/geocode_repository.dart';
 
 /// Ruta en construcción dentro de la hoja de publicación.
 ///
@@ -25,6 +27,7 @@ class DraftRoute {
     DateTime? departureDate,
     this.seats = 3,
     this.meetingPoint = '',
+    this.driverPoint,
   }) : zone = zone ?? Zones.neighborhoods.first,
        departure = departure ?? const TravelTime.fromClock(7, 30),
        departureDate =
@@ -51,6 +54,9 @@ class DraftRoute {
   /// Punto de encuentro descrito para los pasajeros.
   String meetingPoint;
 
+  /// Dirección exacta elegida en el mapa, si la persona la proporciona.
+  SelectedLocation? driverPoint;
+
   /// Nombre del conductor, para la vista previa.
   final String driverName;
 
@@ -68,6 +74,8 @@ class DraftRoute {
 
   /// Llegada estimada según los minutos del barrio.
   TravelTime get estimatedArrival => departure.shifted(zone.minutes);
+
+  String get direction => toCampus ? 'to_campus' : 'from_campus';
 }
 
 /// Abre la hoja de publicación y devuelve el borrador, o `null` si se cerró.
@@ -83,6 +91,7 @@ Future<DraftRoute?> showPublishRouteSheet({
   required BuildContext context,
   required String driverName,
   required String driverInitials,
+  required GeocodeRepository geocodeRepository,
 }) {
   return showModalBottomSheet<DraftRoute>(
     context: context,
@@ -96,16 +105,33 @@ Future<DraftRoute?> showPublishRouteSheet({
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
     ),
-    builder: (sheetContext) =>
-        _PublishSheet(driverName: driverName, driverInitials: driverInitials),
+    builder: (sheetContext) => DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.91,
+      minChildSize: 0.5,
+      maxChildSize: 1.0,
+      builder: (context, scrollController) => _PublishSheet(
+        driverName: driverName,
+        driverInitials: driverInitials,
+        geocodeRepository: geocodeRepository,
+        scrollController: scrollController,
+      ),
+    ),
   );
 }
 
 class _PublishSheet extends StatefulWidget {
-  const _PublishSheet({required this.driverName, required this.driverInitials});
+  const _PublishSheet({
+    required this.driverName,
+    required this.driverInitials,
+    required this.geocodeRepository,
+    required this.scrollController,
+  });
 
   final String driverName;
   final String driverInitials;
+  final GeocodeRepository geocodeRepository;
+  final ScrollController scrollController;
 
   @override
   State<_PublishSheet> createState() => _PublishSheetState();
@@ -146,6 +172,7 @@ class _PublishSheetState extends State<_PublishSheet> {
   Widget build(BuildContext context) {
     return RoutbSheetScaffold(
       title: 'Nueva ruta',
+      scrollController: widget.scrollController,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -183,6 +210,21 @@ class _PublishSheetState extends State<_PublishSheet> {
                   onTap: () => setState(() => _draft.zone = zone),
                 ),
             ],
+          ),
+
+          const SizedBox(height: 18),
+          SectionLabel(
+            title: _draft.toCampus
+                ? 'Dirección exacta de salida'
+                : 'Dirección exacta de llegada',
+            trailing: 'Opcional',
+          ),
+          AddressSearchField(
+            geocodeRepository: widget.geocodeRepository,
+            label: _draft.toCampus ? 'Busca dónde sales' : 'Busca dónde llegas',
+            initialLocation: _draft.driverPoint,
+            onLocationSelected: (location) =>
+                setState(() => _draft.driverPoint = location),
           ),
 
           const SizedBox(height: 22),

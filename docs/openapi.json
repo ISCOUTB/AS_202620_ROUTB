@@ -753,7 +753,7 @@
           "geocode"
         ],
         "summary": "Geocode Search",
-        "description": "Busca una dirección y devuelve hasta 5 resultados geocodificados.\n\nRequiere consentimiento de ubicación. Rate-limit: 30 req/min por usuario\n(aplicado externamente por middleware o proxy; aquí se documenta el contrato).\n\nRespuestas:\n- **200**: lista de resultados (puede ser vacía).\n- **403**: ``location_consent_required`` si falta el consentimiento.\n- **503**: si fallan Photon y Nominatim.",
+        "description": "Busca una dirección y devuelve hasta 5 resultados geocodificados.\n\nRequiere consentimiento de ubicación. Rate-limit: 30 req/min por usuario.\n\nRespuestas:\n- **200**: lista de resultados (puede ser vacía).\n- **403**: ``location_consent_required`` si falta el consentimiento.\n- **503**: si fallan Photon y Nominatim.\n- **429**: si se exceden 30 búsquedas en un minuto.",
         "operationId": "geocode_search_geocode_search_get",
         "security": [
           {
@@ -790,6 +790,12 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "geocode_rate_limit_exceeded"
+          },
+          "503": {
+            "description": "geocode_unavailable"
           },
           "422": {
             "description": "Validation Error",
@@ -1081,7 +1087,11 @@
           "direction": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "to_campus",
+                  "from_campus"
+                ]
               },
               {
                 "type": "null"
@@ -1410,6 +1420,18 @@
               "driver"
             ],
             "title": "Role"
+          },
+          "location_consent_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Consent At"
           }
         },
         "type": "object",

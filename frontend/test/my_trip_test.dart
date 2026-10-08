@@ -18,6 +18,7 @@ import 'package:frontend/features/auth/data/auth_repository.dart';
 import 'package:frontend/features/passenger/screens/my_trip_screen.dart';
 import 'package:frontend/features/passenger/screens/passenger_screen.dart';
 import 'package:frontend/features/passenger/widgets/my_trip_card.dart';
+import 'package:frontend/features/trips/data/geocode_repository.dart';
 import 'package:frontend/features/trips/data/trip_repository.dart';
 
 /// Tamaños de móvil que se comprueban.
@@ -116,6 +117,7 @@ RoutbDependencies _dependencies(
   return RoutbDependencies(
     session: session,
     auth: AuthRepository(api, session),
+    geocode: GeocodeRepository(api),
     trips: TripRepository(api),
     theme: ThemeController(session),
   );

@@ -5,6 +5,8 @@
          que sin esta linea los builds release fallan al no poder abrir ningun
          socket de red. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <application
         android:label="ROUTB"
         android:name="${applicationName}"

@@ -47,6 +47,9 @@ def _parse_departure_to_timestamptz(date_val, time_str: str | None) -> datetime 
 
 def upgrade() -> None:
     conn = op.get_bind()
+    # Supabase suele instalar PostGIS en `extensions`; también permite que
+    # geometry y sus funciones sean visibles al crear tipos/índices abajo.
+    conn.execute(text("SET LOCAL search_path TO public, extensions;"))
     conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis;"))
 
     # 1. users: location_consent_at

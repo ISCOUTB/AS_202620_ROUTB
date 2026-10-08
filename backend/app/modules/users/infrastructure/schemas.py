@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -18,3 +19,4 @@ class UserResponse(BaseModel):
     last_name: str
     phone: str
     role: Literal["passenger", "driver"]
+    location_consent_at: datetime | None = None

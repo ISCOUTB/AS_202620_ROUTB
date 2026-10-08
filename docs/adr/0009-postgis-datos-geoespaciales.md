@@ -14,8 +14,8 @@ Para realizar consultas de proximidad eficientes (cálculo de radio en metros si
 
 1. **Habilitar PostGIS:** Se adopta la extensión PostGIS sobre PostgreSQL 16.
 2. **Imágenes Docker y CI:**
-   - En desarrollo local (`docker-compose.yml`), se adopta la imagen oficial `postgis/postgis:16-alpine`.
-   - En integración continua (`.github/workflows/ci.yml`), las migraciones se ejecutan contra Supabase usando el secreto de GitHub `DATABASE_URL`; CI no levanta un PostgreSQL local.
+   - En desarrollo local (`docker-compose.yml`), se adopta la imagen oficial `postgis/postgis:16-3.5-alpine`.
+   - En integración continua (`.github/workflows/ci.yml`), las migraciones se prueban contra un servicio efímero `postgis/postgis` de PostgreSQL 16; CI nunca usa la base productiva.
 3. **ORM y Migraciones:**
    - Se incorpora `geoalchemy2` fijado con hashes en `requirements.txt`.
    - Los índices espaciales se gestionan directamente a nivel de migraciones Alembic (`GIST ((route_geom::geography))`), manteniendo `spatial_index=False` en los modelos para evitar discrepancias de autogeneración.
@@ -24,7 +24,9 @@ Para realizar consultas de proximidad eficientes (cálculo de radio en metros si
    - Todas las consultas por radio se realizan proyectando a `geography` (`ST_DWithin(geom::geography, ...)`), garantizando mediciones reales en metros y no en grados planos.
 5. **Procedimiento en Supabase (Staging / Producción):**
    - PostGIS se activa en Supabase mediante el dashboard (*Database → Extensions → postgis*) o ejecutando `CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA extensions;`.
-   - Se ejecuta `alembic upgrade head` validando con `SELECT PostGIS_Version();`.
+   - La migración fija `SET LOCAL search_path TO public, extensions` para que tipos y funciones también resuelvan cuando PostGIS está instalado en el esquema `extensions`.
+   - En CI se ejecuta `alembic upgrade head`, `alembic downgrade -1` y `alembic upgrade head` sobre la base efímera.
+   - En staging se ejecuta `alembic upgrade head` validando con `SELECT PostGIS_Version();`; producción se migra solo mediante el procedimiento de despliegue aprobado, nunca desde CI.
 
 ## Consecuencias
 

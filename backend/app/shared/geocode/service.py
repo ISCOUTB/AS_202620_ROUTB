@@ -28,6 +28,10 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+
+class GeocodeUnavailable(RuntimeError):
+    """Photon y Nominatim no pudieron atender la búsqueda."""
+
 # Limitador global para Nominatim (1 req/s)
 _nominatim_lock = threading.Lock()
 _nominatim_last_call: float = 0.0
@@ -45,7 +49,7 @@ def _cache_get(db: Session, key: str) -> list[dict[str, Any]] | None:
         text(
             "SELECT response FROM geocode_cache "
             "WHERE query = :q "
-            "AND created_at > NOW() - INTERVAL ':days days'"
+            "AND created_at > NOW() - (:days * INTERVAL '1 day')"
         ).bindparams(q=key, days=settings.RETENTION_CACHE_DAYS)
     ).fetchone()
     if row:
@@ -128,8 +132,8 @@ def _call_photon(q: str) -> list[dict[str, Any]] | None:
     return results
 
 
-def _call_nominatim(q: str) -> list[dict[str, Any]]:
-    """Llama a Nominatim respetando 1 req/s. Devuelve lista vacía si falla."""
+def _call_nominatim(q: str) -> list[dict[str, Any]] | None:
+    """Llama a Nominatim respetando 1 req/s; None indica un fallo del proveedor."""
     global _nominatim_last_call
     with _nominatim_lock:
         elapsed = time.monotonic() - _nominatim_last_call
@@ -163,7 +167,7 @@ def _call_nominatim(q: str) -> list[dict[str, Any]]:
             data = resp.json()
     except Exception as exc:
         logger.warning("Nominatim no disponible: %s", exc)
-        return []
+        return None
 
     return [
         {
@@ -199,6 +203,9 @@ def geocode(db: Session, q: str) -> list[dict[str, Any]]:
     # 3. Respaldo Nominatim
     if results is None:
         results = _call_nominatim(q)
+
+    if results is None:
+        raise GeocodeUnavailable("Photon y Nominatim no están disponibles")
 
     # 4. Persistir en caché
     if results:

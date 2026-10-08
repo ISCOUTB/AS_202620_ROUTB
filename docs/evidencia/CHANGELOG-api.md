@@ -15,6 +15,12 @@ introdujo o modificó.
 | 0.3.0   | [`2da6f31`](https://github.com/ISCOUTB/AS_202620_ROUTB/tree/2da6f31b6189f62ca9712253472e1e640e7952df) | `Changes` | Agrega `seat_count` opcional a la creación de solicitudes (1–4, por defecto 1), lo devuelve en las respuestas, y documenta la reserva grupal con aceptación/rechazo completo y contrato OpenAPI regenerado. |
 | 0.4.0   | Cambios locales sin commit | `Changes` | Añade fecha de salida, punto de encuentro y aporte por cupo a los viajes; permite filtrar por día y devuelve esos datos en las solicitudes del pasajero. |
 
+## Ajustes de geocodificación y privacidad (Fase 1)
+
+- `GET /geocode/search` limita a 30 solicitudes por minuto por usuario y responde `429 geocode_rate_limit_exceeded` al excederlo.
+- Si Photon y Nominatim están indisponibles responde `503 geocode_unavailable`; una búsqueda válida sin coincidencias conserva `200 []`.
+- `DELETE /users/me/location-consent` cancela solicitudes pendientes y elimina sus paradas geográficas.
+
 ## Salida de `git log`
 
 La siguiente salida se obtuvo con:

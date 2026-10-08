@@ -8,6 +8,7 @@ import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/core/storage/session_store.dart';
 import 'package:frontend/core/theme/theme_controller.dart';
 import 'package:frontend/features/auth/data/auth_repository.dart';
+import 'package:frontend/features/trips/data/geocode_repository.dart';
 import 'package:frontend/features/trips/data/trip_repository.dart';
 
 /// Dependencias reales sobre una sesión vacía.
@@ -20,6 +21,7 @@ RoutbDependencies _dependencies() {
   return RoutbDependencies(
     session: session,
     auth: AuthRepository(api, session),
+    geocode: GeocodeRepository(api),
     trips: TripRepository(api),
     theme: ThemeController(session),
   );
@@ -50,7 +52,9 @@ void main() {
       expect(find.text('¿No tienes cuenta? Regístrate'), findsOneWidget);
     });
 
-    testWidgets('el splash aparece mientras resuelve la sesión', (tester) async {
+    testWidgets('el splash aparece mientras resuelve la sesión', (
+      tester,
+    ) async {
       final dependencies = _dependencies();
       addTearDown(dependencies.dispose);
 
@@ -65,8 +69,9 @@ void main() {
     // `SessionGate` reemplaza esa ruta con `pushReplacement`. Al desaparecer el
     // scope, la pantalla de acceso se quedaba sin dependencias y el ingreso
     // fallaba antes de tocar la red.
-    testWidgets('el acceso puede leer las dependencias tras el cambio de ruta',
-        (tester) async {
+    testWidgets('el acceso puede leer las dependencias tras el cambio de ruta', (
+      tester,
+    ) async {
       final dependencies = _dependencies();
       addTearDown(dependencies.dispose);
 
@@ -77,12 +82,19 @@ void main() {
       // leer las dependencias.
       final fieldContext = tester.element(find.byType(TextField).first);
       expect(() => RoutbScopeDependencies.of(fieldContext), returnsNormally);
-      expect(RoutbScopeDependencies.of(fieldContext).trips, isA<TripRepository>());
-      expect(RoutbScopeDependencies.of(fieldContext).auth, isA<AuthRepository>());
+      expect(
+        RoutbScopeDependencies.of(fieldContext).trips,
+        isA<TripRepository>(),
+      );
+      expect(
+        RoutbScopeDependencies.of(fieldContext).auth,
+        isA<AuthRepository>(),
+      );
     });
 
-    testWidgets('el carrusel de acceso avanza entre las tres vistas',
-        (tester) async {
+    testWidgets('el carrusel de acceso avanza entre las tres vistas', (
+      tester,
+    ) async {
       final dependencies = _dependencies();
       addTearDown(dependencies.dispose);
 
