@@ -15,7 +15,7 @@ Para realizar consultas de proximidad eficientes (cálculo de radio en metros si
 1. **Habilitar PostGIS:** Se adopta la extensión PostGIS sobre PostgreSQL 16.
 2. **Imágenes Docker y CI:**
    - En desarrollo local (`docker-compose.yml`), se adopta la imagen oficial `postgis/postgis:16-alpine`.
-   - En integración continua (`.github/workflows/ci.yml`), se adopta `postgis/postgis:16` como service container.
+   - En integración continua (`.github/workflows/ci.yml`), se adopta `postgis/postgis:16-3.5-alpine` como service container.
 3. **ORM y Migraciones:**
    - Se incorpora `geoalchemy2` fijado con hashes en `requirements.txt`.
    - Los índices espaciales se gestionan directamente a nivel de migraciones Alembic (`GIST ((route_geom::geography))`), manteniendo `spatial_index=False` en los modelos para evitar discrepancias de autogeneración.
