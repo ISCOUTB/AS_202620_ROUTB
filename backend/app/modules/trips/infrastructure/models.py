@@ -1,7 +1,8 @@
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import Column, Date, ForeignKey, Integer, String, func
+from geoalchemy2 import Geometry
+from sqlalchemy import Column, Date, DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -28,6 +29,16 @@ class Trip(Base):
         String, nullable=False, default="Por coordinar", server_default="Por coordinar"
     )
     status = Column(String, nullable=False, default="active", server_default="active")
+
+    # Columnas espaciales y de ruta añadidas en la migración 006
+    direction = Column(String(12), nullable=True)
+    departure_at = Column(DateTime(timezone=True), nullable=True)
+    origin_geom = Column(Geometry(geometry_type="POINT", srid=4326, spatial_index=False), nullable=True)
+    dest_geom = Column(Geometry(geometry_type="POINT", srid=4326, spatial_index=False), nullable=True)
+    route_geom = Column(Geometry(geometry_type="LINESTRING", srid=4326, spatial_index=False), nullable=True)
+    route_distance_m = Column(Integer, nullable=True)
+    route_duration_s = Column(Integer, nullable=True)
+    route_source = Column(String(10), nullable=True)
 
     driver = relationship("User")
     requests = relationship("TripRequest", back_populates="trip", cascade="all, delete-orphan")

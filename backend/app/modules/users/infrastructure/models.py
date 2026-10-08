@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, DateTime, Integer, String
 from app.core.database import Base
 
 
@@ -11,3 +11,4 @@ class User(Base):
     phone = Column(String, nullable=False)
     hashed_password = Column(String, nullable=False)
     role = Column(String, nullable=False, default="passenger", server_default="passenger")
+    location_consent_at = Column(DateTime(timezone=True), nullable=True)

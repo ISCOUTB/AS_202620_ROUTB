@@ -14,6 +14,25 @@ class Settings:
     JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
     JWT_EXPIRE_MINUTES: int = int(os.getenv("JWT_EXPIRE_MINUTES", "60"))
 
+    # Parámetros espaciales y de matching
+    UTB_CAMPUS_LAT: float = float(os.getenv("UTB_CAMPUS_LAT", "10.4238"))
+    UTB_CAMPUS_LNG: float = float(os.getenv("UTB_CAMPUS_LNG", "-75.5510"))
+    GEOCODE_BBOX: str = os.getenv("GEOCODE_BBOX", "-75.6,10.35,-75.45,10.5")
+
+    # Retención de privacidad (días)
+    RETENTION_TRIP_DAYS: int = int(os.getenv("RETENTION_TRIP_DAYS", "30"))
+    RETENTION_CACHE_DAYS: int = int(os.getenv("RETENTION_CACHE_DAYS", "7"))
+
+    # Parámetros de matching
+    MATCHING_RADIUS_M: int = int(os.getenv("MATCHING_RADIUS_M", "800"))
+    MATCHING_TIME_WINDOW_MIN: int = int(os.getenv("MATCHING_TIME_WINDOW_MIN", "15"))
+    MATCHING_MAX_DETOUR_MIN: int = int(os.getenv("MATCHING_MAX_DETOUR_MIN", "10"))
+    MATCHING_W_DETOUR: float = float(os.getenv("MATCHING_W_DETOUR", "0.5"))
+    MATCHING_W_WAIT: float = float(os.getenv("MATCHING_W_WAIT", "0.3"))
+    MATCHING_W_APPROACH: float = float(os.getenv("MATCHING_W_APPROACH", "0.2"))
+    MATCHING_ROUTING_CANDIDATES: int = int(os.getenv("MATCHING_ROUTING_CANDIDATES", "3"))
+    MATCHING_MAX_RESULTS: int = int(os.getenv("MATCHING_MAX_RESULTS", "5"))
+
     @property
     def effective_database_url(self) -> str:
         if self.TESTING:

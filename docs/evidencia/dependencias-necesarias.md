@@ -17,6 +17,7 @@ Dependencias directas del backend (`backend/requirements.in`). El resto de paque
 | python-dotenv | 1.2.3 | Carga de variables de entorno desde `.env` |
 | httpx | 0.28.1 | Cliente HTTP (peticiones externas / pruebas) |
 | pytest | 9.0.1 | Framework de pruebas |
+| geoalchemy2 | 0.20.0 | Soporte geoespacial / PostGIS para SQLAlchemy |
 
 ## Instalación
 

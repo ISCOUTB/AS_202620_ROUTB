@@ -16,12 +16,20 @@ load_dotenv()
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-database_url = os.getenv("DATABASE_URL")
-if not database_url:
-    raise RuntimeError("DATABASE_URL no está configurada")
+from app.core.config import settings
+
+database_url = config.get_main_option("sqlalchemy.url") or settings.effective_database_url
 config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
 
 target_metadata = Base.metadata
+
+POSTGIS_SYSTEM_TABLES = {"spatial_ref_sys", "geometry_columns", "geography_columns"}
+
+
+def include_object(object, name, type_, reflected, compare_to):
+    if type_ == "table" and name in POSTGIS_SYSTEM_TABLES:
+        return False
+    return True
 
 
 def run_migrations_offline() -> None:
@@ -31,6 +39,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         compare_type=True,
+        include_object=include_object,
     )
 
     with context.begin_transaction():
@@ -49,6 +58,7 @@ def run_migrations_online() -> None:
             connection=connection,
             target_metadata=target_metadata,
             compare_type=True,
+            include_object=include_object,
         )
 
         with context.begin_transaction():
