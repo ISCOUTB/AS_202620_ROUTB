@@ -163,12 +163,17 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
             child: ListView.separated(
               shrinkWrap: true,
               itemCount: _suggestions.length,
-              separatorBuilder: (_, _) => Divider(height: 1, color: palette.line),
+              separatorBuilder: (_, _) =>
+                  Divider(height: 1, color: palette.line),
               itemBuilder: (context, index) {
                 final item = _suggestions[index];
                 return ListTile(
                   dense: true,
-                  leading: Icon(Icons.location_pin, color: palette.brand, size: 20),
+                  leading: Icon(
+                    Icons.location_pin,
+                    color: palette.brand,
+                    size: 20,
+                  ),
                   title: Text(
                     item.displayName,
                     style: textTheme.bodySmall?.copyWith(color: palette.ink),
@@ -208,7 +213,8 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
                   ),
                   children: [
                     TileLayer(
-                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      urlTemplate:
+                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                       userAgentPackageName: 'co.edu.utb.routb',
                     ),
                   ],
