@@ -13,11 +13,12 @@ introdujo o modificó.
 | 0.1.0   | [`4334c50`](https://github.com/ISCOUTB/AS_202620_ROUTB/tree/4334c506731ed54be9b6af5bf3160d23c7d46087) | `Changes` | Versión inicial del contrato de la API. |
 | 0.2.0   | [`53ed7c3`](https://github.com/ISCOUTB/AS_202620_ROUTB/tree/53ed7c3be807068d9dfc74cc7a58caed2c191009) | `master`  | Versión consolidada y completa del contrato, cubriendo los cuatro dominios funcionales del backend: `users`, `auth`, `trips` y `requests`, con 16 operaciones y 9 esquemas de datos declarados. |
 | 0.3.0   | [`2da6f31`](https://github.com/ISCOUTB/AS_202620_ROUTB/tree/2da6f31b6189f62ca9712253472e1e640e7952df) | `Changes` | Agrega `seat_count` opcional a la creación de solicitudes (1–4, por defecto 1), lo devuelve en las respuestas, y documenta la reserva grupal con aceptación/rechazo completo y contrato OpenAPI regenerado. |
-| 0.4.0   | Cambios locales sin commit | `Changes` | Añade fecha de salida, punto de encuentro y aporte por cupo a los viajes; permite filtrar por día y devuelve esos datos en las solicitudes del pasajero. |
+| 0.4.0   | Cambios locales sin commit | `Changes` | Añade fecha de salida y punto de encuentro a los viajes; permite filtrar por día y devuelve esos datos en las solicitudes del pasajero. |
 
 ## Ajustes de geocodificación y privacidad (Fase 1)
 
-- `GET /geocode/search` limita a 30 solicitudes por minuto por usuario y responde `429 geocode_rate_limit_exceeded` al excederlo.
+- `POST /trips/` acepta `direction` (`to_campus` \| `from_campus`) y `driver_point` opcionales; con coordenadas exige consentimiento (`403 location_consent_required`) y valida `GEOCODE_BBOX` (`422`); al publicar calcula y guarda la ruta (`route_geom`, `route_distance_m`, `route_duration_s`, `route_source`, con respaldo `fallback`).
+- `GET /geocode/search` exige consentimiento (`403 location_consent_required`);
 - Si Photon y Nominatim están indisponibles responde `503 geocode_unavailable`; una búsqueda válida sin coincidencias conserva `200 []`.
 - `DELETE /users/me/location-consent` cancela solicitudes pendientes y elimina sus paradas geográficas.
 

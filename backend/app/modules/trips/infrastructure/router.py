@@ -68,7 +68,14 @@ def _to_response(trip, current_user_id: int | None = None) -> schemas.TripRespon
     )
 
 
-@router.post("/", response_model=schemas.TripResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/",
+    response_model=schemas.TripResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        403: {"description": "location_consent_required"},
+    },
+)
 def create_trip(
     trip: schemas.TripCreate,
     db: Annotated[Session, Depends(get_db)],

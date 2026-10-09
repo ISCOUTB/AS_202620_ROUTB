@@ -260,8 +260,7 @@ class _PublishSheetState extends State<_PublishSheet> {
           ),
 
           const RoutbHint(
-            'El trayecto del mapa es una estimación entre los dos barrios: '
-            'ROUTB no guarda rutas reales.',
+            'El trayecto del mapa es una estimación: al publicar se calcula y guarda la ruta real.',
             margin: EdgeInsets.only(top: 16),
           ),
         ],

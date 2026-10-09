@@ -135,6 +135,9 @@
               }
             }
           },
+          "403": {
+            "description": "location_consent_required"
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -790,6 +793,9 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "location_consent_required"
           },
           "429": {
             "description": "geocode_rate_limit_exceeded"

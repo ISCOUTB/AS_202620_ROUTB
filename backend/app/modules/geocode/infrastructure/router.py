@@ -53,6 +53,7 @@ def _validate_bbox(lat: float | None, lng: float | None) -> None:
 @router.get(
     "/search",
     responses={
+        403: {"description": "location_consent_required"},
         429: {"description": "geocode_rate_limit_exceeded"},
         503: {"description": "geocode_unavailable"},
     },
