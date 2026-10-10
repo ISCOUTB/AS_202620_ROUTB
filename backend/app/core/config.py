@@ -53,5 +53,8 @@ class Settings:
             raise RuntimeError("DATABASE_URL no está configurada")
         return self.DATABASE_URL
 
+    # FCM configuration
+    FCM_PROJECT_ID: str = os.getenv("FCM_PROJECT_ID", "")
+    FCM_SERVICE_ACCOUNT_B64: str = os.getenv("FCM_SERVICE_ACCOUNT_B64", "")
 
 settings = Settings()

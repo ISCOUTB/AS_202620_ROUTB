@@ -8,6 +8,9 @@ import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/core/storage/session_store.dart';
 import 'package:frontend/core/theme/theme_controller.dart';
 import 'package:frontend/features/auth/data/auth_repository.dart';
+import 'package:frontend/features/matching/data/matching_repository.dart';
+import 'package:frontend/features/notifications/data/notifications_repository.dart';
+import 'package:frontend/features/notifications/push_notification_service.dart';
 import 'package:frontend/features/trips/data/geocode_repository.dart';
 import 'package:frontend/features/trips/data/trip_repository.dart';
 
@@ -23,6 +26,8 @@ RoutbDependencies _dependencies() {
     auth: AuthRepository(api, session),
     geocode: GeocodeRepository(api),
     trips: TripRepository(api),
+    matching: MatchingRepository(api),
+    push: PushNotificationService(repository: NotificationsRepository(api)),
     theme: ThemeController(session),
   );
 }

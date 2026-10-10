@@ -4,7 +4,7 @@
 > **Versión:** 5.0 (vigente)  
 > **Fecha:** 7 de octubre de 2026  
 > **Alcance de esta versión:** Fases 0 a 3, solo Android, equipo de 2 personas  
-> **Estado (10 de octubre de 2026):** Fases 0 y 1 **completadas** en la rama `Changes`. Siguiente: Fase 2.  
+> **Estado (10 de octubre de 2026):** Fases 0 y 1 **completadas** en `Changes`; Fase 2 **en implementación local**. Matching, solicitudes con paradas, cancelación/vencimiento, push y pantallas móviles tienen una primera implementación. Falta ejecutar la verificación completa, probar Firebase en un dispositivo Android configurado y cerrar los criterios de éxito.
 > **Regla general:** cada fase es **aditiva**. El código y las pruebas actuales siguen pasando; los viajes y solicitudes existentes siguen funcionando.
 
 ---

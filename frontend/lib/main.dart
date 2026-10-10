@@ -1,10 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 import 'app/dependencies.dart';
 import 'app/routb_app.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+    try {
+      await Firebase.initializeApp();
+    } on Object catch (error) {
+      debugPrint('ROUTB · configuración FCM no disponible: $error');
+    }
+  }
 
   // Cualquier fallo que no sea un error de la API se registra aquí con su traza
   // completa. Sin esto, un `catch` genérico se come la causa y solo queda un

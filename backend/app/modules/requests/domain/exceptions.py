@@ -44,3 +44,8 @@ class NoSeatsToAcceptError(ConflictException):
 class InvalidRequestStateError(ConflictException):
     def __init__(self, message: str = "La solicitud ya no se puede gestionar"):
         super().__init__(message)
+
+
+class RequestExpiredError(ConflictException):
+    def __init__(self):
+        super().__init__("request_expired")

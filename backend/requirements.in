@@ -10,3 +10,4 @@ python-dotenv==1.2.3
 sqlalchemy==2.0.54
 uvicorn==0.41.0
 geoalchemy2==0.20.0
+firebase-admin==6.5.0  # latest stable version

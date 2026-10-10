@@ -1,9 +1,36 @@
 from datetime import date, datetime
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+
+class RequestStopCreate(BaseModel):
+    seats: int = Field(ge=1, le=4)
+    place_type: str = Field(pattern="^(door|meeting_point)$")
+    lat: float = Field(ge=-90, le=90)
+    lng: float = Field(ge=-180, le=180)
+    address_text: str = Field(min_length=1, max_length=500)
 
 
 class TripRequestCreate(BaseModel):
     seat_count: int = Field(default=1, ge=1, le=4)
+    requested_at: datetime | None = None
+    stops: list[RequestStopCreate] = Field(default_factory=list, max_length=4)
+
+    @model_validator(mode="after")
+    def validate_stop_seats(self):
+        if self.stops and sum(stop.seats for stop in self.stops) != self.seat_count:
+            raise ValueError("La suma de cupos de las paradas debe coincidir con seat_count")
+        return self
+
+
+class RequestStopResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    seats: int
+    place_type: str
+    address_text: str
+    stop_seq: int | None = None
+    eta_estimated: datetime | None = None
 
 
 class TripRequestResponse(BaseModel):
@@ -17,6 +44,7 @@ class TripRequestResponse(BaseModel):
     passenger_phone: str | None = None
     status: str
     created_at: datetime
+    stops: list[RequestStopResponse] = []
 
 class TripResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -58,3 +86,4 @@ class MyRequestResponse(BaseModel):
     trip_status: str
     driver_name: str | None = None
     driver_phone: str | None = None
+    stops: list[RequestStopResponse] = []

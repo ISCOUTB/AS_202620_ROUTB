@@ -1,5 +1,4 @@
-from datetime import date, datetime
-from zoneinfo import ZoneInfo
+from app.core.timezone import colombia_today
 
 from geoalchemy2 import Geometry
 from sqlalchemy import Column, Date, DateTime, ForeignKey, Integer, String, func
@@ -9,7 +8,7 @@ from app.core.database import Base
 
 
 def _colombia_today() -> date:
-    return datetime.now(ZoneInfo("America/Bogota")).date()
+    return colombia_today()
 
 
 class Trip(Base):

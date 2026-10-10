@@ -15,6 +15,9 @@ import 'package:frontend/core/theme/routb_theme.dart';
 import 'package:frontend/core/theme/theme_controller.dart';
 import 'package:frontend/core/widgets/route_map.dart';
 import 'package:frontend/features/auth/data/auth_repository.dart';
+import 'package:frontend/features/matching/data/matching_repository.dart';
+import 'package:frontend/features/notifications/data/notifications_repository.dart';
+import 'package:frontend/features/notifications/push_notification_service.dart';
 import 'package:frontend/features/passenger/screens/my_trip_screen.dart';
 import 'package:frontend/features/passenger/screens/passenger_screen.dart';
 import 'package:frontend/features/passenger/widgets/my_trip_card.dart';
@@ -119,6 +122,8 @@ RoutbDependencies _dependencies(
     auth: AuthRepository(api, session),
     geocode: GeocodeRepository(api),
     trips: TripRepository(api),
+    matching: MatchingRepository(api),
+    push: PushNotificationService(repository: NotificationsRepository(api)),
     theme: ThemeController(session),
   );
 }

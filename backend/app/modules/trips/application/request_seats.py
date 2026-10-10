@@ -1,6 +1,7 @@
 """Public application operations used by requests to inspect and adjust seats."""
 
 from dataclasses import dataclass
+from datetime import date
 
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
@@ -14,11 +15,20 @@ class TripRequestContext:
     driver_id: int | None
     status: str
     available_seats: int
+    direction: str | None
+    departure_date: date
 
 
 def get_trip_request_context(db: Session, trip_id: int) -> TripRequestContext | None:
     row = db.execute(
-        select(Trip.id, Trip.driver_id, Trip.status, Trip.available_seats).where(
+        select(
+            Trip.id,
+            Trip.driver_id,
+            Trip.status,
+            Trip.available_seats,
+            Trip.direction,
+            Trip.departure_date,
+        ).where(
             Trip.id == trip_id
         )
     ).one_or_none()
@@ -29,6 +39,8 @@ def get_trip_request_context(db: Session, trip_id: int) -> TripRequestContext | 
         driver_id=row.driver_id,
         status=row.status,
         available_seats=row.available_seats,
+        direction=row.direction,
+        departure_date=row.departure_date,
     )
 
 

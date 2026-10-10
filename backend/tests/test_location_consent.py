@@ -1,8 +1,8 @@
 from datetime import datetime
 from uuid import uuid4
-from zoneinfo import ZoneInfo
 
 from app.core.database import SessionLocal
+from app.core.timezone import colombia_now
 from app.modules.requests.infrastructure.models import RequestStop, TripRequest
 from app.modules.trips.infrastructure.models import Trip
 from app.modules.users.application.location_consent import revoke_location_consent
@@ -17,7 +17,7 @@ def test_revoke_consent_cancels_pending_and_deletes_saved_stops():
             phone=f"300{uuid4().int % 10_000_000:07d}",
             hashed_password="fake",
             role="passenger",
-            location_consent_at=datetime.now(ZoneInfo("America/Bogota")),
+            location_consent_at=colombia_now(),
         )
         db.add(user)
         db.flush()

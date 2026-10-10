@@ -1,10 +1,9 @@
-"""Pruebas de la función de purga y retención de datos de privacidad."""
 from datetime import date, datetime, timedelta
-from zoneinfo import ZoneInfo
 import pytest
 from sqlalchemy import text
 
 from app.core.database import SessionLocal, engine
+from app.core.timezone import get_colombia_tz
 from app.modules.trips.infrastructure.models import Trip
 from app.modules.requests.infrastructure.models import TripRequest, RequestStop
 from app.modules.users.infrastructure.models import User
@@ -31,7 +30,7 @@ def test_purge_location_data_idempotent():
         db.commit()
         db.refresh(user)
 
-        bogota_tz = ZoneInfo("America/Bogota")
+        bogota_tz = get_colombia_tz()
         now_col = datetime.now(bogota_tz)
         old_date = (now_col - timedelta(days=40)).date()
         old_dt = now_col - timedelta(days=40)

@@ -61,6 +61,7 @@ def _to_response(trip, current_user_id: int | None = None) -> schemas.TripRespon
         departure_date=trip.departure_date,
         meeting_point=trip.meeting_point,
         status=trip.status,
+        direction=trip.direction,
         driver_id=trip.driver_id,
         driver_name=driver_name,
         requests=trip_requests,

@@ -145,6 +145,8 @@ class MyRequest {
     if (isPast) return 'Viaje finalizado';
     if (isConfirmed) return 'Cupo confirmado';
     if (isPending) return 'Solicitud enviada';
+    if (status == SeatRequestStatus.cancelled) return 'Cancelada por otra aceptación';
+    if (status == SeatRequestStatus.expired) return 'Solicitud vencida';
     return 'No aceptada';
   }
 

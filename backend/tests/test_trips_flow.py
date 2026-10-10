@@ -12,7 +12,7 @@ client = TestClient(app)
 def _create_driver_with_consent(db_session, phone: str) -> tuple[User, str]:
     """Crea un conductor con consentimiento de ubicación y devuelve (user, token)."""
     from datetime import datetime
-    from zoneinfo import ZoneInfo
+    from app.core.timezone import colombia_now
 
     driver = User(
         name="Carlos",
@@ -20,7 +20,7 @@ def _create_driver_with_consent(db_session, phone: str) -> tuple[User, str]:
         phone=phone,
         hashed_password="hash",
         role="driver",
-        location_consent_at=datetime.now(ZoneInfo("America/Bogota")),
+        location_consent_at=colombia_now(),
     )
     db_session.add(driver)
     db_session.commit()

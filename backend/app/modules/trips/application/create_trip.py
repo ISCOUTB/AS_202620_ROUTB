@@ -6,7 +6,7 @@ import json
 import logging
 from datetime import datetime
 import re
-from zoneinfo import ZoneInfo
+from app.core.timezone import get_colombia_tz
  
 from geoalchemy2.functions import ST_GeomFromGeoJSON
 from sqlalchemy.orm import Session
@@ -38,7 +38,7 @@ def _parse_departure_to_timestamptz(date_val, time_str: str | None) -> datetime 
         return None
     try:
         dt = datetime(date_val.year, date_val.month, date_val.day, hour, minute)
-        return dt.replace(tzinfo=ZoneInfo("America/Bogota"))
+        return dt.replace(tzinfo=get_colombia_tz())
     except Exception:
         return None
  

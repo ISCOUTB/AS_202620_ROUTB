@@ -1,12 +1,13 @@
 from datetime import date, datetime
 from typing import Literal
-from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.core.timezone import colombia_today
+
 
 def _colombia_today() -> date:
-    return datetime.now(ZoneInfo("America/Bogota")).date()
+    return colombia_today()
 
 
 class DriverPoint(BaseModel):
@@ -66,6 +67,7 @@ class TripResponse(BaseModel):
     departure_date: date = Field(default_factory=_colombia_today)
     meeting_point: str = "Por coordinar"
     status: str = "active"
+    direction: str | None = None
     driver_id: int | None = None
     driver_name: str | None = None
     my_request_status: str | None = None

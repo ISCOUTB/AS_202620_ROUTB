@@ -3,7 +3,7 @@
   "info": {
     "title": "ROUTB API",
     "description": "ROUTB",
-    "version": "0.4.0"
+    "version": "0.6.0"
   },
   "paths": {
     "/users/": {
@@ -816,6 +816,194 @@
         }
       }
     },
+    "/matching/suggestions": {
+      "get": {
+        "tags": [
+          "matching"
+        ],
+        "summary": "Get Trip Suggestions",
+        "description": "Sugiere viajes compatibles ordenados por qué tan poco desvían al conductor.",
+        "operationId": "get_trip_suggestions_matching_suggestions_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "direction",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "to_campus",
+                "from_campus"
+              ],
+              "type": "string",
+              "title": "Direction"
+            }
+          },
+          {
+            "name": "points",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "De 1 a 4 pares lat,lng separados por ';' (ej: '10.4236,-75.5478;10.4120,-75.5310')",
+              "title": "Points"
+            },
+            "description": "De 1 a 4 pares lat,lng separados por ';' (ej: '10.4236,-75.5478;10.4120,-75.5310')"
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "Date"
+            }
+          },
+          {
+            "name": "time",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Time"
+            }
+          },
+          {
+            "name": "seat_count",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 4,
+              "minimum": 1,
+              "default": 1,
+              "title": "Seat Count"
+            }
+          },
+          {
+            "name": "relaxed",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Relaxed"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SuggestionItem"
+                  },
+                  "title": "Response Get Trip Suggestions Matching Suggestions Get"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "location_consent_required"
+          },
+          "422": {
+            "description": "Coordenadas o parámetros inválidos"
+          }
+        }
+      }
+    },
+    "/notifications/device-token": {
+      "put": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Registrar o actualizar token de dispositivo",
+        "description": "Registra o renueva el token FCM del dispositivo del usuario autenticado.\n\nSi el token ya existe se actualiza `last_seen_at`; si pertenecía a otra\ncuenta se reasigna al usuario actual.",
+        "operationId": "register_device_token_notifications_device_token_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceTokenUpsert"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Token registrado o actualizado correctamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceTokenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/notifications/device-token/{token}": {
+      "delete": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Eliminar token de dispositivo",
+        "description": "Elimina un token FCM registrado por el usuario autenticado.",
+        "operationId": "remove_device_token_notifications_device_token__token__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Token eliminado"
+          },
+          "404": {
+            "description": "Token no encontrado para este usuario"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "summary": "Health",
@@ -851,6 +1039,56 @@
   },
   "components": {
     "schemas": {
+      "DeviceTokenResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "user_id": {
+            "type": "integer",
+            "title": "User Id"
+          },
+          "device_token": {
+            "type": "string",
+            "title": "Device Token"
+          },
+          "platform": {
+            "type": "string",
+            "title": "Platform"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "user_id",
+          "device_token",
+          "platform"
+        ],
+        "title": "DeviceTokenResponse"
+      },
+      "DeviceTokenUpsert": {
+        "properties": {
+          "device_token": {
+            "type": "string",
+            "title": "Device Token"
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "android",
+              "ios"
+            ],
+            "title": "Platform"
+          }
+        },
+        "type": "object",
+        "required": [
+          "device_token",
+          "platform"
+        ],
+        "title": "DeviceTokenUpsert"
+      },
       "DriverPoint": {
         "properties": {
           "lat": {
@@ -1007,6 +1245,14 @@
               }
             ],
             "title": "Driver Phone"
+          },
+          "stops": {
+            "items": {
+              "$ref": "#/components/schemas/RequestStopResponse"
+            },
+            "type": "array",
+            "title": "Stops",
+            "default": []
           }
         },
         "type": "object",
@@ -1023,6 +1269,216 @@
         ],
         "title": "MyRequestResponse",
         "description": "Solicitud propia del pasajero con una foto del viaje.\n\nSe expone plana y no anidada porque el pasajero la lee desde su telefono y\nnecesita solo los datos que caben en su pantalla. El viaje viaja dentro\nporque ``GET /trips/`` deja de devolverlo cuando se ocupa el ultimo cupo."
+      },
+      "RequestStopCreate": {
+        "properties": {
+          "seats": {
+            "type": "integer",
+            "maximum": 4.0,
+            "minimum": 1.0,
+            "title": "Seats"
+          },
+          "place_type": {
+            "type": "string",
+            "pattern": "^(door|meeting_point)$",
+            "title": "Place Type"
+          },
+          "lat": {
+            "type": "number",
+            "maximum": 90.0,
+            "minimum": -90.0,
+            "title": "Lat"
+          },
+          "lng": {
+            "type": "number",
+            "maximum": 180.0,
+            "minimum": -180.0,
+            "title": "Lng"
+          },
+          "address_text": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Address Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "seats",
+          "place_type",
+          "lat",
+          "lng",
+          "address_text"
+        ],
+        "title": "RequestStopCreate"
+      },
+      "RequestStopResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "seats": {
+            "type": "integer",
+            "title": "Seats"
+          },
+          "place_type": {
+            "type": "string",
+            "title": "Place Type"
+          },
+          "address_text": {
+            "type": "string",
+            "title": "Address Text"
+          },
+          "stop_seq": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop Seq"
+          },
+          "eta_estimated": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eta Estimated"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "seats",
+          "place_type",
+          "address_text"
+        ],
+        "title": "RequestStopResponse"
+      },
+      "SuggestionItem": {
+        "properties": {
+          "trip_id": {
+            "type": "integer",
+            "title": "Trip Id"
+          },
+          "driver_id": {
+            "type": "integer",
+            "title": "Driver Id"
+          },
+          "driver_name": {
+            "type": "string",
+            "title": "Driver Name"
+          },
+          "driver_phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Driver Phone"
+          },
+          "origin": {
+            "type": "string",
+            "title": "Origin"
+          },
+          "destination": {
+            "type": "string",
+            "title": "Destination"
+          },
+          "direction": {
+            "type": "string",
+            "title": "Direction"
+          },
+          "departure_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Departure Date"
+          },
+          "departure_time": {
+            "type": "string",
+            "title": "Departure Time"
+          },
+          "departure_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Departure At"
+          },
+          "eta_pickup": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eta Pickup"
+          },
+          "detour_minutes": {
+            "type": "number",
+            "title": "Detour Minutes",
+            "description": "Desvío en minutos para el conductor"
+          },
+          "walk_distance_m": {
+            "type": "number",
+            "title": "Walk Distance M",
+            "description": "Distancia al punto de la ruta en metros"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score",
+            "description": "Puntuación de compatibilidad (menor = mejor)"
+          },
+          "available_seats": {
+            "type": "integer",
+            "title": "Available Seats"
+          },
+          "total_seats": {
+            "type": "integer",
+            "title": "Total Seats"
+          },
+          "degraded": {
+            "type": "boolean",
+            "title": "Degraded",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "trip_id",
+          "driver_id",
+          "driver_name",
+          "origin",
+          "destination",
+          "direction",
+          "departure_date",
+          "departure_time",
+          "detour_minutes",
+          "walk_distance_m",
+          "score",
+          "available_seats",
+          "total_seats"
+        ],
+        "title": "SuggestionItem"
       },
       "TokenResponse": {
         "properties": {
@@ -1133,6 +1589,26 @@
             "minimum": 1.0,
             "title": "Seat Count",
             "default": 1
+          },
+          "requested_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested At"
+          },
+          "stops": {
+            "items": {
+              "$ref": "#/components/schemas/RequestStopCreate"
+            },
+            "type": "array",
+            "maxItems": 4,
+            "title": "Stops"
           }
         },
         "type": "object",
@@ -1187,6 +1663,14 @@
             "type": "string",
             "format": "date-time",
             "title": "Created At"
+          },
+          "stops": {
+            "items": {
+              "$ref": "#/components/schemas/RequestStopResponse"
+            },
+            "type": "array",
+            "title": "Stops",
+            "default": []
           }
         },
         "type": "object",
@@ -1308,6 +1792,17 @@
             "type": "string",
             "title": "Status",
             "default": "active"
+          },
+          "direction": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Direction"
           },
           "driver_id": {
             "anyOf": [

@@ -56,10 +56,21 @@ class _DriverScreenState extends State<DriverScreen> {
   final Set<int> _busyRequests = <int>{};
   int? _highlightedTripId;
   bool _asked = false;
+  ValueNotifier<int>? _refreshSignal;
+  VoidCallback? _refreshListener;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final signal = RoutbScopeDependencies.of(context).requestRefresh;
+    if (_refreshSignal != signal) {
+      if (_refreshSignal != null && _refreshListener != null) {
+        _refreshSignal!.removeListener(_refreshListener!);
+      }
+      _refreshSignal = signal;
+      _refreshListener = () => unawaited(_load());
+      signal.addListener(_refreshListener!);
+    }
     // La primera carga se pide desde aquí y no desde `initState`: el
     // repositorio se lee del `RoutbScopeDependencies`, y buscar un inherited
     // widget antes de que `initState` termine lanza una aserción que deja la
@@ -71,18 +82,22 @@ class _DriverScreenState extends State<DriverScreen> {
 
   TripRepository get _trips => RoutbScopeDependencies.of(context).trips;
 
+  @override
+  void dispose() {
+    if (_refreshSignal != null && _refreshListener != null) {
+      _refreshSignal!.removeListener(_refreshListener!);
+    }
+    super.dispose();
+  }
+
   Future<void> _load() async {
     try {
       final mine = await _trips.listMine();
-      // Cada viaje trae sus propias solicitudes en el payload; de todos modos se
-      // pide el detalle de los que tengan alguna, por si el conductor publicó
-      // mientras la app estaba abierta.
+      // El detalle incluye las direcciones de las paradas, que no forman parte
+      // del resumen anidado de solicitudes de GET /trips/my-trips.
       final enriched = <Trip>[
         for (final trip in mine)
-          if (trip.requests.isEmpty)
-            trip.copyWith(requests: await _trips.listRequests(trip.id))
-          else
-            trip,
+          trip.copyWith(requests: await _trips.listRequests(trip.id)),
       ];
 
       if (!mounted) return;
@@ -282,7 +297,9 @@ class _DriverScreenState extends State<DriverScreen> {
   }
 
   Future<void> _logout() async {
-    await RoutbScopeDependencies.of(context).auth.logout();
+    final dependencies = RoutbScopeDependencies.of(context);
+    await dependencies.push.logout();
+    await dependencies.auth.logout();
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       RoutbPageRoute<void>(child: const AuthFlow()),

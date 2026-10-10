@@ -27,7 +27,9 @@ enum TripStatus {
 enum SeatRequestStatus {
   pending('pending'),
   accepted('accepted'),
-  rejected('rejected');
+  rejected('rejected'),
+  cancelled('cancelled'),
+  expired('expired');
 
   const SeatRequestStatus(this.wire);
 
@@ -42,12 +44,15 @@ enum SeatRequestStatus {
 
   /// `true` cuando el conductor la rechazó.
   bool get isRejected => this == SeatRequestStatus.rejected;
+  bool get isTerminal => this == cancelled || this == expired || isRejected;
 
   /// Interpreta el valor de la API; cualquier cosa desconocida se trata como
   /// [SeatRequestStatus.pending].
   static SeatRequestStatus fromWire(String? raw) => switch (raw) {
     'accepted' => SeatRequestStatus.accepted,
     'rejected' => SeatRequestStatus.rejected,
+    'cancelled' => SeatRequestStatus.cancelled,
+    'expired' => SeatRequestStatus.expired,
     _ => SeatRequestStatus.pending,
   };
 }

@@ -23,6 +23,7 @@ import '../../auth/data/auth_repository.dart';
 import '../../auth/screens/auth_flow.dart';
 import '../../auth/screens/location_privacy_screen.dart';
 import '../../trips/data/trip_repository.dart';
+import '../../matching/presentation/suggestions_screen.dart';
 import '../widgets/my_trip_card.dart';
 import '../widgets/trip_card.dart';
 import 'my_trip_screen.dart';
@@ -63,10 +64,24 @@ class _PassengerScreenState extends State<PassengerScreen> {
   bool _myRequestsFailed = false;
   int? _busyTripId;
   bool _asked = false;
+  ValueNotifier<int>? _refreshSignal;
+  VoidCallback? _refreshListener;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final signal = RoutbScopeDependencies.of(context).requestRefresh;
+    if (_refreshSignal != signal) {
+      if (_refreshSignal != null && _refreshListener != null) {
+        _refreshSignal!.removeListener(_refreshListener!);
+      }
+      _refreshSignal = signal;
+      _refreshListener = () {
+        unawaited(_loadMyRequests());
+        unawaited(_load());
+      };
+      signal.addListener(_refreshListener!);
+    }
     // La primera carga se pide desde aquí y no desde `initState`: el
     // repositorio se lee del `RoutbScopeDependencies`, y buscar un inherited
     // widget antes de que `initState` termine lanza una aserción que deja la
@@ -78,6 +93,9 @@ class _PassengerScreenState extends State<PassengerScreen> {
 
   @override
   void dispose() {
+    if (_refreshSignal != null && _refreshListener != null) {
+      _refreshSignal!.removeListener(_refreshListener!);
+    }
     _debounce?.cancel();
     _origin.dispose();
     _destination.dispose();
@@ -224,6 +242,17 @@ class _PassengerScreenState extends State<PassengerScreen> {
 
   Future<void> _reserve(Trip trip) async {
     if (_busyTripId != null) return;
+    if (trip.direction != null) {
+      await Navigator.of(context).push(
+        RoutbPageRoute<void>(
+          child: SuggestionsScreen(
+            initialDirection: trip.direction,
+            initialDate: trip.departureDate ?? _selectedDate,
+          ),
+        ),
+      );
+      return;
+    }
     final maximum = trip.availableSeats.clamp(1, 4).toInt();
     final seatCount = await showDialog<int>(
       context: context,
@@ -279,7 +308,9 @@ class _PassengerScreenState extends State<PassengerScreen> {
 
   Future<void> _logout() async {
     _debounce?.cancel();
-    await RoutbScopeDependencies.of(context).auth.logout();
+    final dependencies = RoutbScopeDependencies.of(context);
+    await dependencies.push.logout();
+    await dependencies.auth.logout();
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       RoutbPageRoute<void>(child: const AuthFlow()),
@@ -290,6 +321,10 @@ class _PassengerScreenState extends State<PassengerScreen> {
 
   Future<void> _openLocationPrivacy() => Navigator.of(context).push(
     RoutbPageRoute<void>(child: const LocationPrivacyScreen()),
+  );
+
+  Future<void> _openSuggestions() => Navigator.of(context).push(
+    RoutbPageRoute<void>(child: const SuggestionsScreen()),
   );
 
   @override
@@ -319,6 +354,7 @@ class _PassengerScreenState extends State<PassengerScreen> {
                         onLogout: _logout,
                         onLocationPrivacy: _openLocationPrivacy,
                         onOpenMap: _openFullMap,
+                        onOpenSuggestions: _openSuggestions,
                       ),
                       Expanded(
                         child: switch (_status) {
@@ -378,6 +414,7 @@ class _PassengerHero extends StatelessWidget {
     required this.onLogout,
     required this.onLocationPrivacy,
     required this.onOpenMap,
+    required this.onOpenSuggestions,
   });
 
   final String userName;
@@ -390,6 +427,7 @@ class _PassengerHero extends StatelessWidget {
   final VoidCallback onLogout;
   final VoidCallback onLocationPrivacy;
   final VoidCallback onOpenMap;
+  final VoidCallback onOpenSuggestions;
 
   @override
   Widget build(BuildContext context) {
@@ -468,6 +506,14 @@ class _PassengerHero extends StatelessWidget {
             onDestinationChanged: onDestinationChanged,
             selectedDate: selectedDate,
             onDateTap: onDateTap,
+          ),
+          const SizedBox(height: 10),
+          RoutbButton(
+            label: 'Buscar sugerencias puerta a puerta',
+            icon: Icons.route_outlined,
+            variant: RoutbButtonVariant.secondary,
+            onPressed: onOpenSuggestions,
+            height: 42,
           ),
         ],
       ),

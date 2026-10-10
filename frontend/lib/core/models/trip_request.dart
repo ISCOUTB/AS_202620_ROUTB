@@ -3,6 +3,27 @@ import 'package:flutter/foundation.dart';
 import 'initials.dart';
 import 'trip_status.dart';
 
+class TripRequestStop {
+  const TripRequestStop({
+    required this.seats,
+    required this.placeType,
+    required this.addressText,
+    this.stopSequence,
+  });
+
+  factory TripRequestStop.fromJson(Map<String, dynamic> json) => TripRequestStop(
+        seats: json['seats'] as int? ?? 1,
+        placeType: json['place_type'] as String? ?? 'door',
+        addressText: json['address_text'] as String? ?? '',
+        stopSequence: json['stop_seq'] as int?,
+      );
+
+  final int seats;
+  final String placeType;
+  final String addressText;
+  final int? stopSequence;
+}
+
 /// Solicitud de cupos que un pasajero envía sobre un viaje.
 @immutable
 class TripRequest {
@@ -15,6 +36,7 @@ class TripRequest {
     required this.passengerPhone,
     required this.status,
     required this.createdAt,
+    this.stops = const <TripRequestStop>[],
   });
 
   /// Identificador de la solicitud.
@@ -40,6 +62,7 @@ class TripRequest {
 
   /// Momento en que se creó.
   final DateTime createdAt;
+  final List<TripRequestStop> stops;
 
   /// Lee la solicitud que devuelve la API.
   ///
@@ -59,6 +82,10 @@ class TripRequest {
       status: SeatRequestStatus.fromWire(json['status'] as String?),
       createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0),
+      stops: (json['stops'] as List? ?? const <dynamic>[])
+          .whereType<Map<String, dynamic>>()
+          .map(TripRequestStop.fromJson)
+          .toList(growable: false),
     );
   }
 
@@ -83,6 +110,7 @@ class TripRequest {
         passengerPhone: passengerPhone,
         status: status ?? this.status,
         createdAt: createdAt,
+        stops: stops,
       );
 
   @override

@@ -3,15 +3,16 @@
 from __future__ import annotations
 
 from datetime import datetime
-from zoneinfo import ZoneInfo
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.core.timezone import colombia_now
+
 
 def grant_location_consent(db: Session, user_id: int) -> None:
     """Registra la fecha y hora del consentimiento de ubicación del usuario."""
-    now = datetime.now(ZoneInfo("America/Bogota"))
+    now = colombia_now()
     db.execute(
         text("UPDATE users SET location_consent_at = :ts WHERE id = :uid").bindparams(
             ts=now, uid=user_id

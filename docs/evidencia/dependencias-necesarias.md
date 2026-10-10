@@ -18,12 +18,20 @@ Dependencias directas del backend (`backend/requirements.in`). El resto de paque
 | httpx | 0.28.1 | Cliente HTTP (peticiones externas / pruebas) |
 | pytest | 9.0.1 | Framework de pruebas |
 | geoalchemy2 | 0.20.0 | Soporte geoespacial / PostGIS para SQLAlchemy |
+| firebase-admin | 6.5.0 | Envío de notificaciones push con Firebase Cloud Messaging; credencial de servicio en `FCM_SERVICE_ACCOUNT_B64`. |
 
 Dependencia directa de la app Flutter (`frontend/pubspec.yaml`):
 
 | Paquete | Versión | Propósito |
 |---|---|---|
 | geolocator | 14.1.1 | Solicitar ubicación del dispositivo únicamente al pulsar «Usar mi ubicación». |
+| firebase_core | ^4.2.0 | Inicialización de Firebase en Android. |
+| firebase_messaging | ^16.0.3 | Registro de tokens y recepción de notificaciones push en Android. |
+| flutter_local_notifications | ^19.4.2 | Mostrar avisos FCM cuando ROUTB está en primer plano. |
+
+La compilación Android requiere `frontend/android/app/google-services.json` del
+proyecto Firebase. El archivo está excluido de Git y se comparte por el canal
+privado del equipo.
 
 ## Instalación
 

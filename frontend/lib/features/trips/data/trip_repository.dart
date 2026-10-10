@@ -5,6 +5,26 @@ import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/address_search_field.dart';
 
+class RequestStopInput {
+  const RequestStopInput({
+    required this.seats,
+    required this.placeType,
+    required this.location,
+  });
+
+  final int seats;
+  final String placeType;
+  final SelectedLocation location;
+
+  Map<String, Object?> toJson() => <String, Object?>{
+        'seats': seats,
+        'place_type': placeType,
+        'lat': location.lat,
+        'lng': location.lng,
+        'address_text': location.addressText,
+      };
+}
+
 /// Acceso a los viajes, sin importar quién los pide.
 ///
 /// Lo comparten el modo pasajero (que lee los disponibles y solicita cupos) y el
@@ -95,10 +115,20 @@ class TripRepository {
   }
 
   /// `POST /requests/trips/{id}`
-  Future<TripRequest> requestSeat(int tripId, {int seatCount = 1}) async {
+  Future<TripRequest> requestSeat(
+    int tripId, {
+    int seatCount = 1,
+    DateTime? requestedAt,
+    List<RequestStopInput> stops = const <RequestStopInput>[],
+  }) async {
     final response = await _api.post(
       '/requests/trips/$tripId',
-      body: <String, Object?>{'seat_count': seatCount},
+      body: <String, Object?>{
+        'seat_count': seatCount,
+        if (requestedAt != null) 'requested_at': requestedAt.toIso8601String(),
+        if (stops.isNotEmpty)
+          'stops': stops.map((stop) => stop.toJson()).toList(),
+      },
     );
     return TripRequest.fromJson(_asMap(response));
   }

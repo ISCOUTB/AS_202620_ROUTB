@@ -28,6 +28,7 @@ class Trip {
     this.driverId,
     this.driverName,
     this.myRequestStatus,
+    this.direction,
   });
 
   /// Identificador del viaje.
@@ -71,6 +72,9 @@ class Trip {
   /// solicitado cupo. Solo lo devuelve `GET /trips/` cuando hay token.
   final SeatRequestStatus? myRequestStatus;
 
+  /// Sentido geográfico; nulo identifica viajes legados.
+  final String? direction;
+
   /// Solicitudes del viaje. `GET /trips/my-trips` las incluye; para pasajero
   /// llega vacía.
   final List<TripRequest> requests;
@@ -106,6 +110,7 @@ class Trip {
       myRequestStatus: rawMyRequest == null
           ? null
           : SeatRequestStatus.fromWire(rawMyRequest),
+      direction: json['direction'] as String?,
       requests: rawRequests == null
           ? const <TripRequest>[]
           : rawRequests
@@ -246,6 +251,7 @@ class Trip {
     String? meetingPoint,
     TripStatus? status,
     SeatRequestStatus? myRequestStatus,
+    String? direction,
     List<TripRequest>? requests,
   }) => Trip(
     id: id,
@@ -261,6 +267,7 @@ class Trip {
     driverId: driverId,
     driverName: driverName,
     myRequestStatus: myRequestStatus ?? this.myRequestStatus,
+    direction: direction ?? this.direction,
     requests: requests ?? this.requests,
   );
 
