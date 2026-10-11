@@ -5,11 +5,7 @@ import '../../../core/storage/session_store.dart';
 
 /// Persona que está usando la app tras entrar.
 class Account {
-  const Account({
-    required this.name,
-    required this.role,
-    required this.token,
-  });
+  const Account({required this.name, required this.role, required this.token});
 
   /// Nombre con el que se saluda en el hero.
   final String name;
@@ -63,10 +59,7 @@ class AuthRepository {
     final response = await _api.post(
       '/auth/login',
       authenticated: false,
-      body: <String, Object?>{
-        'phone': phone.trim(),
-        'password': password,
-      },
+      body: <String, Object?>{'phone': phone.trim(), 'password': password},
     );
 
     final account = _accountOf(response);
@@ -89,7 +82,19 @@ class AuthRepository {
     } on ApiException {
       // Sin token válido o sin red: se limpia la sesión local de todos modos.
     }
+
     await _session.clear();
+  }
+
+  /// Registra en el backend el consentimiento para usar geocodificación.
+  Future<void> grantLocationConsent() async {
+    await _api.post('/users/me/location-consent');
+  }
+
+  /// Revoca el consentimiento y hace que el backend elimine las paradas de
+  /// solicitudes pendientes.
+  Future<void> revokeLocationConsent() async {
+    await _api.delete('/users/me/location-consent');
   }
 
   /// Devuelve la cuenta guardada en el dispositivo, o `null` si no hay.

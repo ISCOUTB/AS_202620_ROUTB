@@ -12,4 +12,10 @@ Las decisiones arquitectónicas que impactan significativamente la estructura, l
 | [ADR 0006](../adr/0006-base-de-datos-supabase.md) | Aceptado | Adoptar Supabase (Free Tier) como plataforma de base de datos relacional PostgreSQL administrada. |
 | [ADR 0007](../adr/0007-reserva-grupal-de-cupos.md) | Aceptado | Aceptar la reserva grupal de cupos como mecanismo para permitir que los usuarios reserven múltiples cupos en una sola transacción. |
 | [ADR 0008](../adr/0008-no-componente-generativo.md) | Aceptado | Rechazar la implementación de un componente generativo en el sistema. |
+| [ADR 0009](../adr/0009-postgis-datos-geoespaciales.md) | Aceptado | Habilitar PostGIS para almacenar, indexar y consultar coordenadas, rutas y demás datos geoespaciales de ROUTB. |
+| [ADR 0010](../adr/0010-geocodificacion-y-cache.md) | Aceptado | Usar Photon como proveedor principal de geocodificación, Nominatim como respaldo y PostgreSQL como caché de consultas. |
+| [ADR 0011](../adr/0011-consentimiento-y-privacidad-de-ubicacion.md) | Aceptado | Pedir consentimiento para usar ubicaciones exactas y aplicar retención, revocación y purga de los datos geoespaciales. |
+| [ADR 0012](../adr/0012-sugerencias-matching-y-orden-de-paradas.md) | Aceptado | Sugerir viajes compatibles con scoring y ETA mediante matching de solo lectura, con aprobación final del conductor y paradas ordenadas a lo largo de la ruta. |
+| [ADR 0013](../adr/0013-notificaciones-push-fcm.md) | Aceptado | Avisar por push con FCM como canal complementario a REST, sin romper el flujo si FCM falla y borrando tokens inválidos. |
+
 ---

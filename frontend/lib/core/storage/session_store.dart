@@ -15,6 +15,8 @@ class SessionStore {
   static const String _nameKey = 'routb_name';
   static const String _roleKey = 'routb_role';
   static const String _themeKey = 'routb_theme_mode';
+  static const String _locationConsentPromptedKey =
+      'routb_location_consent_prompted';
 
   SharedPreferences? _preferences;
 
@@ -54,6 +56,15 @@ class SessionStore {
     await prefs.remove(_tokenKey);
     await prefs.remove(_nameKey);
     await prefs.remove(_roleKey);
+  }
+
+  /// Indica si ya se mostró la explicación de ubicación en este dispositivo.
+  Future<bool> readLocationConsentPrompted() async =>
+      (await _prefs).getBool(_locationConsentPromptedKey) ?? false;
+
+  /// Evita volver a interrumpir el inicio después de responder al aviso.
+  Future<void> saveLocationConsentPrompted() async {
+    await (await _prefs).setBool(_locationConsentPromptedKey, true);
   }
 
   /// Modo del tema elegido. Por defecto sigue al sistema.

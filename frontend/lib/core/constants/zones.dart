@@ -57,8 +57,8 @@ abstract final class Zones {
   static const Zone campus = Zone(
     name: 'UTB',
     minutes: 0,
-    latitude: 10.4216,
-    longitude: -75.5440,
+    latitude: 10.371078,
+    longitude: -75.466261,
     isCampus: true,
   );
 
@@ -67,10 +67,25 @@ abstract final class Zones {
   static const List<Zone> neighborhoods = <Zone>[
     Zone(name: 'Centro', minutes: 25, latitude: 10.4236, longitude: -75.5477),
     Zone(name: 'Manga', minutes: 22, latitude: 10.4383, longitude: -75.5247),
-    Zone(name: 'Bocagrande', minutes: 30, latitude: 10.4697, longitude: -75.5466),
-    Zone(name: 'Getsemaní', minutes: 26, latitude: 10.4510, longitude: -75.5200),
+    Zone(
+      name: 'Bocagrande',
+      minutes: 30,
+      latitude: 10.4697,
+      longitude: -75.5466,
+    ),
+    Zone(
+      name: 'Getsemaní',
+      minutes: 26,
+      latitude: 10.4510,
+      longitude: -75.5200,
+    ),
     Zone(name: 'Crespo', minutes: 28, latitude: 10.4520, longitude: -75.5260),
-    Zone(name: 'El Bosque', minutes: 18, latitude: 10.4390, longitude: -75.5180),
+    Zone(
+      name: 'El Bosque',
+      minutes: 18,
+      latitude: 10.4390,
+      longitude: -75.5180,
+    ),
     Zone(name: 'La Popa', minutes: 24, latitude: 10.4216, longitude: -75.5350),
     Zone(name: 'Turbaco', minutes: 20, latitude: 10.0900, longitude: -75.4400),
   ];

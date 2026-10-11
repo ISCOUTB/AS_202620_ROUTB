@@ -21,7 +21,9 @@ import '../../../core/widgets/routb_sheet.dart';
 import '../../../core/widgets/routb_toast.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../auth/screens/auth_flow.dart';
+import '../../auth/screens/location_privacy_screen.dart';
 import '../../trips/data/trip_repository.dart';
+import '../../matching/presentation/suggestions_screen.dart';
 import '../widgets/my_trip_card.dart';
 import '../widgets/trip_card.dart';
 import 'my_trip_screen.dart';
@@ -62,10 +64,24 @@ class _PassengerScreenState extends State<PassengerScreen> {
   bool _myRequestsFailed = false;
   int? _busyTripId;
   bool _asked = false;
+  ValueNotifier<int>? _refreshSignal;
+  VoidCallback? _refreshListener;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final signal = RoutbScopeDependencies.of(context).requestRefresh;
+    if (_refreshSignal != signal) {
+      if (_refreshSignal != null && _refreshListener != null) {
+        _refreshSignal!.removeListener(_refreshListener!);
+      }
+      _refreshSignal = signal;
+      _refreshListener = () {
+        unawaited(_loadMyRequests());
+        unawaited(_load());
+      };
+      signal.addListener(_refreshListener!);
+    }
     // La primera carga se pide desde aquí y no desde `initState`: el
     // repositorio se lee del `RoutbScopeDependencies`, y buscar un inherited
     // widget antes de que `initState` termine lanza una aserción que deja la
@@ -77,6 +93,9 @@ class _PassengerScreenState extends State<PassengerScreen> {
 
   @override
   void dispose() {
+    if (_refreshSignal != null && _refreshListener != null) {
+      _refreshSignal!.removeListener(_refreshListener!);
+    }
     _debounce?.cancel();
     _origin.dispose();
     _destination.dispose();
@@ -143,6 +162,13 @@ class _PassengerScreenState extends State<PassengerScreen> {
     }
   }
 
+  MyRequest? get _currentRequest {
+    for (final request in _myRequests) {
+      if (request.isActive) return request;
+    }
+    return null;
+  }
+
   Future<void> _openMyTrip(MyRequest request) async {
     await Navigator.of(context).push(
       RoutbPageRoute<void>(
@@ -163,7 +189,7 @@ class _PassengerScreenState extends State<PassengerScreen> {
       context: context,
       title: 'Trayecto estimado',
       subtitle:
-          'La línea une los dos barrios del catálogo, no es un ruteo real',
+          'El mapa sitúa origen y destino con las coordenadas reales del texto',
       heightFactor: 0.8,
       body: RouteMap(
         origin: _origin.text,
@@ -223,6 +249,17 @@ class _PassengerScreenState extends State<PassengerScreen> {
 
   Future<void> _reserve(Trip trip) async {
     if (_busyTripId != null) return;
+    if (trip.direction != null) {
+      await Navigator.of(context).push(
+        RoutbPageRoute<void>(
+          child: SuggestionsScreen(
+            initialDirection: trip.direction,
+            initialDate: trip.departureDate ?? _selectedDate,
+          ),
+        ),
+      );
+      return;
+    }
     final maximum = trip.availableSeats.clamp(1, 4).toInt();
     final seatCount = await showDialog<int>(
       context: context,
@@ -278,7 +315,9 @@ class _PassengerScreenState extends State<PassengerScreen> {
 
   Future<void> _logout() async {
     _debounce?.cancel();
-    await RoutbScopeDependencies.of(context).auth.logout();
+    final dependencies = RoutbScopeDependencies.of(context);
+    await dependencies.push.logout();
+    await dependencies.auth.logout();
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       RoutbPageRoute<void>(child: const AuthFlow()),
@@ -286,6 +325,14 @@ class _PassengerScreenState extends State<PassengerScreen> {
     );
     RoutbToast.show(context, 'Cerraste sesión');
   }
+
+  Future<void> _openLocationPrivacy() => Navigator.of(context).push(
+    RoutbPageRoute<void>(child: const LocationPrivacyScreen()),
+  );
+
+  Future<void> _openSuggestions() => Navigator.of(context).push(
+    RoutbPageRoute<void>(child: const SuggestionsScreen()),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -312,7 +359,9 @@ class _PassengerScreenState extends State<PassengerScreen> {
                         onDestinationChanged: _onQueryChanged,
                         onDateTap: _chooseDate,
                         onLogout: _logout,
+                        onLocationPrivacy: _openLocationPrivacy,
                         onOpenMap: _openFullMap,
+                        onOpenSuggestions: _openSuggestions,
                       ),
                       Expanded(
                         child: switch (_status) {
@@ -323,12 +372,14 @@ class _PassengerScreenState extends State<PassengerScreen> {
                           ),
                           PassengerStatus.ready => _TripsList(
                             trips: _trips,
+                            myRequest: _currentRequest,
                             busyTripId: _busyTripId,
                             filtering: _filtering,
                             origin: _origin.text.trim(),
                             destination: _destination.text.trim(),
                             selectedDate: _selectedDate,
                             onReserve: _reserve,
+                            onOpenMyTrip: _openMyTrip,
                             onRefresh: _load,
                             onClearFilters: _clearFilters,
                           ),
@@ -342,6 +393,7 @@ class _PassengerScreenState extends State<PassengerScreen> {
                     loading: _myRequestsLoading,
                     failed: _myRequestsFailed,
                     onLogout: _logout,
+                    onLocationPrivacy: _openLocationPrivacy,
                     onRefresh: _loadMyRequests,
                     onRetry: _loadMyRequests,
                     onOpen: _openMyTrip,
@@ -369,7 +421,9 @@ class _PassengerHero extends StatelessWidget {
     required this.onDestinationChanged,
     required this.onDateTap,
     required this.onLogout,
+    required this.onLocationPrivacy,
     required this.onOpenMap,
+    required this.onOpenSuggestions,
   });
 
   final String userName;
@@ -380,7 +434,9 @@ class _PassengerHero extends StatelessWidget {
   final ValueChanged<String> onDestinationChanged;
   final VoidCallback onDateTap;
   final VoidCallback onLogout;
+  final VoidCallback onLocationPrivacy;
   final VoidCallback onOpenMap;
+  final VoidCallback onOpenSuggestions;
 
   @override
   Widget build(BuildContext context) {
@@ -403,6 +459,7 @@ class _PassengerHero extends StatelessWidget {
             role: UserRole.passenger,
             userName: userName,
             onLogout: onLogout,
+            onLocationPrivacy: onLocationPrivacy,
             isDarkBackground: true,
             wave: true,
           ),
@@ -459,6 +516,14 @@ class _PassengerHero extends StatelessWidget {
             selectedDate: selectedDate,
             onDateTap: onDateTap,
           ),
+          const SizedBox(height: 10),
+          RoutbButton(
+            label: 'Buscar sugerencias puerta a puerta',
+            icon: Icons.route_outlined,
+            variant: RoutbButtonVariant.secondary,
+            onPressed: onOpenSuggestions,
+            height: 42,
+          ),
         ],
       ),
     );
@@ -469,23 +534,27 @@ class _PassengerHero extends StatelessWidget {
 class _TripsList extends StatelessWidget {
   const _TripsList({
     required this.trips,
+    required this.myRequest,
     required this.busyTripId,
     required this.filtering,
     required this.origin,
     required this.destination,
     required this.selectedDate,
     required this.onReserve,
+    required this.onOpenMyTrip,
     required this.onRefresh,
     required this.onClearFilters,
   });
 
   final List<Trip> trips;
+  final MyRequest? myRequest;
   final int? busyTripId;
   final bool filtering;
   final String origin;
   final String destination;
   final DateTime selectedDate;
   final ValueChanged<Trip> onReserve;
+  final ValueChanged<MyRequest> onOpenMyTrip;
   final Future<void> Function() onRefresh;
   final Future<void> Function() onClearFilters;
 
@@ -493,12 +562,43 @@ class _TripsList extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
     final now = DateTime.now();
+    // Con tarjeta activa el contenido supera la ventana: el estado vacío va
+    // en un sliver con caja (desplazable) en vez de rellenar el resto, que lo
+    // dejaría sin espacio y sin construir.
+    final emptyState = RoutbEmptyState(
+      icon: Icons.search_off_rounded,
+      message: origin.isEmpty && destination.isEmpty
+          ? 'No hay viajes para ${TripSchedule.dateLabel(selectedDate)}. '
+                'Prueba con otro día.'
+          : 'No hay viajes con esa búsqueda. Prueba con otro origen o '
+                'destino.',
+      action: RoutbButton(
+        label: 'Limpiar búsqueda',
+        variant: RoutbButtonVariant.secondary,
+        expand: false,
+        height: 44,
+        onPressed: onClearFilters,
+      ),
+    );
 
     return RefreshIndicator(
       onRefresh: onRefresh,
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
+          // La tarjeta va antes que el encabezado, incluso con cero
+          // resultados: el viaje confirmado desaparece del listado cuando se
+          // llena, que es justo cuando el pasajero necesita verlo.
+          if (myRequest != null)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+                child: MyTripCard(
+                  request: myRequest!,
+                  onTap: () => onOpenMyTrip(myRequest!),
+                ),
+              ),
+            ),
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
@@ -556,24 +656,13 @@ class _TripsList extends StatelessWidget {
             ),
           ),
           if (trips.isEmpty)
-            SliverFillRemaining(
-              hasScrollBody: false,
-              child: RoutbEmptyState(
-                icon: Icons.search_off_rounded,
-                message: origin.isEmpty && destination.isEmpty
-                    ? 'No hay viajes para ${TripSchedule.dateLabel(selectedDate)}. '
-                          'Prueba con otro día.'
-                    : 'No hay viajes con esa búsqueda. Prueba con otro origen o '
-                          'destino.',
-                action: RoutbButton(
-                  label: 'Limpiar búsqueda',
-                  variant: RoutbButtonVariant.secondary,
-                  expand: false,
-                  height: 44,
-                  onPressed: onClearFilters,
-                ),
-              ),
-            )
+            if (myRequest != null)
+              SliverToBoxAdapter(child: emptyState)
+            else
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: emptyState,
+              )
           else
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(14, 0, 14, 28),
@@ -657,6 +746,7 @@ class _MyTripsTab extends StatelessWidget {
     required this.loading,
     required this.failed,
     required this.onLogout,
+    required this.onLocationPrivacy,
     required this.onRefresh,
     required this.onRetry,
     required this.onOpen,
@@ -667,6 +757,7 @@ class _MyTripsTab extends StatelessWidget {
   final bool loading;
   final bool failed;
   final VoidCallback onLogout;
+  final VoidCallback onLocationPrivacy;
   final Future<void> Function() onRefresh;
   final Future<void> Function() onRetry;
   final ValueChanged<MyRequest> onOpen;
@@ -692,6 +783,7 @@ class _MyTripsTab extends StatelessWidget {
                 role: UserRole.passenger,
                 userName: userName,
                 onLogout: onLogout,
+                onLocationPrivacy: onLocationPrivacy,
                 isDarkBackground: true,
                 wave: true,
               ),
@@ -853,12 +945,16 @@ class _PassengerNavItem extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(width: 7),
-                  Text(
-                    label,
-                    style: RoutbText.copy(
-                      12,
-                      color: color,
-                      weight: selected ? FontWeight.w700 : FontWeight.w500,
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: RoutbText.copy(
+                        12,
+                        color: color,
+                        weight: selected ? FontWeight.w700 : FontWeight.w500,
+                      ),
                     ),
                   ),
                 ],

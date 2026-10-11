@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -5,6 +6,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../constants/zones.dart';
+import '../map/place_locator.dart';
 import '../models/trip_status.dart';
 import '../theme/routb_palette.dart';
 import '../theme/routb_text.dart';
@@ -13,18 +15,14 @@ import 'routb_live_pill.dart';
 
 /// Mapa de un trayecto con los mosaicos de OpenStreetMap.
 ///
-/// Recibe el origen y el destino como texto libre y los resuelve contra el
-/// catálogo de barrios, de modo que sirve igual para un viaje guardado (el
-/// conductor) que para dos campos que alguien está escribiendo (el pasajero).
-///
-/// El backend no guarda geometría de rutas, así que la línea que une ambos
-/// extremos es una **curva estimada** entre los dos puntos del catálogo. Por
-/// eso la interfaz la rotula «Trayecto estimado» en lugar de presentarla como
-/// un ruteo real.
+/// Recibe el origen y el destino como texto libre. Primero pinta el catálogo
+/// de barrios, si hay coincidencia, y después pide a Nominatim la coordenada
+/// real del texto. Entre ambos puntos intenta la geometría de calles de OSRM;
+/// si no llega, dibuja la curva estimada de siempre.
 ///
 /// Sobre el mapa van los nombres de los extremos y la atribución a
 /// OpenStreetMap, que es obligatoria por licencia de los mosaicos.
-class RouteMap extends StatelessWidget {
+class RouteMap extends StatefulWidget {
   const RouteMap({
     required this.origin,
     required this.destination,
@@ -63,34 +61,164 @@ class RouteMap extends StatelessWidget {
   final bool animateRoute;
 
   @override
+  State<RouteMap> createState() => _RouteMapState();
+}
+
+class _RouteMapState extends State<RouteMap> {
+  /// Espera antes de llamar a Nominatim, para no disparar una petición por
+  /// cada tecla en el buscador del pasajero.
+  static const Duration _debounce = Duration(milliseconds: 450);
+
+  final MapController _map = MapController();
+  bool _mapReady = false;
+
+  LatLng? _start;
+  LatLng? _end;
+  List<LatLng>? _road;
+  int _epoch = 0;
+  Timer? _debounceTimer;
+  bool _lookupDone = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _applyCatalog();
+    _lookupDone = !_useRemote;
+    _scheduleResolve();
+  }
+
+  @override
+  void didUpdateWidget(RouteMap oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.origin == widget.origin &&
+        oldWidget.destination == widget.destination) {
+      return;
+    }
+    setState(() {
+      _applyCatalog();
+      _lookupDone = !_useRemote;
+    });
+    _scheduleResolve();
+  }
+
+  @override
+  void dispose() {
+    _epoch++;
+    _debounceTimer?.cancel();
+    _map.dispose();
+    super.dispose();
+  }
+
+  void _applyCatalog() {
+    _start = PlaceLocator.catalogPoint(widget.origin);
+    _end = PlaceLocator.catalogPoint(widget.destination);
+    _road = null;
+  }
+
+  void _scheduleResolve() {
+    _debounceTimer?.cancel();
+    if (!_useRemote) return;
+    final epoch = ++_epoch;
+    _debounceTimer = Timer(_debounce, () {
+      unawaited(_resolve(epoch));
+    });
+  }
+
+  Future<void> _resolve(int epoch) async {
+    if (!_useRemote) return;
+
+    final originText = widget.origin;
+    final destinationText = widget.destination;
+    final locator = PlaceLocator.instance;
+
+    final located = await Future.wait<LatLng?>([
+      locator.locate(originText),
+      locator.locate(destinationText),
+    ]);
+    if (!mounted || epoch != _epoch) return;
+
+    final start = located[0];
+    final end = located[1];
+    setState(() {
+      _start = start;
+      _end = end;
+      _road = null;
+      _lookupDone = true;
+    });
+    _fitCamera();
+
+    if (start == null || end == null) return;
+    final road = await locator.route(start, end);
+    if (!mounted || epoch != _epoch) return;
+    if (road == null || road.length < 2) return;
+    setState(() => _road = road);
+  }
+
+  void _fitCamera() {
+    if (!_mapReady || !mounted) return;
+    final box = context.findRenderObject();
+    final size = box is RenderBox && box.hasSize ? box.size : Size.zero;
+    final camera = _TripCamera.forPoints(
+      start: _start,
+      end: _end,
+      width: size.width,
+      height: size.height == 0 ? widget.height : size.height,
+    );
+    try {
+      _map.move(camera.center, camera.zoom);
+    } on Object {
+      _mapReady = false;
+    }
+  }
+
+  /// En las pruebas de widgets no se llama a Nominatim ni a OSRM: el mapa se
+  /// queda con el catálogo, que es síncrono y no deja temporizadores de red.
+  bool get _useRemote {
+    final name = WidgetsBinding.instance.runtimeType.toString();
+    return !name.contains('TestWidgetsFlutterBinding');
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final from = Zones.byName(origin);
-    final to = Zones.byName(destination);
+    final originText = _labelFor(widget.origin);
+    final destinationText = _labelFor(widget.destination);
+    final hasQuery =
+        widget.origin.trim().isNotEmpty || widget.destination.trim().isNotEmpty;
+    final unresolved =
+        hasQuery && _lookupDone && _start == null && _end == null;
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(RoutbTheme.radiusTile),
       child: SizedBox(
-        height: height,
-        child: _OsmMap(
-          origin: from,
-          destination: to,
-          interactive: interactive,
-          animateRoute: animateRoute,
-          overlays: _overlays(
-            originText: _labelFor(origin, from),
-            destinationText: _labelFor(destination, to),
-          ),
-        ),
+        height: widget.height,
+        child: unresolved
+            ? const UnknownLocationMap()
+            : _OsmMap(
+                start: _start,
+                end: _end,
+                road: _road,
+                interactive: widget.interactive,
+                animateRoute: widget.animateRoute,
+                mapController: _map,
+                onMapReady: () {
+                  _mapReady = true;
+                  _fitCamera();
+                },
+                overlays: _overlays(
+                  originText: originText,
+                  destinationText: destinationText,
+                ),
+              ),
       ),
     );
   }
 
-  /// Etiqueta de un extremo: lo que escribió la persona y, si vino vacío, el
-  /// nombre del barrio resuelto, para no pintar un chip en blanco.
-  static String _labelFor(String text, Zone? zone) {
+  /// Etiqueta de un extremo: lo que escribió la persona, o la universidad si
+  /// el campo está vacío, para no pintar un chip en blanco.
+  static String _labelFor(String text) {
     final trimmed = text.trim();
     if (trimmed.isNotEmpty) return trimmed;
-    return zone?.name ?? Zones.campus.name;
+    return Zones.campus.name;
   }
 
   Widget _overlays({
@@ -99,15 +227,15 @@ class RouteMap extends StatelessWidget {
   }) {
     return Stack(
       children: <Widget>[
-        if (showPhase && phase != null)
-          Positioned(left: 10, top: 10, child: LivePill(phase: phase!)),
+        if (widget.showPhase && widget.phase != null)
+          Positioned(left: 10, top: 10, child: LivePill(phase: widget.phase!)),
         Positioned(left: 10, bottom: 10, child: _MapChip(label: originText)),
         Positioned(
           right: 10,
-          bottom: showAttribution ? 24 : 10,
+          bottom: widget.showAttribution ? 24 : 10,
           child: _MapChip(label: destinationText, accent: true),
         ),
-        if (showAttribution)
+        if (widget.showAttribution)
           // La atribución a OpenStreetMap es obligatoria por licencia de los
           // mosaicos. No se usa `SimpleAttributionWidget` porque su `Row` no
           // respeta el ancho disponible y se desborda en pantallas estrechas;
@@ -144,7 +272,7 @@ class UnknownLocationMap extends StatelessWidget {
           // margen amplio el mensaje salía cortado.
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Text(
-            'Elige un barrio del catálogo para ver el trayecto en el mapa.',
+            'No se encontró una ubicación para este origen o destino.',
             textAlign: TextAlign.center,
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
@@ -211,33 +339,34 @@ class _MapChip extends StatelessWidget {
 
 class _OsmMap extends StatelessWidget {
   const _OsmMap({
-    required this.origin,
-    required this.destination,
+    required this.start,
+    required this.end,
+    required this.road,
     required this.interactive,
     required this.animateRoute,
+    required this.mapController,
+    required this.onMapReady,
     required this.overlays,
   });
 
-  final Zone? origin;
-  final Zone? destination;
+  final LatLng? start;
+  final LatLng? end;
+  final List<LatLng>? road;
   final bool interactive;
   final bool animateRoute;
+  final MapController mapController;
+  final VoidCallback onMapReady;
   final Widget overlays;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
 
-    // `_pointOf` ya resuelve el nulo a la universidad, así que los dos extremos
-    // siempre tienen coordenada.
-    final start = _pointOf(origin);
-    final end = _pointOf(destination);
-
     // El encuadre depende del tamaño real del mapa, así que se calcula dentro de
-    // un `LayoutBuilder`. Ver [_TripCamera.forRoute].
+    // un `LayoutBuilder`. Ver [_TripCamera.forPoints].
     return LayoutBuilder(
       builder: (context, constraints) {
-        final camera = _TripCamera.forRoute(
+        final camera = _TripCamera.forPoints(
           start: start,
           end: end,
           width: constraints.maxWidth,
@@ -248,9 +377,11 @@ class _OsmMap extends StatelessWidget {
           fit: StackFit.expand,
           children: <Widget>[
             FlutterMap(
+              mapController: mapController,
               options: MapOptions(
                 initialCenter: camera.center,
                 initialZoom: camera.zoom,
+                onMapReady: onMapReady,
                 // El hero convive con el scroll de la pantalla, así que por
                 // defecto el mapa no intercepta los gestos, como avisa el diseño.
                 interactionOptions: InteractionOptions(
@@ -266,18 +397,28 @@ class _OsmMap extends StatelessWidget {
                   userAgentPackageName: 'co.iscoutb.routb',
                   maxNativeZoom: 19,
                 ),
-                _EstimatedRoute(start: start, end: end, animate: animateRoute),
+                if (start != null && end != null)
+                  _EstimatedRoute(
+                    start: start!,
+                    end: end!,
+                    road: road,
+                    animate: animateRoute,
+                  ),
                 MarkerLayer(
                   markers: <Marker>[
-                    Marker(
-                      point: start,
-                      width: 22,
-                      height: 22,
-                      child: const _RouteDot(color: Colors.white, border: null),
-                    ),
-                    if (destination != null)
+                    if (start != null)
                       Marker(
-                        point: end,
+                        point: start!,
+                        width: 22,
+                        height: 22,
+                        child: const _RouteDot(
+                          color: Colors.white,
+                          border: null,
+                        ),
+                      ),
+                    if (end != null)
+                      Marker(
+                        point: end!,
                         width: 26,
                         height: 26,
                         child: _RouteDot(
@@ -295,9 +436,6 @@ class _OsmMap extends StatelessWidget {
       },
     );
   }
-
-  static LatLng _pointOf(Zone? zone) =>
-      zone == null ? Zones.campusPoint : Zones.pointOf(zone);
 }
 
 /// Curva estimada entre dos puntos, con el trazo del diseño: violeta de marca
@@ -310,10 +448,12 @@ class _EstimatedRoute extends StatelessWidget {
     required this.start,
     required this.end,
     required this.animate,
+    this.road,
   });
 
   final LatLng start;
   final LatLng end;
+  final List<LatLng>? road;
   final bool animate;
 
   /// Número de tramos con los que se construye la curva.
@@ -322,7 +462,9 @@ class _EstimatedRoute extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final points = _curve(start, end);
+    final points = (road != null && road!.length >= 2)
+        ? road!
+        : _curve(start, end);
     if (points.length < 2) return const SizedBox.shrink();
 
     Widget layer(List<LatLng> visible) => PolylineLayer(
@@ -416,6 +558,22 @@ class _TripCamera {
   /// 30, porque en el mapa compacto del buscador, de 110 px de alto, 30 por lado
   /// se comían más de la mitad y el trayecto quedaba reducido a un rabito.
   static const double _padding = 26;
+
+  factory _TripCamera.forPoints({
+    required LatLng? start,
+    required LatLng? end,
+    required double width,
+    required double height,
+  }) {
+    final from = start ?? end ?? Zones.campusPoint;
+    final to = end ?? start ?? Zones.campusPoint;
+    return _TripCamera.forRoute(
+      start: from,
+      end: to,
+      width: width,
+      height: height,
+    );
+  }
 
   factory _TripCamera.forRoute({
     required LatLng start,

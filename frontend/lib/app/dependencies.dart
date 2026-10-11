@@ -4,6 +4,10 @@ import '../core/network/api_client.dart';
 import '../core/storage/session_store.dart';
 import '../core/theme/theme_controller.dart';
 import '../features/auth/data/auth_repository.dart';
+import '../features/matching/data/matching_repository.dart';
+import '../features/notifications/data/notifications_repository.dart';
+import '../features/notifications/push_notification_service.dart';
+import '../features/trips/data/geocode_repository.dart';
 import '../features/trips/data/trip_repository.dart';
 
 /// Repositorios y sesión que comparten todos los módulos.
@@ -14,7 +18,10 @@ class RoutbDependencies {
   RoutbDependencies({
     required this.session,
     required this.auth,
+    required this.geocode,
     required this.trips,
+    required this.matching,
+    required this.push,
     required this.theme,
   });
 
@@ -24,8 +31,20 @@ class RoutbDependencies {
   /// Ingreso, registro y cierre de sesión.
   final AuthRepository auth;
 
+  /// Búsqueda de direcciones y coordenadas exactas.
+  final GeocodeRepository geocode;
+
   /// Viajes y solicitudes de cupo.
   final TripRepository trips;
+
+  /// Sugerencias de viajes por compatibilidad geográfica y horaria.
+  final MatchingRepository matching;
+
+  /// Registro de token y recepción de avisos FCM.
+  final PushNotificationService push;
+
+  /// Señal para que las pantallas vuelvan a consultar solicitudes y viajes.
+  final ValueNotifier<int> requestRefresh = ValueNotifier<int>(0);
 
   /// Controlador del modo claro u oscuro.
   final ThemeController theme;
@@ -41,13 +60,19 @@ class RoutbDependencies {
     return RoutbDependencies(
       session: session,
       auth: AuthRepository(api, session),
+      geocode: GeocodeRepository(api),
       trips: TripRepository(api),
+      matching: MatchingRepository(api),
+      push: PushNotificationService(repository: NotificationsRepository(api)),
       theme: theme,
     );
   }
 
   /// Cierra los recursos que consumen sistema.
-  void dispose() => theme.dispose();
+  void dispose() {
+    requestRefresh.dispose();
+    theme.dispose();
+  }
 }
 
 /// Publica las dependencias en el árbol de widgets.
@@ -67,8 +92,8 @@ class RoutbScopeDependencies extends InheritedWidget {
   /// final trips = RoutbScopeDependencies.of(context).trips;
   /// ```
   static RoutbDependencies of(BuildContext context) {
-    final scope =
-        context.dependOnInheritedWidgetOfExactType<RoutbScopeDependencies>();
+    final scope = context
+        .dependOnInheritedWidgetOfExactType<RoutbScopeDependencies>();
     assert(scope != null, 'No hay RoutbScopeDependencies en el árbol.');
     return scope!.dependencies;
   }

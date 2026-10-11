@@ -15,8 +15,19 @@ if DATABASE_URL == os.getenv("DATABASE_URL"):
     )
 
 
+from alembic import command
+from alembic.config import Config
+from sqlalchemy import text
+
+
 @pytest.fixture(scope="session", autouse=True)
 def crear_tablas():
-    Base.metadata.create_all(bind=engine)
+    with engine.begin() as conn:
+        conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis;"))
+
+    alembic_cfg = Config(os.path.join(os.path.dirname(__file__), "..", "alembic.ini"))
+    alembic_cfg.set_main_option("sqlalchemy.url", DATABASE_URL.replace("%", "%%"))
+
+    command.upgrade(alembic_cfg, "head")
     yield
-    Base.metadata.drop_all(bind=engine)
+    command.downgrade(alembic_cfg, "base")

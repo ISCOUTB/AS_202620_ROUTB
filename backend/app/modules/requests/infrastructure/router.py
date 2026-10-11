@@ -24,6 +24,7 @@ from app.modules.requests.domain.exceptions import (
     TripNotActiveError,
     TripRequestNotFoundError,
     UnauthorizedRequestActionError,
+    RequestExpiredError,
 )
 from app.modules.requests.infrastructure import schemas
 from app.modules.users.application import UserIdentity
@@ -43,6 +44,10 @@ def _to_response(req) -> schemas.TripRequestResponse:
         status=req.status,
         seat_count=req.seat_count,
         created_at=req.created_at,
+        stops=[
+            schemas.RequestStopResponse.model_validate(stop)
+            for stop in req.stops
+        ],
     )
 
 
@@ -65,6 +70,10 @@ def _to_my_response(req) -> schemas.MyRequestResponse:
         trip_status=trip.status if trip else "cancelled",
         driver_name=f"{driver.name} {driver.last_name}" if driver else None,
         driver_phone=driver.phone if driver else None,
+        stops=[
+            schemas.RequestStopResponse.model_validate(stop)
+            for stop in req.stops
+        ],
     )
 
 @router.post("/trips/{trip_id}", response_model=schemas.TripRequestResponse, status_code=status.HTTP_201_CREATED)
@@ -80,6 +89,8 @@ def request_seat(
             trip_id=trip_id,
             passenger_id=current_user.id,
             seat_count=payload.seat_count if payload is not None else 1,
+            requested_at=payload.requested_at if payload is not None else None,
+            stops=[stop.model_dump() for stop in payload.stops] if payload is not None else [],
         )
         return _to_response(req)
     except TripNotActiveError as e:
@@ -90,6 +101,10 @@ def request_seat(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=e.message)
     except ActiveRequestAlreadyExistsError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
+    except PermissionError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
 
 
 @router.get("/trips/{trip_id}", response_model=list[schemas.TripRequestResponse])
@@ -98,8 +113,13 @@ def list_trip_requests(
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[UserIdentity, Depends(get_current_user)],
 ):
-    requests = get_trip_requests_use_case(db, trip_id=trip_id)
-    return [_to_response(r) for r in requests]
+    try:
+        requests = get_trip_requests_use_case(
+            db, trip_id=trip_id, driver_id=current_user.id
+        )
+        return [_to_response(r) for r in requests]
+    except UnauthorizedRequestActionError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=e.message)
 
 
 @router.patch("/{request_id}/accept", response_model=schemas.TripRequestResponse)
@@ -118,6 +138,8 @@ def accept_request(
     except NoSeatsToAcceptError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=e.message)
     except InvalidRequestStateError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=e.message)
+    except RequestExpiredError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=e.message)
 
 

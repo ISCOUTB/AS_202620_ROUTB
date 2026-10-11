@@ -1,0 +1,250 @@
+"""Pruebas de paradas en solicitudes (Fase 2 - Bloque 3.2)."""
+
+from fastapi.testclient import TestClient
+
+from app.core.database import SessionLocal
+from app.core.timezone import colombia_today
+from app.main import app
+from app.modules.auth.application.tokens import create_access_token
+from app.modules.requests.infrastructure.models import RequestStop, TripRequest
+from app.modules.trips.infrastructure.models import Trip
+from app.modules.users.infrastructure.models import User
+
+client = TestClient(app)
+
+_FUTURE_TIME = "11:59 PM"
+
+# Coordenadas dentro del BBOX de Cartagena
+_STOP_LAT = 10.42
+_STOP_LNG = -75.54
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _crear_usuario(telefono: str, role: str = "passenger") -> tuple[int, str]:
+    with SessionLocal() as db:
+        user = User(
+            name="Test",
+            last_name="Stops",
+            phone=telefono,
+            hashed_password="hash",
+            role=role,
+            location_consent_at=None if role == "driver" else __import__("app.core.timezone", fromlist=["colombia_now"]).colombia_now(),
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        return user.id, create_access_token(user.id, user.role)
+
+
+def _limpiar(*user_ids: int) -> None:
+    with SessionLocal() as db:
+        for uid in user_ids:
+            db.query(TripRequest).filter(
+                TripRequest.passenger_id == uid
+            ).delete(synchronize_session=False)
+            for trip in db.query(Trip).filter(Trip.driver_id == uid).all():
+                db.query(TripRequest).filter(
+                    TripRequest.trip_id == trip.id
+                ).delete(synchronize_session=False)
+                db.delete(trip)
+            user = db.get(User, uid)
+            if user:
+                db.delete(user)
+        db.commit()
+
+
+def _crear_viaje(driver_token: str, total_seats: int = 4, direction: str = "to_campus") -> int:
+    resp = client.post(
+        "/trips/",
+        headers={"Authorization": f"Bearer {driver_token}"},
+        json={
+            "origin": "Centro",
+            "destination": "UTB",
+            "total_seats": total_seats,
+            "departure_time": _FUTURE_TIME,
+            "departure_date": str(colombia_today()),
+            "direction": direction,
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    return resp.json()["id"]
+
+
+def _stop(seats: int = 1, lat: float = _STOP_LAT, lng: float = _STOP_LNG) -> dict:
+    return {
+        "seats": seats,
+        "place_type": "door",
+        "lat": lat,
+        "lng": lng,
+        "address_text": "Calle de prueba 123",
+    }
+
+
+# ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
+
+def test_grupo_cuatro_cupos_tres_paradas_from_campus():
+    """from_campus: 4 cupos con paradas 2+1+1 (sum == seat_count) debe aceptarse."""
+    driver_id, driver_token = _crear_usuario("3300000001", "driver")
+    passenger_id, passenger_token = _crear_usuario("3300000002", "passenger")
+
+    try:
+        trip_id = _crear_viaje(driver_token, total_seats=4, direction="from_campus")
+        resp = client.post(
+            f"/requests/trips/{trip_id}",
+            headers={"Authorization": f"Bearer {passenger_token}"},
+            json={
+                "seat_count": 4,
+                "stops": [
+                    _stop(2, _STOP_LAT, _STOP_LNG),
+                    _stop(1, 10.43, -75.53),
+                    _stop(1, 10.41, -75.55),
+                ],
+            },
+        )
+        assert resp.status_code == 201
+        assert resp.json()["seat_count"] == 4
+        assert len(resp.json()["stops"]) == 3
+    finally:
+        _limpiar(passenger_id, driver_id)
+
+
+def test_suma_seats_distinta_de_seat_count_da_422():
+    """La suma de `seats` en paradas distinta de `seat_count` → 422."""
+    driver_id, driver_token = _crear_usuario("3300000003", "driver")
+    passenger_id, passenger_token = _crear_usuario("3300000004", "passenger")
+
+    try:
+        trip_id = _crear_viaje(driver_token, total_seats=4, direction="from_campus")
+        resp = client.post(
+            f"/requests/trips/{trip_id}",
+            headers={"Authorization": f"Bearer {passenger_token}"},
+            json={
+                "seat_count": 3,
+                "stops": [_stop(1), _stop(1)],  # suma 2 != 3
+            },
+        )
+        assert resp.status_code == 422
+    finally:
+        _limpiar(passenger_id, driver_id)
+
+
+def test_to_campus_mas_de_una_parada_da_422():
+    """to_campus con más de una parada → 422."""
+    driver_id, driver_token = _crear_usuario("3300000005", "driver")
+    passenger_id, passenger_token = _crear_usuario("3300000006", "passenger")
+
+    try:
+        trip_id = _crear_viaje(driver_token, total_seats=4, direction="to_campus")
+        resp = client.post(
+            f"/requests/trips/{trip_id}",
+            headers={"Authorization": f"Bearer {passenger_token}"},
+            json={
+                "seat_count": 2,
+                "stops": [_stop(1), _stop(1)],  # 2 paradas en to_campus → error
+            },
+        )
+        assert resp.status_code == 422
+    finally:
+        _limpiar(passenger_id, driver_id)
+
+
+def test_borrar_solicitud_borra_sus_paradas():
+    """Al retirar una solicitud sus paradas desaparecen de la base de datos."""
+    driver_id, driver_token = _crear_usuario("3300000007", "driver")
+    passenger_id, passenger_token = _crear_usuario("3300000008", "passenger")
+
+    try:
+        trip_id = _crear_viaje(driver_token, total_seats=4, direction="from_campus")
+        created = client.post(
+            f"/requests/trips/{trip_id}",
+            headers={"Authorization": f"Bearer {passenger_token}"},
+            json={
+                "seat_count": 2,
+                "stops": [_stop(1), _stop(1, 10.43, -75.53)],
+            },
+        )
+        assert created.status_code == 201
+        req_id = created.json()["id"]
+
+        # Confirmar que las paradas existen
+        with SessionLocal() as db:
+            stops_count = db.query(RequestStop).filter(
+                RequestStop.request_id == req_id
+            ).count()
+        assert stops_count == 2
+
+        # Retirar la solicitud
+        resp = client.delete(
+            f"/requests/{req_id}",
+            headers={"Authorization": f"Bearer {passenger_token}"},
+        )
+        assert resp.status_code == 204
+
+        # Las paradas deben haber desaparecido (CASCADE)
+        with SessionLocal() as db:
+            stops_count = db.query(RequestStop).filter(
+                RequestStop.request_id == req_id
+            ).count()
+        assert stops_count == 0
+    finally:
+        _limpiar(passenger_id, driver_id)
+
+
+def test_solicitud_pendiente_no_expone_stop_geom():
+    """Una solicitud pendiente no devuelve `stop_geom` en la respuesta JSON."""
+    driver_id, driver_token = _crear_usuario("3300000009", "driver")
+    passenger_id, passenger_token = _crear_usuario("3300000010", "passenger")
+
+    try:
+        trip_id = _crear_viaje(driver_token, total_seats=4, direction="from_campus")
+        created = client.post(
+            f"/requests/trips/{trip_id}",
+            headers={"Authorization": f"Bearer {passenger_token}"},
+            json={
+                "seat_count": 1,
+                "stops": [_stop(1)],
+            },
+        )
+        assert created.status_code == 201
+        stops = created.json()["stops"]
+        assert len(stops) == 1
+        # El schema no expone stop_geom
+        assert "stop_geom" not in stops[0]
+    finally:
+        _limpiar(passenger_id, driver_id)
+
+
+def test_paradas_de_solicitudes_distintas_se_intercalan():
+    """Dos solicitudes diferentes pueden tener paradas; ambas coexisten sin conflicto."""
+    driver_id, driver_token = _crear_usuario("3300000011", "driver")
+    pass_a_id, pass_a_token = _crear_usuario("3300000012", "passenger")
+    pass_b_id, pass_b_token = _crear_usuario("3300000013", "passenger")
+
+    try:
+        trip_id = _crear_viaje(driver_token, total_seats=4, direction="from_campus")
+        r1 = client.post(
+            f"/requests/trips/{trip_id}",
+            headers={"Authorization": f"Bearer {pass_a_token}"},
+            json={"seat_count": 1, "stops": [_stop(1, _STOP_LAT, _STOP_LNG)]},
+        )
+        r2 = client.post(
+            f"/requests/trips/{trip_id}",
+            headers={"Authorization": f"Bearer {pass_b_token}"},
+            json={"seat_count": 1, "stops": [_stop(1, 10.43, -75.53)]},
+        )
+        assert r1.status_code == 201
+        assert r2.status_code == 201
+        assert r1.json()["id"] != r2.json()["id"]
+
+        with SessionLocal() as db:
+            total_stops = db.query(RequestStop).filter(
+                RequestStop.request_id.in_([r1.json()["id"], r2.json()["id"]])
+            ).count()
+        assert total_stops == 2
+    finally:
+        _limpiar(pass_b_id, pass_a_id, driver_id)

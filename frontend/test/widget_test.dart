@@ -370,7 +370,7 @@ void main() {
 
     testWidgets('el botón cambia de etiqueta según la solicitud', (tester) async {
       final cases = <String, ({String label, String? myStatus})>{
-        'sin solicitar': (label: 'Reservar cupo', myStatus: null),
+        'sin solicitar': (label: 'Solicitar cupos', myStatus: null),
         'solicitud en espera': (label: 'Solicitud enviada', myStatus: 'pending'),
         'cupo confirmado': (label: 'Cupo confirmado', myStatus: 'accepted'),
       };

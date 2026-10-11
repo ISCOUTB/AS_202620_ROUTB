@@ -1,13 +1,18 @@
+from datetime import timedelta
 from fastapi.testclient import TestClient
 
 from app.core.database import SessionLocal
 from app.main import app
 from app.modules.auth.application.tokens import create_access_token
 from app.modules.requests.infrastructure.models import TripRequest
+from app.core.timezone import colombia_now, colombia_today
 from app.modules.trips.infrastructure.models import Trip
 from app.modules.users.infrastructure.models import User
 
 client = TestClient(app)
+
+# Hora futura para que los viajes de prueba nunca se venzan durante la ejecución
+_FUTURE_TIME = "11:59 PM"
 
 
 def _crear_conductor(telefono: str):
@@ -74,7 +79,8 @@ def _viaje(token_conductor: str, total_seats: int = 1) -> int:
             "origin": "Centro",
             "destination": "UTB",
             "total_seats": total_seats,
-            "departure_time": "7:00 AM",
+            "departure_time": _FUTURE_TIME,
+            "departure_date": str(colombia_today()),
         },
     )
     assert resp.status_code == 201
@@ -259,6 +265,40 @@ def test_tras_retirar_se_puede_volver_a_solicitar():
             headers={"Authorization": f"Bearer {passenger_token}"},
         )
         assert otra.status_code == 201
+    finally:
+        _limpiar(passenger_id, driver_id)
+
+
+def test_solicitud_pendiente_vencida_al_leer_y_no_se_puede_aceptar():
+    driver_id, driver_token = _crear_conductor("3120000030")
+    passenger_id, passenger_token = _crear_pasajero("3120000031")
+
+    try:
+        trip_id = _viaje(driver_token, total_seats=2)
+        created = client.post(
+            f"/requests/trips/{trip_id}",
+            headers={"Authorization": f"Bearer {passenger_token}"},
+        )
+        assert created.status_code == 201
+        request_id = created.json()["id"]
+
+        with SessionLocal() as db:
+            trip = db.get(Trip, trip_id)
+            trip.departure_at = colombia_now() - timedelta(minutes=1)
+            db.commit()
+
+        own = client.get(
+            "/requests/me", headers={"Authorization": f"Bearer {passenger_token}"}
+        )
+        assert own.status_code == 200
+        assert own.json()[0]["status"] == "expired"
+
+        accepted = client.patch(
+            f"/requests/{request_id}/accept",
+            headers={"Authorization": f"Bearer {driver_token}"},
+        )
+        assert accepted.status_code == 409
+        assert accepted.json()["detail"] == "request_expired"
     finally:
         _limpiar(passenger_id, driver_id)
 

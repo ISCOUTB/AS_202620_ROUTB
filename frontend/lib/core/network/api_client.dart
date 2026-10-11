@@ -85,6 +85,22 @@ class ApiClient {
     );
   }
 
+  /// PUT con cuerpo JSON opcional.
+  Future<Object?> put(
+    String path, {
+    Object? body,
+    bool authenticated = true,
+  }) {
+    return _send(
+      () async => _client.put(
+        _uri(path),
+        headers: await _headers(authenticated),
+        body: body == null ? null : jsonEncode(body),
+      ),
+    );
+  }
+
+
   Future<Map<String, String>> _headers(bool authenticated) async {
     final headers = <String, String>{'Content-Type': 'application/json'};
     if (authenticated) {

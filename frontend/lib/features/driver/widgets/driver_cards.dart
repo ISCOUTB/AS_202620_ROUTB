@@ -93,6 +93,13 @@ class RequestTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: RoutbText.copy(12, color: palette.muted),
                 ),
+                for (final stop in request.stops)
+                  Text(
+                    '${stop.addressText} · ${stop.seats} ${stop.seats == 1 ? 'persona' : 'personas'}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: RoutbText.copy(12, color: palette.ink),
+                  ),
               ],
             ),
           ),

@@ -3,6 +3,27 @@ import '../../../core/models/trip.dart';
 import '../../../core/models/trip_request.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../core/widgets/address_search_field.dart';
+
+class RequestStopInput {
+  const RequestStopInput({
+    required this.seats,
+    required this.placeType,
+    required this.location,
+  });
+
+  final int seats;
+  final String placeType;
+  final SelectedLocation location;
+
+  Map<String, Object?> toJson() => <String, Object?>{
+        'seats': seats,
+        'place_type': placeType,
+        'lat': location.lat,
+        'lng': location.lng,
+        'address_text': location.addressText,
+      };
+}
 
 /// Acceso a los viajes, sin importar quién los pide.
 ///
@@ -52,6 +73,8 @@ class TripRepository {
     required DateTime departureDate,
     required String meetingPoint,
     required int seats,
+    String? direction,
+    SelectedLocation? driverPoint,
   }) async {
     final response = await _api.post(
       '/trips/',
@@ -62,6 +85,18 @@ class TripRepository {
         'departure_date': _dateParameter(departureDate),
         'meeting_point': meetingPoint,
         'total_seats': seats.clamp(1, 4),
+        ...?direction == null
+            ? null
+            : <String, Object?>{'direction': direction},
+        ...?driverPoint == null
+            ? null
+            : <String, Object?>{
+                'driver_point': <String, Object?>{
+                  'lat': driverPoint.lat,
+                  'lng': driverPoint.lng,
+                  'address_text': driverPoint.addressText,
+                },
+              },
       },
     );
     return Trip.fromJson(_asMap(response));
@@ -80,10 +115,20 @@ class TripRepository {
   }
 
   /// `POST /requests/trips/{id}`
-  Future<TripRequest> requestSeat(int tripId, {int seatCount = 1}) async {
+  Future<TripRequest> requestSeat(
+    int tripId, {
+    int seatCount = 1,
+    DateTime? requestedAt,
+    List<RequestStopInput> stops = const <RequestStopInput>[],
+  }) async {
     final response = await _api.post(
       '/requests/trips/$tripId',
-      body: <String, Object?>{'seat_count': seatCount},
+      body: <String, Object?>{
+        'seat_count': seatCount,
+        if (requestedAt != null) 'requested_at': requestedAt.toIso8601String(),
+        if (stops.isNotEmpty)
+          'stops': stops.map((stop) => stop.toJson()).toList(),
+      },
     );
     return TripRequest.fromJson(_asMap(response));
   }

@@ -1,8 +1,8 @@
-from datetime import date, datetime
-from zoneinfo import ZoneInfo
+from datetime import date
 
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.timezone import colombia_today
 from app.modules.trips.infrastructure.models import Trip
 
 
@@ -16,7 +16,7 @@ def get_active_trips(
     destination: str | None = None,
     departure_date: date | None = None,
 ) -> list[Trip]:
-    selected_date = departure_date or datetime.now(ZoneInfo("America/Bogota")).date()
+    selected_date = departure_date or colombia_today()
     query = (
         db.query(Trip)
         .options(joinedload(Trip.driver))

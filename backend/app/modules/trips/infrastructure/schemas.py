@@ -1,11 +1,21 @@
 from datetime import date, datetime
-from zoneinfo import ZoneInfo
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.core.timezone import colombia_today
+
 
 def _colombia_today() -> date:
-    return datetime.now(ZoneInfo("America/Bogota")).date()
+    return colombia_today()
+
+
+class DriverPoint(BaseModel):
+    """Punto de partida o llegada del conductor (dirección exacta)."""
+
+    lat: float = Field(..., ge=-90, le=90)
+    lng: float = Field(..., ge=-180, le=180)
+    address_text: str = Field(..., min_length=1, max_length=300)
 
 
 class TripCreate(BaseModel):
@@ -15,6 +25,15 @@ class TripCreate(BaseModel):
     departure_time: str | None = Field(default="7:00 AM")
     departure_date: date = Field(default_factory=_colombia_today)
     meeting_point: str = Field(default="Por coordinar", min_length=3, max_length=140)
+    # Campos opcionales de la Fase 1
+    direction: Literal["to_campus", "from_campus"] | None = Field(
+        default=None,
+        description="'to_campus' | 'from_campus'. Nulo en viajes legados.",
+    )
+    driver_point: DriverPoint | None = Field(
+        default=None,
+        description="Coordenada exacta del punto de partida o llegada del conductor.",
+    )
 
     @field_validator("meeting_point")
     @classmethod
@@ -48,6 +67,7 @@ class TripResponse(BaseModel):
     departure_date: date = Field(default_factory=_colombia_today)
     meeting_point: str = "Por coordinar"
     status: str = "active"
+    direction: str | None = None
     driver_id: int | None = None
     driver_name: str | None = None
     my_request_status: str | None = None

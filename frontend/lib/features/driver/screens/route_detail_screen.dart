@@ -311,6 +311,16 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                                               color: palette.muted,
                                             ),
                                           ),
+                                        for (final stop in request.stops)
+                                          Text(
+                                            '${stop.stopSequence == null ? '' : '${stop.stopSequence}. '}${stop.addressText} · ${stop.seats} ${stop.seats == 1 ? 'persona' : 'personas'}',
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: RoutbText.copy(
+                                              12,
+                                              color: palette.muted,
+                                            ),
+                                          ),
                                       ],
                                     ),
                                   ),
