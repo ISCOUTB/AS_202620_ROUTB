@@ -30,9 +30,8 @@ def _check_location_consent(current_user: UserIdentity) -> None:
 def _validate_point_in_bbox(lat: float, lng: float) -> None:
     """Valida que un punto caiga dentro del BBOX configurado."""
     try:
-        parts = [float(x) for x in settings.GEOCODE_BBOX.split(",")]
-        lon_min, lat_min, lon_max, lat_max = parts
-    except (ValueError, AttributeError):
+        lon_min, lat_min, lon_max, lat_max = settings.parse_geocode_bbox(settings.GEOCODE_BBOX)
+    except (TypeError, ValueError):
         return
     if not (lon_min <= lng <= lon_max and lat_min <= lat <= lat_max):
         raise HTTPException(

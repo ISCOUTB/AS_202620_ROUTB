@@ -226,16 +226,25 @@ void main() {
       );
       await _settle(tester);
 
-      expect(
-        find.text(
-          'Todavía no hay ningún viaje publicado. Vuelve en un '
-          'ratito o crea el tuyo como conductor.',
-        ),
-        findsOneWidget,
-      );
+      // La tarjeta va arriba y se ve sin desplazar; el estado vacío queda
+      // bajo el pliegue en un móvil corto y hay que bajar a verlo.
       expect(find.byType(MyTripCard), findsOneWidget);
       expect(find.text('Cupo confirmado'), findsOneWidget);
       expect(find.textContaining('Getsemaní → UTB'), findsWidgets);
+
+      await tester.drag(
+        find.byType(CustomScrollView),
+        const Offset(0, -500),
+      );
+      await _settle(tester);
+
+      // La lista de viajes está vacía, así que aparece el estado vacío con la
+      // fecha seleccionada (hoy). El texto exacto depende del DateLabel, pero
+      // siempre empieza con 'No hay viajes para'.
+      expect(
+        find.textContaining('No hay viajes para'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('la tarjeta desaparece cuando la solicitud ya no está viva', (
@@ -330,9 +339,14 @@ void main() {
         await _settle(tester);
 
         expect(find.text('Getsemaní → UTB'), findsOneWidget, reason: '$size');
+        expect(find.text('Cupo confirmado'), findsOneWidget, reason: '$size');
+
+        // En un móvil corto la tarjeta del conductor queda bajo el pliegue.
+        await tester.drag(find.byType(ListView), const Offset(0, -300));
+        await _settle(tester);
+
         expect(find.text('Luis Chofer'), findsOneWidget, reason: '$size');
         expect(find.text('3015550002'), findsOneWidget, reason: '$size');
-        expect(find.text('Cupo confirmado'), findsOneWidget, reason: '$size');
 
         // El botón está al final de una lista larga: hay que bajarlo.
         await _scrollToEnd(tester);

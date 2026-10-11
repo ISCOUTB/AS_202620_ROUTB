@@ -1,8 +1,8 @@
 """Envío de notificaciones push via Firebase Cloud Messaging (FCM).
 
-Si FCM no está configurado (FCM_PROJECT_ID vacío) el servicio opera en modo
-silencioso: registra un aviso y retorna sin error, para que los tests y el
-entorno de desarrollo funcionen sin credenciales reales.
+Si FCM no está configurado (FCM_PROJECT_ID vacío) o la librería no está
+instalada, el servicio opera en modo silencioso y retorna sin error, para que
+la app siga funcionando en desarrollo y tests sin credenciales reales.
 """
 
 import base64
@@ -11,10 +11,24 @@ import logging
 
 logger = logging.getLogger("routb.notifications")
 
+try:  # pragma: no cover - depende del entorno de ejecución
+    import firebase_admin
+except ImportError:  # pragma: no cover
+    firebase_admin = None
+
+try:  # pragma: no cover
+    from firebase_admin.messaging import UnregisteredError as FirebaseUnregisteredError
+except Exception:  # pragma: no cover
+    class FirebaseUnregisteredError(Exception):
+        """Fallback local para entornos sin Firebase Admin SDK instalado."""
+
 
 def _get_app():
     """Inicializa la app de Firebase de forma lazy y la reutiliza."""
-    import firebase_admin
+    if firebase_admin is None:
+        logger.info("FCM no disponible: firebase_admin no está instalado.")
+        return None
+
     from firebase_admin import credentials
 
     from app.core.config import settings
@@ -23,9 +37,10 @@ def _get_app():
         return None
 
     app_name = "routb"
-    existing = [a for a in firebase_admin._apps if a == app_name]  # type: ignore[attr-defined]
-    if existing:
+    try:
         return firebase_admin.get_app(app_name)
+    except ValueError:
+        pass
 
     try:
         sa_json = base64.b64decode(settings.FCM_SERVICE_ACCOUNT_B64).decode()
@@ -75,12 +90,10 @@ def send_push(
     batch_response = messaging.send_each(messages, app=app)
     success_count = batch_response.success_count
     if db is not None:
-        from firebase_admin.messaging import UnregisteredError
-
         from app.modules.notifications.application.manage_device_token import delete_token
 
         for token, response in zip(tokens, batch_response.responses):
-            if not response.success and isinstance(response.exception, UnregisteredError):
+            if not response.success and isinstance(response.exception, FirebaseUnregisteredError):
                 try:
                     delete_token(db, device_token=token, user_id=None)
                 except Exception:

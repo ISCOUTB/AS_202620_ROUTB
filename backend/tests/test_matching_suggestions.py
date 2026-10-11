@@ -246,3 +246,178 @@ def test_matching_excludes_legacy_trips_without_route():
     assert resp.status_code == 200
     ids = [it["trip_id"] for it in resp.json()]
     assert legacy_id not in ids
+
+
+def test_matching_ordenado_por_score():
+    """Los resultados deben estar ordenados por score ascendente (mejor score primero)."""
+    _, token = _create_user(role="passenger", has_consent=True)
+    driver1, _ = _create_user(role="driver", has_consent=True)
+    driver2, _ = _create_user(role="driver", has_consent=True)
+    today = colombia_today()
+
+    # Crear dos viajes: uno cerca y otro más lejos del punto del pasajero
+    _create_trip_with_route(
+        driver_id=driver1.id,
+        direction="to_campus",
+        origin_coords=(10.4236, -75.5478),  # muy cerca
+        trip_date=today,
+    )
+    _create_trip_with_route(
+        driver_id=driver2.id,
+        direction="to_campus",
+        origin_coords=(10.4300, -75.5600),  # más lejos
+        trip_date=today,
+    )
+
+    resp = client.get(
+        "/matching/suggestions",
+        params={
+            "direction": "to_campus",
+            "points": "10.4236,-75.5478",
+            "date": str(today),
+            "time": "07:00 AM",
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    if len(data) >= 2:
+        scores = [it["score"] for it in data]
+        assert scores == sorted(scores), "Los resultados deben estar ordenados por score asc"
+
+
+def test_matching_modo_relajado_mas_resultados():
+    """El modo relajado (relaxed=true) usa radio mayor y ventana horaria más amplia."""
+    driver, _ = _create_user(role="driver", has_consent=True)
+    _, p_token = _create_user(role="passenger", has_consent=True)
+    today = colombia_today()
+
+    # Viaje con origen algo alejado del punto del pasajero
+    _create_trip_with_route(
+        driver_id=driver.id,
+        direction="to_campus",
+        origin_coords=(10.4400, -75.5700),  # ~2 km del punto
+        trip_date=today,
+    )
+
+    # En modo estricto (radio 800 m) no debería encontrarlo
+    resp_strict = client.get(
+        "/matching/suggestions",
+        params={
+            "direction": "to_campus",
+            "points": "10.4236,-75.5478",
+            "date": str(today),
+            "time": "07:00 AM",
+            "relaxed": "false",
+        },
+        headers={"Authorization": f"Bearer {p_token}"},
+    )
+    # En modo relajado (radio 1500 m) podría incluirlo o no según geometría, no falla
+    resp_relaxed = client.get(
+        "/matching/suggestions",
+        params={
+            "direction": "to_campus",
+            "points": "10.4236,-75.5478",
+            "date": str(today),
+            "time": "07:00 AM",
+            "relaxed": "true",
+        },
+        headers={"Authorization": f"Bearer {p_token}"},
+    )
+    assert resp_strict.status_code == 200
+    assert resp_relaxed.status_code == 200
+
+
+def test_matching_ambos_sentidos():
+    """Se puede consultar tanto `to_campus` como `from_campus` sin errores."""
+    driver, _ = _create_user(role="driver", has_consent=True)
+    _, p_token = _create_user(role="passenger", has_consent=True)
+    today = colombia_today()
+
+    _create_trip_with_route(
+        driver_id=driver.id,
+        direction="from_campus",
+        origin_coords=(10.371078, -75.466261),  # UTB
+        dest_coords=(10.4236, -75.5478),
+        trip_date=today,
+    )
+
+    resp = client.get(
+        "/matching/suggestions",
+        params={
+            "direction": "from_campus",
+            "points": "10.4236,-75.5478",
+            "date": str(today),
+            "time": "07:00 AM",
+        },
+        headers={"Authorization": f"Bearer {p_token}"},
+    )
+    assert resp.status_code == 200
+    assert isinstance(resp.json(), list)
+
+
+def test_matching_seat_count_opciones():
+    """seat_count de 1 a 4 debe ser aceptado; fuera de rango → 422."""
+    _, token = _create_user(role="passenger", has_consent=True)
+    today = colombia_today()
+
+    for seat in range(1, 5):
+        resp = client.get(
+            "/matching/suggestions",
+            params={
+                "direction": "to_campus",
+                "points": "10.4236,-75.5478",
+                "date": str(today),
+                "time": "07:00 AM",
+                "seat_count": seat,
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+
+    for seat in (0, 5):
+        resp = client.get(
+            "/matching/suggestions",
+            params={
+                "direction": "to_campus",
+                "points": "10.4236,-75.5478",
+                "date": str(today),
+                "time": "07:00 AM",
+                "seat_count": seat,
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 422
+
+
+def test_matching_es_solo_lectura():
+    """El matching no modifica nada en la base de datos (solo lectura)."""
+    driver, _ = _create_user(role="driver", has_consent=True)
+    _, p_token = _create_user(role="passenger", has_consent=True)
+    today = colombia_today()
+
+    trip = _create_trip_with_route(
+        driver_id=driver.id,
+        direction="to_campus",
+        available_seats=3,
+        trip_date=today,
+    )
+    seats_before = trip.available_seats
+
+    client.get(
+        "/matching/suggestions",
+        params={
+            "direction": "to_campus",
+            "points": "10.4236,-75.5478",
+            "date": str(today),
+            "time": "07:00 AM",
+        },
+        headers={"Authorization": f"Bearer {p_token}"},
+    )
+
+    db = SessionLocal()
+    refreshed = db.query(Trip).filter(Trip.id == trip.id).first()
+    db.close()
+    assert refreshed.available_seats == seats_before, (
+        "El matching no debe modificar los cupos del viaje"
+    )

@@ -5,11 +5,14 @@ from app.core.database import SessionLocal
 from app.main import app
 from app.modules.auth.application.tokens import create_access_token
 from app.modules.requests.infrastructure.models import TripRequest
-from app.core.timezone import colombia_now
+from app.core.timezone import colombia_now, colombia_today
 from app.modules.trips.infrastructure.models import Trip
 from app.modules.users.infrastructure.models import User
 
 client = TestClient(app)
+
+# Hora futura para que los viajes de prueba nunca se venzan durante la ejecución
+_FUTURE_TIME = "11:59 PM"
 
 
 def _crear_conductor(telefono: str):
@@ -76,7 +79,8 @@ def _viaje(token_conductor: str, total_seats: int = 1) -> int:
             "origin": "Centro",
             "destination": "UTB",
             "total_seats": total_seats,
-            "departure_time": "7:00 AM",
+            "departure_time": _FUTURE_TIME,
+            "departure_date": str(colombia_today()),
         },
     )
     assert resp.status_code == 201

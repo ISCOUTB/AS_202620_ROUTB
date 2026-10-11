@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 from unittest.mock import patch
 
 from app.core.database import SessionLocal
+from app.core.timezone import colombia_today
 from app.main import app
 from app.modules.auth.application.tokens import create_access_token
 from app.modules.users.infrastructure.models import User
@@ -56,7 +57,7 @@ def test_flujo_completo_viajes_y_solicitudes():
         driver_token = create_access_token(driver.id, driver.role)
         passenger_token = create_access_token(passenger.id, passenger.role)
 
-    # 2. Conductor crea un viaje
+    # 2. Conductor crea un viaje (hora futura: evita expiración durante la suite)
     create_resp = client.post(
         "/trips/",
         headers={"Authorization": f"Bearer {driver_token}"},
@@ -64,7 +65,8 @@ def test_flujo_completo_viajes_y_solicitudes():
             "origin": "Centro",
             "destination": "UTB",
             "total_seats": 3,
-            "departure_time": "7:00 AM",
+            "departure_time": "11:59 PM",
+            "departure_date": str(colombia_today()),
         },
     )
     assert create_resp.status_code == 201

@@ -1,9 +1,12 @@
 import os
+import re
 from pathlib import Path
 from dotenv import load_dotenv
 
 ENV_PATH = Path(__file__).resolve().parents[2] / ".env"
 load_dotenv(dotenv_path=ENV_PATH)
+
+DEFAULT_GEOCODE_BBOX = (-75.6, 10.35, -75.45, 10.5)
 
 
 class Settings:
@@ -18,6 +21,18 @@ class Settings:
     UTB_CAMPUS_LAT: float = float(os.getenv("UTB_CAMPUS_LAT", "10.371078").strip())
     UTB_CAMPUS_LNG: float = float(os.getenv("UTB_CAMPUS_LNG", "-75.466261").strip())
     GEOCODE_BBOX: str = os.getenv("GEOCODE_BBOX", "-75.6,10.35,-75.45,10.5")
+
+    @staticmethod
+    def parse_geocode_bbox(raw_bbox: str | None) -> tuple[float, float, float, float]:
+        """Acepta ambos formatos: '-75.6,10.35,-75.45,10.5' y '[-75.6,10.35,-75.45,10.5]'."""
+        value = (raw_bbox or "").strip()
+        if value.startswith("[") and value.endswith("]"):
+            value = value[1:-1].strip()
+        numbers = [float(n) for n in re.findall(r"-?\d+(?:\.\d+)?", value)]
+        if len(numbers) != 4:
+            return DEFAULT_GEOCODE_BBOX
+        lon_min, lat_min, lon_max, lat_max = numbers
+        return (lon_min, lat_min, lon_max, lat_max)
 
     # Geocodificación (Fase 1)
     PHOTON_BASE_URL: str = os.getenv("PHOTON_BASE_URL", "https://photon.komoot.io")
