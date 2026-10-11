@@ -118,6 +118,18 @@ Justificación: Las herramientas fueron utilizadas con propósitos diferentes. C
 - **Justificación:** El alcance y las reglas de negocio fueron definidos por el equipo. Las recomendaciones de implementación se contrastan con el código, la propiedad de datos y los resultados reales de pruebas; la IA no toma decisiones de aceptación ni de disponibilidad en producción.
 - **Fecha:** 2026-10-02
 
+### Semana 10
+
+- **Actividad realizada:** Estabilización de la verificación de la porción de solicitudes con paradas, vencimiento y push: corrección de pruebas de asignación para enviar paradas válidas, aislamiento temporal en pruebas de viajes, validación de BBOX con formato dual, restauración de la tarjeta de viaje activo en el buscador del pasajero, corrección de desborde en la navegación inferior y actualización de expectativas desfasadas en pruebas Flutter.
+- **Herramienta utilizada:** OpenCode (Muse Spark).
+- **Contexto proporcionado:** Suite backend con 16 fallos (422 por paradas faltantes, 409 por vencimiento dependiente de la hora, tablas ausentes por corridas concurrentes contra la misma base de pruebas) y suite Flutter con 6 fallos (regresión de tarjeta, desborde horizontal, contenido bajo el pliegue y etiqueta desactualizada); arquitectura existente y plan de corrección de la Fase 2.
+- **Respuesta que se obtuvo:** Propuestas de corrección mínima por fallo con causa identificada antes de cambiar código; restauración de comportamiento previo documentado en el historial en vez de rediseños.
+- **Qué se aceptó:** Enviar paradas en pruebas de asignación, hora futura en pruebas de viajes, parser de BBOX compartido, tarjeta de viaje activo antes del encabezado con estado vacío desplazable, etiqueta «Solicitar cupos» y desplazamientos en pruebas de pantalla corta.
+- **Qué se corrigió:** La primera hipótesis sobre tablas ausentes apuntaba al código; la evidencia de corridas aisladas mostró contaminación entre sesiones concurrentes, por lo que la corrección fue el procedimiento (una sola suite a la vez), no el código.
+- **Qué se rechazó:** Reformatear todo el repositorio con el SDK nuevo (se conservaron solo diffs mínimos en archivos tocados), regenerar `docs/openapi.json` sin cambios de contrato y declarar la Fase 2 como completada sin la prueba en dispositivo real.
+- **Justificación:** Cada cambio se verificó ejecutando la prueba afectada; la suite completa backend (79 passed) se corrió secuencial y la suite Flutter (100 passed) con análisis limpio. La IA propuso y el equipo dispuso tras evidencia de ejecución.
+- **Fecha:** 2026-10-11
+
 ## Observaciones
 
 La Inteligencia Artificial se utiliza como una herramienta de apoyo durante el desarrollo y la documentación del proyecto. Las respuestas generadas no se incorporan automáticamente: son revisadas, contrastadas con el contexto y los requisitos del proyecto y, cuando corresponde, modificadas o rechazadas por el equipo.
