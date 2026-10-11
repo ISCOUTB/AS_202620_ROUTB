@@ -14,6 +14,7 @@ Este documento registra el uso de herramientas de Inteligencia Artificial durant
 | Gemini | Apoyo en la estructuración, redacción y estandarización de la documentación técnica del proyecto. |
 | Antigravity | Apoyo en la codificación del frontend, contenerización del backend con Docker, arquitectura de despliegue en la nube, observabilidad y documentación técnica. |
 | Codex (OpenAI) | Apoyo en la implementación de funcionalidades específicas del backend, incluyendo la gestión de solicitudes grupales de cupos y la actualización del contrato de la API. |
+| OpenCode | Apoyo en la creación y mantenimiento de código fuente, incluyendo la implementación de funcionalidades y la resolución de problemas técnicos. |
 
 
 ## Registro
@@ -120,14 +121,14 @@ Justificación: Las herramientas fueron utilizadas con propósitos diferentes. C
 
 ### Semana 10
 
-- **Actividad realizada:** Estabilización de la verificación de la porción de solicitudes con paradas, vencimiento y push: corrección de pruebas de asignación para enviar paradas válidas, aislamiento temporal en pruebas de viajes, validación de BBOX con formato dual, restauración de la tarjeta de viaje activo en el buscador del pasajero, corrección de desborde en la navegación inferior y actualización de expectativas desfasadas en pruebas Flutter.
+- **Actividad realizada:** Respuesta documental y técnica a la rúbrica del segundo corte, que pedía escenario operativo caracterizado, decisión implementada, operación con observabilidad, trazabilidad arquitectónica y sustentación. Ante la ausencia de escenario asignado, el equipo declaró el suyo propio (concurrencia sin sobreventa como protagonista y p95 de `GET /trips/` como secundario) con hipótesis, montaje, variables y umbrales por escrito; se aportó la medición final comparable contra la línea base, se completó la trazabilidad (fila 7 de aspectos, arc42 09 con ADR 0012/0013, contrato 0.6.0 verificado), se dejó el CI con el job Sonar reservado, se barrió el repositorio de secretos y se verificó la versión publicada en Render; además se dejaron en verde las suites que respaldan la decisión. También se realizó la fundación de datos (PostGIS con la migración 006, CI y base de pruebas con Alembic, ADR 0009), la geocodificación con caché, el cálculo de rutas y el consentimiento de ubicación con su purga (ADR 0010 y 0011), y las sugerencias de matching con las solicitudes con paradas y las notificaciones push (ADR 0012 y 0013).
 - **Herramienta utilizada:** OpenCode (Muse Spark).
-- **Contexto proporcionado:** Suite backend con 16 fallos (422 por paradas faltantes, 409 por vencimiento dependiente de la hora, tablas ausentes por corridas concurrentes contra la misma base de pruebas) y suite Flutter con 6 fallos (regresión de tarjeta, desborde horizontal, contenido bajo el pliegue y etiqueta desactualizada); arquitectura existente y plan de corrección de la Fase 2.
-- **Respuesta que se obtuvo:** Propuestas de corrección mínima por fallo con causa identificada antes de cambiar código; restauración de comportamiento previo documentado en el historial en vez de rediseños.
-- **Qué se aceptó:** Enviar paradas en pruebas de asignación, hora futura en pruebas de viajes, parser de BBOX compartido, tarjeta de viaje activo antes del encabezado con estado vacío desplazable, etiqueta «Solicitar cupos» y desplazamientos en pruebas de pantalla corta.
-- **Qué se corrigió:** La primera hipótesis sobre tablas ausentes apuntaba al código; la evidencia de corridas aisladas mostró contaminación entre sesiones concurrentes, por lo que la corrección fue el procedimiento (una sola suite a la vez), no el código.
-- **Qué se rechazó:** Reformatear todo el repositorio con el SDK nuevo (se conservaron solo diffs mínimos en archivos tocados), regenerar `docs/openapi.json` sin cambios de contrato y declarar la Fase 2 como completada sin la prueba en dispositivo real.
-- **Justificación:** Cada cambio se verificó ejecutando la prueba afectada; la suite completa backend (79 passed) se corrió secuencial y la suite Flutter (100 passed) con análisis limpio. La IA propuso y el equipo dispuso tras evidencia de ejecución.
+- **Contexto proporcionado:** Matriz S10 con 10 rubros no verificados y rúbrica de cinco criterios (caracterización, decisión, operación, trazabilidad, sustentación); `SEMANA9.md` como plantilla; suites en rojo al inicio (16 backend, 6 Flutter); despliegue publicado desactualizado frente al contrato del repo.
+- **Respuesta que se obtuvo:** Estructura de evidencia espejada de S9 para cada criterio de la rúbrica, escenario propio medible con sus umbrales, y correcciones mínimas de código con causa identificada antes de cambiar nada.
+- **Qué se aceptó:** El escenario de concurrencia con sus umbrales (cero sobreventas; p95 < 3,99 s), la medición local final (p95 1,1860 s), la evidencia `SEMANA10.md` con pendientes declarados, y las correcciones de pruebas y pantallas verificadas por ejecución.
+- **Qué se corrigió:** La primera hipótesis sobre tablas ausentes apuntaba al código y la evidencia mostró contaminación entre sesiones concurrentes; el despliegue publica 0.4.0 frente al contrato 0.6.0, lo que se declaró como pendiente vía merge a `master` en vez de presentarlo como alineado.
+- **Qué se rechazó:** Presentar la reserva grupal o el rendimiento como respuesta al reto sin declararlos escenario propio; reformatear todo el repositorio con el SDK nuevo; regenerar el contrato sin cambios; y declarar cumplida la rúbrica sin redespliegue, sin Sonar corriendo ni prueba en dispositivo real.
+- **Justificación:** Cada criterio de la rúbrica quedó con su evidencia ejecutada y sus pendientes nombrados. La IA propuso y el equipo dispuso tras evidencia de ejecución.
 - **Fecha:** 2026-10-11
 
 ## Observaciones
