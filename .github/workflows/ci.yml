@@ -27,6 +27,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
 
       - name: Set up Python environment
         uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
@@ -50,13 +52,19 @@ jobs:
       - name: Ejecutar pruebas unitarias y de contrato OpenAPI
         working-directory: backend
         run: |
-          pytest -v
+          pytest -v -s
         env:
           DATABASE_URL_TEST: postgresql://routb:routb_test@localhost:5432/routb_test
           TESTING: "1"
           JWT_SECRET_KEY: ci-test-secret-key
           JWT_ALGORITHM: HS256
           JWT_EXPIRE_MINUTES: "60"
+
+      - name: Analizar con SonarCloud
+        if: ${{ env.SONAR_TOKEN != '' }}
+        uses: SonarSource/sonarqube-scan-action@d209202bc7d53ff1cc128f7f907dac145c9d6ae9 # v8.3.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   build:
     name: Build & Verify Docker Image

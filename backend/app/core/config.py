@@ -26,6 +26,7 @@ class Settings:
 
     # Routing (Fase 1)
     ROUTING_BASE_URL: str = os.getenv("ROUTING_BASE_URL", "https://router.project-osrm.org")
+    ROUTING_TIMEOUT_SECONDS: float = float(os.getenv("ROUTING_TIMEOUT_SECONDS", "3.0"))
 
     # Retención de privacidad (días)
     RETENTION_TRIP_DAYS: int = int(os.getenv("RETENTION_TRIP_DAYS", "30"))

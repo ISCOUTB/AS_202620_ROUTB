@@ -90,7 +90,10 @@ El recorrido de validación del flujo de autenticación se encuentra implementad
 
 ### Análisis de SonarCloud
 
-El análisis de calidad de código se realiza automáticamente con SonarCloud.
+El análisis de calidad se ejecuta desde GitHub Actions con el scanner oficial
+de SonarCloud cuando el secreto `SONAR_TOKEN` está configurado en el repositorio
+(Settings → Secrets and variables → Actions). En pull requests sin acceso a
+secretos, el paso se omite.
 
 - **Enlace:** [ROUTB en SonarCloud](https://sonarcloud.io/dashboard?id=ISCOUTB_AS_202620_ROUTB)
 
@@ -122,6 +125,7 @@ Ambas plataformas que prestan servicio se usan en su plan gratuito.
 |---|---|---|---|
 | `DATABASE_URL` | Cadena de conexión con la que la API accede a la base de datos (SSL requerido) | Datos de conexión del proyecto, en el panel de Supabase | Panel de Render (Environment) |
 | `JWT_SECRET_KEY` | Clave secreta con la que la API firma los tokens de autenticación | Se genera una cadena aleatoria (ver paso 4) | Panel de Render (Environment) |
+| `ROUTING_TIMEOUT_SECONDS` | Tiempo máximo de espera por petición a OSRM (segundos) | `3.0` por defecto; ajustable según latencia y disponibilidad del proveedor | `render.yaml` o Panel de Render (Environment) |
 
 ### Pasos para recrear el entorno desde cero
 
@@ -130,7 +134,7 @@ Ambas plataformas que prestan servicio se usan en su plan gratuito.
 1. **Base de datos (Supabase):** crea un proyecto (plan Free) y copia la cadena de conexión del panel; la usarás como `DATABASE_URL`.
 2. **Migraciones:** en `backend`, con las dependencias instaladas y `DATABASE_URL` exportada, ejecuta `alembic upgrade head`.
 3. **Servicio (Render):** *New → Web Service* → selecciona el repo → entorno **Docker** (`backend/Dockerfile`), instancia **Free**, **Health Check Path** = `/health`.
-4. **Variables de entorno** en Render → *Environment*: `DATABASE_URL` (paso 1) y `JWT_SECRET_KEY` (genera una con `python -c "import secrets; print(secrets.token_urlsafe(32))"`).
+4. **Variables de entorno** en Render → *Environment*: `DATABASE_URL` (paso 1), `JWT_SECRET_KEY` (genera una con `python -c "import secrets; print(secrets.token_urlsafe(32))"`) y `ROUTING_TIMEOUT_SECONDS` (por defecto `3.0`, declarada en `render.yaml`).
 5. **Verificar:** espera a que el servicio quede **Live** y prueba:
    ```bash
    curl https://as-202620-routb.onrender.com/health

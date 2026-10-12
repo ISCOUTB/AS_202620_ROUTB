@@ -15,5 +15,6 @@ Las decisiones arquitectónicas que impactan significativamente la estructura, l
 | [ADR 0009](../adr/0009-postgis-datos-geoespaciales.md) | Aceptado | Habilitar PostGIS para almacenar, indexar y consultar coordenadas, rutas y demás datos geoespaciales de ROUTB. |
 | [ADR 0010](../adr/0010-geocodificacion-y-cache.md) | Aceptado | Usar Photon como proveedor principal de geocodificación, Nominatim como respaldo y PostgreSQL como caché de consultas. |
 | [ADR 0011](../adr/0011-consentimiento-y-privacidad-de-ubicacion.md) | Aceptado | Pedir consentimiento para usar ubicaciones exactas y aplicar retención, revocación y purga de los datos geoespaciales. |
+| [ADR 0014](../adr/0014-fallback-geocode-cache.md) | Aceptado | Configurar el timeout de OSRM y evitar retener en caché rutas de respaldo degradadas. |
 
 ---

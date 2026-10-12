@@ -34,6 +34,13 @@ introdujo o modificó.
 - Si Photon y Nominatim están indisponibles responde `503 geocode_unavailable`; una búsqueda válida sin coincidencias conserva `200 []`.
 - `DELETE /users/me/location-consent` cancela solicitudes pendientes y elimina sus paradas geográficas.
 
+## Resiliencia de routing (Semana 10)
+
+- Se parametriza el timeout de OSRM con `ROUTING_TIMEOUT_SECONDS` (valor por
+  defecto `3.0` s), se corrige la expresión PostgreSQL del TTL de `route_cache`
+  y se evita guardar rutas `degraded`. No cambia el contrato HTTP/OpenAPI;
+  decisión en [ADR 0014](../adr/0014-fallback-geocode-cache.md).
+
 ## Salida de `git log`
 
 La siguiente salida se obtuvo con:
