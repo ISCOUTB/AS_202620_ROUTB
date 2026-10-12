@@ -162,6 +162,13 @@ class _PassengerScreenState extends State<PassengerScreen> {
     }
   }
 
+  MyRequest? get _currentRequest {
+    for (final request in _myRequests) {
+      if (request.isActive) return request;
+    }
+    return null;
+  }
+
   Future<void> _openMyTrip(MyRequest request) async {
     await Navigator.of(context).push(
       RoutbPageRoute<void>(
@@ -365,12 +372,14 @@ class _PassengerScreenState extends State<PassengerScreen> {
                           ),
                           PassengerStatus.ready => _TripsList(
                             trips: _trips,
+                            myRequest: _currentRequest,
                             busyTripId: _busyTripId,
                             filtering: _filtering,
                             origin: _origin.text.trim(),
                             destination: _destination.text.trim(),
                             selectedDate: _selectedDate,
                             onReserve: _reserve,
+                            onOpenMyTrip: _openMyTrip,
                             onRefresh: _load,
                             onClearFilters: _clearFilters,
                           ),
@@ -525,23 +534,27 @@ class _PassengerHero extends StatelessWidget {
 class _TripsList extends StatelessWidget {
   const _TripsList({
     required this.trips,
+    required this.myRequest,
     required this.busyTripId,
     required this.filtering,
     required this.origin,
     required this.destination,
     required this.selectedDate,
     required this.onReserve,
+    required this.onOpenMyTrip,
     required this.onRefresh,
     required this.onClearFilters,
   });
 
   final List<Trip> trips;
+  final MyRequest? myRequest;
   final int? busyTripId;
   final bool filtering;
   final String origin;
   final String destination;
   final DateTime selectedDate;
   final ValueChanged<Trip> onReserve;
+  final ValueChanged<MyRequest> onOpenMyTrip;
   final Future<void> Function() onRefresh;
   final Future<void> Function() onClearFilters;
 
@@ -549,12 +562,43 @@ class _TripsList extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
     final now = DateTime.now();
+    // Con tarjeta activa el contenido supera la ventana: el estado vacío va
+    // en un sliver con caja (desplazable) en vez de rellenar el resto, que lo
+    // dejaría sin espacio y sin construir.
+    final emptyState = RoutbEmptyState(
+      icon: Icons.search_off_rounded,
+      message: origin.isEmpty && destination.isEmpty
+          ? 'No hay viajes para ${TripSchedule.dateLabel(selectedDate)}. '
+                'Prueba con otro día.'
+          : 'No hay viajes con esa búsqueda. Prueba con otro origen o '
+                'destino.',
+      action: RoutbButton(
+        label: 'Limpiar búsqueda',
+        variant: RoutbButtonVariant.secondary,
+        expand: false,
+        height: 44,
+        onPressed: onClearFilters,
+      ),
+    );
 
     return RefreshIndicator(
       onRefresh: onRefresh,
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
+          // La tarjeta va antes que el encabezado, incluso con cero
+          // resultados: el viaje confirmado desaparece del listado cuando se
+          // llena, que es justo cuando el pasajero necesita verlo.
+          if (myRequest != null)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+                child: MyTripCard(
+                  request: myRequest!,
+                  onTap: () => onOpenMyTrip(myRequest!),
+                ),
+              ),
+            ),
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
@@ -612,24 +656,13 @@ class _TripsList extends StatelessWidget {
             ),
           ),
           if (trips.isEmpty)
-            SliverFillRemaining(
-              hasScrollBody: false,
-              child: RoutbEmptyState(
-                icon: Icons.search_off_rounded,
-                message: origin.isEmpty && destination.isEmpty
-                    ? 'No hay viajes para ${TripSchedule.dateLabel(selectedDate)}. '
-                          'Prueba con otro día.'
-                    : 'No hay viajes con esa búsqueda. Prueba con otro origen o '
-                          'destino.',
-                action: RoutbButton(
-                  label: 'Limpiar búsqueda',
-                  variant: RoutbButtonVariant.secondary,
-                  expand: false,
-                  height: 44,
-                  onPressed: onClearFilters,
-                ),
-              ),
-            )
+            if (myRequest != null)
+              SliverToBoxAdapter(child: emptyState)
+            else
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: emptyState,
+              )
           else
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(14, 0, 14, 28),
@@ -912,12 +945,16 @@ class _PassengerNavItem extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(width: 7),
-                  Text(
-                    label,
-                    style: RoutbText.copy(
-                      12,
-                      color: color,
-                      weight: selected ? FontWeight.w700 : FontWeight.w500,
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: RoutbText.copy(
+                        12,
+                        color: color,
+                        weight: selected ? FontWeight.w700 : FontWeight.w500,
+                      ),
                     ),
                   ),
                 ],

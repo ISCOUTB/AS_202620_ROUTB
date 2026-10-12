@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, String, func
+from sqlalchemy import Column, DateTime, Enum, ForeignKey, Identity, Integer, String, func
 
 from app.core.database import Base
 
@@ -6,7 +6,7 @@ from app.core.database import Base
 class DeviceToken(Base):
     __tablename__ = "device_tokens"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(Integer, Identity(always=False), primary_key=True, nullable=False)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     device_token = Column(String, unique=True, nullable=False)
     platform = Column(Enum("android", "ios", name="platform_enum"), nullable=False)

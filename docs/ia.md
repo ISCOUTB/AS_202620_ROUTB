@@ -14,6 +14,7 @@ Este documento registra el uso de herramientas de Inteligencia Artificial durant
 | Gemini | Apoyo en la estructuración, redacción y estandarización de la documentación técnica del proyecto. |
 | Antigravity | Apoyo en la codificación del frontend, contenerización del backend con Docker, arquitectura de despliegue en la nube, observabilidad y documentación técnica. |
 | Codex (OpenAI) | Apoyo en la implementación de funcionalidades específicas del backend, incluyendo la gestión de solicitudes grupales de cupos y la actualización del contrato de la API. |
+| OpenCode | Apoyo en la creación y mantenimiento de código fuente, incluyendo la implementación de funcionalidades y la resolución de problemas técnicos. |
 
 
 ## Registro
@@ -117,6 +118,18 @@ Justificación: Las herramientas fueron utilizadas con propósitos diferentes. C
 - **Qué se rechazó:** Se rechazó añadir Excel/dependencias como extensión de la Porción y se descartó incorporar IA generativa dentro de ROUTB. No se crean cuentas ni se recolectan datos de acompañantes.
 - **Justificación:** El alcance y las reglas de negocio fueron definidos por el equipo. Las recomendaciones de implementación se contrastan con el código, la propiedad de datos y los resultados reales de pruebas; la IA no toma decisiones de aceptación ni de disponibilidad en producción.
 - **Fecha:** 2026-10-02
+
+### Semana 10
+
+- **Actividad realizada:** Respuesta documental y técnica a la rúbrica del segundo corte, que pedía escenario operativo caracterizado, decisión implementada, operación con observabilidad, trazabilidad arquitectónica y sustentación. Ante la ausencia de escenario asignado, el equipo declaró el suyo propio (concurrencia sin sobreventa como protagonista y p95 de `GET /trips/` como secundario) con hipótesis, montaje, variables y umbrales por escrito; se aportó la medición final comparable contra la línea base, se completó la trazabilidad (fila 7 de aspectos, arc42 09 con ADR 0012/0013, contrato 0.6.0 verificado), se dejó el CI con el job Sonar reservado, se barrió el repositorio de secretos y se verificó la versión publicada en Render; además se dejaron en verde las suites que respaldan la decisión. También se realizó la fundación de datos (PostGIS con la migración 006, CI y base de pruebas con Alembic, ADR 0009), la geocodificación con caché, el cálculo de rutas y el consentimiento de ubicación con su purga (ADR 0010 y 0011), y las sugerencias de matching con las solicitudes con paradas y las notificaciones push (ADR 0012 y 0013).
+- **Herramienta utilizada:** OpenCode (Muse Spark).
+- **Contexto proporcionado:** Matriz S10 con 10 rubros no verificados y rúbrica de cinco criterios (caracterización, decisión, operación, trazabilidad, sustentación); `SEMANA9.md` como plantilla; suites en rojo al inicio (16 backend, 6 Flutter); despliegue publicado desactualizado frente al contrato del repo.
+- **Respuesta que se obtuvo:** Estructura de evidencia espejada de S9 para cada criterio de la rúbrica, escenario propio medible con sus umbrales, y correcciones mínimas de código con causa identificada antes de cambiar nada.
+- **Qué se aceptó:** El escenario de concurrencia con sus umbrales (cero sobreventas; p95 < 3,99 s), la medición local final (p95 1,1860 s), la evidencia `SEMANA10.md` con pendientes declarados, y las correcciones de pruebas y pantallas verificadas por ejecución.
+- **Qué se corrigió:** La primera hipótesis sobre tablas ausentes apuntaba al código y la evidencia mostró contaminación entre sesiones concurrentes; el despliegue publica 0.4.0 frente al contrato 0.6.0, lo que se declaró como pendiente vía merge a `master` en vez de presentarlo como alineado.
+- **Qué se rechazó:** Presentar la reserva grupal o el rendimiento como respuesta al reto sin declararlos escenario propio; reformatear todo el repositorio con el SDK nuevo; regenerar el contrato sin cambios; y declarar cumplida la rúbrica sin redespliegue, sin Sonar corriendo ni prueba en dispositivo real.
+- **Justificación:** Cada criterio de la rúbrica quedó con su evidencia ejecutada y sus pendientes nombrados. La IA propuso y el equipo dispuso tras evidencia de ejecución.
+- **Fecha:** 2026-10-11
 
 ## Observaciones
 

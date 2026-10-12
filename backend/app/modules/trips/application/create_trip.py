@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.modules.trips.infrastructure.models import Trip
 from app.modules.trips.infrastructure.schemas import TripCreate
+from app.modules.users.application import get_user_by_id
  
 logger = logging.getLogger(__name__)
  
@@ -52,14 +53,8 @@ def _validate_consent(db: Session, driver_id: int | None) -> None:
     """Lanza PermissionError si el conductor no ha dado consentimiento."""
     if driver_id is None:
         return
-    from sqlalchemy import text
- 
-    row = db.execute(
-        text(
-            "SELECT location_consent_at FROM users WHERE id = :uid"
-        ).bindparams(uid=driver_id)
-    ).fetchone()
-    if row is None or row[0] is None:
+    user = get_user_by_id(db, driver_id)
+    if user is None or user.location_consent_at is None:
         raise PermissionError("location_consent_required")
  
  

@@ -1,7 +1,6 @@
 from datetime import datetime
 
 from geoalchemy2.elements import WKTElement
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -16,7 +15,6 @@ from app.modules.requests.domain.exceptions import (
 )
 from app.modules.requests.infrastructure.models import RequestStop, TripRequest
 from app.modules.trips.application import get_trip_request_context
-from app.modules.users.infrastructure.models import User
 
 
 def create_request(
@@ -44,11 +42,6 @@ def create_request(
 
     stop_data = stops or []
     if trip.direction in ("to_campus", "from_campus"):
-        consent = db.execute(
-            select(User.location_consent_at).where(User.id == passenger_id)
-        ).scalar_one_or_none()
-        if consent is None:
-            raise PermissionError("location_consent_required")
         if not stop_data:
             raise ValueError("Se requiere al menos una parada para este viaje")
         if sum(int(stop["seats"]) for stop in stop_data) != seat_count:
@@ -59,10 +52,10 @@ def create_request(
             raise ValueError("No puede haber más paradas que pasajeros")
 
         try:
-            lon_min, lat_min, lon_max, lat_max = map(
-                float, settings.GEOCODE_BBOX.split(",")
+            lon_min, lat_min, lon_max, lat_max = settings.parse_geocode_bbox(
+                settings.GEOCODE_BBOX
             )
-        except (ValueError, AttributeError):
+        except (TypeError, ValueError):
             lon_min, lat_min, lon_max, lat_max = -180, -90, 180, 90
         for stop in stop_data:
             lat, lng = float(stop["lat"]), float(stop["lng"])

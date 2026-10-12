@@ -5,11 +5,14 @@ from app.core.database import SessionLocal
 from app.main import app
 from app.modules.auth.application.tokens import create_access_token
 from app.modules.requests.infrastructure.models import TripRequest
-from app.core.timezone import colombia_now
+from app.core.timezone import colombia_now, colombia_today
 from app.modules.trips.infrastructure.models import Trip
 from app.modules.users.infrastructure.models import User
 
 client = TestClient(app)
+
+# Hora futura para que los viajes de prueba nunca se venzan durante la ejecución
+_FUTURE_TIME = "11:59 PM"
 
 
 def _crear_conductor(telefono: str):
@@ -76,7 +79,8 @@ def _viaje(token_conductor: str, total_seats: int = 1) -> int:
             "origin": "Centro",
             "destination": "UTB",
             "total_seats": total_seats,
-            "departure_time": "7:00 AM",
+            "departure_time": _FUTURE_TIME,
+            "departure_date": str(colombia_today()),
         },
     )
     assert resp.status_code == 201
@@ -463,3 +467,47 @@ def test_aceptaciones_grupales_concurrentes_no_sobrevenden():
         assert trip["available_seats"] == 1
     finally:
         _limpiar(group_b_id, group_a_id, driver_id)
+
+
+def test_otro_conductor_no_ve_solicitudes_ajenas_403():
+    """Solo el conductor del viaje puede listar sus solicitudes."""
+    driver_id, driver_token = _crear_conductor("3120000040")
+    otro_id, otro_token = _crear_conductor("3120000041")
+    passenger_id, passenger_token = _crear_pasajero("3120000042")
+
+    try:
+        trip_id = _viaje(driver_token, total_seats=2)
+        created = client.post(
+            f"/requests/trips/{trip_id}",
+            headers={"Authorization": f"Bearer {passenger_token}"},
+        )
+        assert created.status_code == 201
+
+        propias = client.get(
+            f"/requests/trips/{trip_id}",
+            headers={"Authorization": f"Bearer {driver_token}"},
+        )
+        assert propias.status_code == 200
+        assert len(propias.json()) == 1
+
+        ajenas = client.get(
+            f"/requests/trips/{trip_id}",
+            headers={"Authorization": f"Bearer {otro_token}"},
+        )
+        assert ajenas.status_code == 403
+    finally:
+        _limpiar(passenger_id, otro_id, driver_id)
+
+
+def test_listar_solicitudes_de_viaje_inexistente_da_403():
+    """El permiso se valida antes que la existencia: sin ser dueño, 403."""
+    driver_id, driver_token = _crear_conductor("3120000043")
+
+    try:
+        resp = client.get(
+            "/requests/trips/999999",
+            headers={"Authorization": f"Bearer {driver_token}"},
+        )
+        assert resp.status_code == 403
+    finally:
+        _limpiar(driver_id)

@@ -31,7 +31,7 @@ class TestDeviceToken:
             "/notifications/device-token",
             json={"device_token": "tok_abc", "platform": "android"},
         )
-        assert resp.status_code == 403
+        assert resp.status_code == 401
 
     def test_register_token_exitoso(self):
         token = _register_user_and_login("3099000001")
