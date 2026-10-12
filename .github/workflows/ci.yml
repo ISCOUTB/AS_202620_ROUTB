@@ -57,7 +57,7 @@ jobs:
         run: |
           set -o pipefail
           pytest -v -s 2>&1 | tee backend-test-output.log
-          grep -E '^OSRM .* N=50 p95=' backend-test-output.log >> "$GITHUB_STEP_SUMMARY"
+          grep -E 'OSRM .* N=50 p95=' backend-test-output.log >> "$GITHUB_STEP_SUMMARY" || true
         env:
           DATABASE_URL_TEST: postgresql://routb:routb_test@localhost:5432/routb_test
           TESTING: "1"
