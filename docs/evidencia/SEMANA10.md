@@ -83,9 +83,9 @@ La entidad `TripRequest` conserva una relación de navegación con `Trip` para c
 
 Se verificó que la porción no introdujo dependencias ajenas al alcance del proyecto ni elementos críticos de configuración.
 
-- **Dependencias:** no se añadieron paquetes nuevos; la solución reutiliza el stack ya definido (`requirements.txt` sigue fijado con hashes). El pipeline suma un job de SonarCloud con Quality Gate bloqueante; queda pendiente configurar el secreto `SONAR_TOKEN` y el proyecto en SonarCloud.
+- **Dependencias:** no se añadieron paquetes nuevos; la solución reutiliza el stack ya definido (`requirements.txt` sigue fijado con hashes). El pipeline incluye el escaneo de SonarQube Cloud y usa el secreto `SONAR_TOKEN`; el resultado del Quality Gate depende de la corrida de CI.
 - **Credenciales:** barrido de patrones de secretos en el código y de archivos `.env`/`google-services.json` en el historial: los `.env` están ignorados y nunca se versionaron; solo aparece el placeholder documentado de `.env.example`. Limpio.
-- **Despliegue:** `GET /health` en Render responde `{"status":"ok"}` (tras arranque en frío; se observó un 503 transitorio propio del plan gratuito). La versión publicada es 0.4.0 con 15 rutas frente al contrato 0.6.0 con 20 rutas del repo: el redespliegue vía merge a `master` queda pendiente.
+- **Despliegue:** `GET /health` en Render respondió `{"status":"ok"}` en la comprobación documentada (tras arranque en frío; se observó un 503 transitorio propio del plan gratuito). En ese levantamiento, la versión publicada era 0.4.0 con 15 rutas frente al contrato 0.6.0 con 20 rutas del repo. La configuración posterior de auto despliegue desde `Changes` tras checks se registra en la sección 10; no se da por verificado un nuevo despliegue sin comprobar el servicio.
 - **Alcance:** se confirma la decisión de no incorporar IA generativa en runtime (ADR 0008) y no se creó ningún flujo de extracción de datos de acompañantes ni de cuentas adicionales.
 - **Equipo:** 4 autores con aportes en el historial (MKeinerrr con dos correos, junior14700, juliandmanjarrez-tech, diegobrr999-commits).
 
@@ -99,4 +99,19 @@ La IA se utilizó únicamente como apoyo para análisis, documentación, revisi�
 
 La Semana 10 cerró el segundo corte con evidencia completa: escenario propio declarado, decisión arquitectónica, validación funcional en verde en backend y Flutter, medición dentro del umbral, revisión modular, barrido de credenciales y documentación de uso de IA. El conjunto confirma que la reserva concurrente no sobrevende, que las solicitudes con paradas y vencimiento se comportan según el contrato y que no hay regresiones relevantes en disponibilidad ni operatividad.
 
-Quedan como pasos pendientes del equipo, declarados sin excepción: redesplegar `master` para alinear producción con el contrato 0.6.0, configurar `SONAR_TOKEN` y el proyecto SonarCloud, probar el push con la app cerrada en un dispositivo Android real y el ensayo en staging.
+Al cierre de la medición original quedaban pendientes el redespliegue de producción, SonarCloud, la prueba push con la app cerrada en dispositivo Android real y el ensayo en staging. La sección 10 registra los cambios posteriores de routing, CI y configuración Render; las verificaciones externas y en dispositivo continúan pendientes.
+
+## 10. Continuidad: resiliencia del cálculo de rutas
+
+Se incorporó una corrección adicional al servicio de routing: el TTL de
+`route_cache` usa un intervalo PostgreSQL parametrizado, el timeout de OSRM se
+configura con `ROUTING_TIMEOUT_SECONDS` (3.0 s por defecto), y los resultados
+`degraded` no se guardan ni se sirven desde caché. El detalle de la decisión y
+las pruebas está en el [ADR 0014](../adr/0014-fallback-geocode-cache.md) y en la
+[evidencia del corte 2](corte2-fallo-medicion.md).
+
+El workflow en `Changes` ejecuta la suite backend, el contrato OpenAPI por
+separado y SonarQube Cloud con `SONAR_TOKEN`; Render declara auto despliegue de
+`Changes` tras los checks. El resultado de CI/Sonar, la medición de 50
+solicitudes, el redespliegue real y las pruebas en dispositivo siguen pendientes
+de su ejecución/confirmación y no se consignan como aprobados.

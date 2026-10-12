@@ -425,3 +425,67 @@ def test_matching_es_solo_lectura():
     assert refreshed.available_seats == seats_before, (
         "El matching no debe modificar los cupos del viaje"
     )
+
+
+@pytest.mark.parametrize(
+    ("case", "osrm_result", "expected_degraded"),
+    [
+        (
+            "sin_fallo",
+            {
+                "distance_m": 12000,
+                "duration_s": 1500,
+                "geometry": [[-75.5478, 10.4236], [-75.466261, 10.371078]],
+                "degraded": False,
+                "source": "osrm",
+            },
+            False,
+        ),
+        ("timeout_osrm", None, True),
+    ],
+)
+def test_matching_50_responses_remain_contractual(
+    monkeypatch, case, osrm_result, expected_degraded
+):
+    """Mide 50 respuestas contractuales con OSRM disponible y con timeout."""
+    driver, _ = _create_user(role="driver", has_consent=True)
+    _, passenger_token = _create_user(role="passenger", has_consent=True)
+    today = colombia_today()
+    # Coordenadas variables evitan reutilizar una ruta válida ya presente en caché.
+    lat = 10.4236 + (uuid4().int % 100) * 0.000001
+    lng = -75.5478
+    trip = _create_trip_with_route(
+        driver_id=driver.id,
+        direction="to_campus",
+        origin_coords=(lat, lng),
+        trip_date=today,
+    )
+    params = {
+        "direction": "to_campus",
+        "points": f"{lat},{lng}",
+        "date": str(today),
+        "time": "07:00 AM",
+    }
+
+    # Simular ambos escenarios sin tráfico externo ni espera del rate limiter.
+    monkeypatch.setattr("app.shared.routing.service._call_osrm", lambda _: osrm_result)
+    monkeypatch.setattr("app.shared.routing.service.time.sleep", lambda _: None)
+    monkeypatch.setattr("app.shared.routing.service._osrm_last_call", 0.0)
+
+    elapsed_seconds = []
+    for _ in range(50):
+        started = perf_counter()
+        response = client.get(
+            "/matching/suggestions",
+            params=params,
+            headers={"Authorization": f"Bearer {passenger_token}"},
+        )
+        elapsed_seconds.append(perf_counter() - started)
+        assert response.status_code == 200
+        suggestions = response.json()
+        suggestion = next(item for item in suggestions if item["trip_id"] == trip.id)
+        assert suggestion["degraded"] is expected_degraded
+
+    p95_seconds = sorted(elapsed_seconds)[ceil(0.95 * len(elapsed_seconds)) - 1]
+    print(f"OSRM {case} N=50 p95={p95_seconds:.4f}s")
+    assert p95_seconds < 3.99
