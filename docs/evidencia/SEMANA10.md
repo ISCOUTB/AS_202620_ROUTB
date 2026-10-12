@@ -112,6 +112,8 @@ las pruebas está en el [ADR 0014](../adr/0014-fallback-geocode-cache.md) y en l
 
 El workflow en `Changes` ejecuta la suite backend, el contrato OpenAPI por
 separado y SonarQube Cloud con `SONAR_TOKEN`; Render declara auto despliegue de
-`Changes` tras los checks. El resultado de CI/Sonar, la medición de 50
-solicitudes, el redespliegue real y las pruebas en dispositivo siguen pendientes
-de su ejecución/confirmación y no se consignan como aprobados.
+`Changes` tras los checks. En la primera corrida de `64986a2`, backend y OpenAPI
+pasaron; Sonar terminó con error del scanner y bloqueó el despliegue. La medición
+pasó el umbral en ambos escenarios (`p95 < 3.99 s`), aunque el p95 exacto no fue
+accesible desde la consulta pública. El redespliegue real y las pruebas en
+dispositivo siguen pendientes de confirmación.
