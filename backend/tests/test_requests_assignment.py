@@ -3,34 +3,23 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 
-import pytest
-from fastapi.testclient import TestClient
-
 from app.core.database import SessionLocal
 from app.core.timezone import colombia_now, colombia_today
-from app.main import app
-from app.modules.auth.application.tokens import create_access_token
-from app.modules.requests.infrastructure.models import TripRequest
 from app.modules.trips.infrastructure.models import Trip
 from app.modules.users.infrastructure.models import User
 
-client = TestClient(app)
-
-# Hora futura para evitar expiración automática durante la suite
-_FUTURE_TIME = "11:59 PM"
-
-_STOP_LAT = 10.42
-_STOP_LNG = -75.54
+from tests.helpers import (
+    FUTURE_TIME,
+    client,
+    crear_usuario as _crear_usuario_base,
+    crear_viaje as _crear_viaje_base,
+    limpiar as _limpiar_base,
+    parada as _parada_base,
+)
 
 
 def _stop(seats: int = 1) -> dict:
-    return {
-        "seats": seats,
-        "place_type": "door",
-        "lat": _STOP_LAT,
-        "lng": _STOP_LNG,
-        "address_text": "Calle de prueba 123",
-    }
+    return _parada_base(seats)
 
 
 # ---------------------------------------------------------------------------
@@ -38,52 +27,17 @@ def _stop(seats: int = 1) -> dict:
 # ---------------------------------------------------------------------------
 
 def _crear_usuario(telefono: str, role: str = "passenger") -> tuple[int, str]:
-    with SessionLocal() as db:
-        user = User(
-            name="Test",
-            last_name="Assignment",
-            phone=telefono,
-            hashed_password="hash",
-            role=role,
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-        return user.id, create_access_token(user.id, user.role)
+    return _crear_usuario_base(
+        telefono, role, apellido="Assignment", consentimiento=None
+    )
 
 
 def _limpiar(*user_ids: int) -> None:
-    with SessionLocal() as db:
-        for uid in user_ids:
-            db.query(TripRequest).filter(
-                TripRequest.passenger_id == uid
-            ).delete(synchronize_session=False)
-            for trip in db.query(Trip).filter(Trip.driver_id == uid).all():
-                db.query(TripRequest).filter(
-                    TripRequest.trip_id == trip.id
-                ).delete(synchronize_session=False)
-                db.delete(trip)
-            user = db.get(User, uid)
-            if user:
-                db.delete(user)
-        db.commit()
+    _limpiar_base(*user_ids)
 
 
 def _crear_viaje(driver_token: str, total_seats: int = 4, direction: str = "to_campus") -> int:
-    resp = client.post(
-        "/trips/",
-        headers={"Authorization": f"Bearer {driver_token}"},
-        json={
-            "origin": "Centro",
-            "destination": "UTB",
-            "total_seats": total_seats,
-            "departure_time": _FUTURE_TIME,
-            "departure_date": str(colombia_today()),
-            "direction": direction,
-        },
-    )
-    assert resp.status_code == 201, resp.text
-    return resp.json()["id"]
+    return _crear_viaje_base(driver_token, total_seats, direction)
 
 
 def _crear_viaje_legacy(driver_token: str, total_seats: int = 4) -> int:
@@ -95,7 +49,7 @@ def _crear_viaje_legacy(driver_token: str, total_seats: int = 4) -> int:
             "origin": "Centro",
             "destination": "UTB",
             "total_seats": total_seats,
-            "departure_time": _FUTURE_TIME,
+            "departure_time": FUTURE_TIME,
             "departure_date": str(colombia_today()),
         },
     )
@@ -182,7 +136,7 @@ def test_aceptar_no_cancela_solicitudes_distinta_fecha():
                 driver_id=driver_id,
                 direction="to_campus",
                 departure_date=tomorrow,
-                departure_time=_FUTURE_TIME,
+                departure_time=FUTURE_TIME,
                 status="active",
             )
             db.add(trip_mañana)
