@@ -51,7 +51,7 @@ def test_grupo_cuatro_cupos_tres_paradas_from_campus():
             json={
                 "seat_count": 4,
                 "stops": [
-                    _stop(2, _STOP_LAT, _STOP_LNG),
+                    _stop(2, STOP_LAT, STOP_LNG),
                     _stop(1, 10.43, -75.53),
                     _stop(1, 10.41, -75.55),
                 ],
@@ -181,7 +181,7 @@ def test_paradas_de_solicitudes_distintas_se_intercalan():
         r1 = client.post(
             f"/requests/trips/{trip_id}",
             headers={"Authorization": f"Bearer {pass_a_token}"},
-            json={"seat_count": 1, "stops": [_stop(1, _STOP_LAT, _STOP_LNG)]},
+            json={"seat_count": 1, "stops": [_stop(1, STOP_LAT, STOP_LNG)]},
         )
         r2 = client.post(
             f"/requests/trips/{trip_id}",

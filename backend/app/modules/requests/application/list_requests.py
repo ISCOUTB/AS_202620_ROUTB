@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.modules.requests.application.expire_requests import expire_stale_requests
 from app.modules.requests.domain.exceptions import UnauthorizedRequestActionError
 from app.modules.requests.infrastructure.models import TripRequest
+from app.modules.trips.infrastructure.models import Trip
 
 
 def get_trip_requests(
