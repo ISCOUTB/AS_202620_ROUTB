@@ -9,6 +9,7 @@ from __future__ import annotations
 import uuid
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 
 from sqlalchemy import text
@@ -174,3 +175,29 @@ def test_route_cache_query_and_ttl_with_postgres():
         db.execute(text("DELETE FROM route_cache WHERE cache_key = :k"), {"k": key})
         db.commit()
         db.close()
+
+
+# ---------------------------------------------------------------------------
+# Tests de timeout real (ADR 0014)
+# ---------------------------------------------------------------------------
+
+def test_call_osrm_timeout_falls_back_degraded_without_cache(monkeypatch):
+    """Timeout de OSRM → respaldo geodésico sin persistirlo en caché."""
+    db = _make_db(cached=None)
+
+    client = MagicMock()
+    client.__enter__.return_value.get.side_effect = httpx.TimeoutException("timeout")
+    monkeypatch.setattr(
+        "app.shared.routing.service.httpx.Client", MagicMock(return_value=client)
+    )
+    monkeypatch.setattr("app.shared.routing.service.time.sleep", lambda _: None)
+    monkeypatch.setattr("app.shared.routing.service._osrm_last_call", 0.0)
+
+    with patch(
+        "app.shared.routing.service._cache_put"
+    ) as mock_cache_put:
+        result = calculate_route(db, _COORDS)
+
+    assert result["degraded"] is True
+    assert result["source"] == "fallback"
+    mock_cache_put.assert_not_called()

@@ -451,8 +451,11 @@ def test_matching_50_responses_remain_contractual(
     driver, _ = _create_user(role="driver", has_consent=True)
     _, passenger_token = _create_user(role="passenger", has_consent=True)
     today = colombia_today()
-    # Coordenadas variables evitan reutilizar una ruta válida ya presente en caché.
-    lat = 10.4236 + (uuid4().int % 100) * 0.000001
+    # Separación determinista por caso: `_coords_key` redondea a 5 decimales y
+    # la base de pruebas es compartida entre corridas; sin esta separación, la
+    # rama con fallo podría leer de caché la ruta válida de la rama base.
+    base_lat = 10.4236 if case == "sin_fallo" else 10.4238
+    lat = base_lat + (uuid4().int % 50) * 0.000001
     lng = -75.5478
     trip = _create_trip_with_route(
         driver_id=driver.id,
