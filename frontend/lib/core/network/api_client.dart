@@ -17,8 +17,12 @@ class ApiClient {
   ApiClient(this._session, {http.Client? client})
       : _client = client ?? http.Client();
 
-  /// El plan gratuito de Render puede tardar 30-50 s en la primera petición
-  /// tras 15 min de inactividad, así que el margen es holgado.
+  /// Margen holgado para redes móviles lentas.
+  ///
+  /// Se fijó en 35 s cuando el backend corría en Render, cuyo plan gratuito
+  /// podía tardar 30-50 s en la primera petición tras 15 min de inactividad
+  /// (ADR 0005). Dokploy no suspende el contenedor por inactividad, así que
+  /// ese arranque en frío no aplica; el margen se conserva (ADR 0015).
   static const Duration timeout = Duration(seconds: 35);
 
   final SessionStore _session;

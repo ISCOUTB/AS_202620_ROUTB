@@ -65,6 +65,8 @@ Las restricciones se agrupan en categorías organizativas, técnicas, de integra
 - El sistema debe operar con costo recurrente de $0.00 USD y sin
   asociación de tarjetas de crédito o medios de pago bancarios, dado que
   el equipo no dispone de presupuesto asignado ni instrumentos financieros
-  para asumir facturación en la nube, lo que obliga a seleccionar proveedores
-  con capas gratuitas permanentes y verificadas (Render y Supabase; ver ADR 0005).
+  para asumir facturación en la nube. Esta restricción se mantiene tras la
+  migración del servidor a Dokploy, porque el uso de Dokploy en este
+  proyecto no genera costo y el servidor donde se ejecuta tampoco genera
+  facturación para el equipo.
 

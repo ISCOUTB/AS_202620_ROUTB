@@ -2,7 +2,7 @@
 
 ## Estado
 
-Aceptado
+Reemplazado por [ADR 0015 - Dokploy como plataforma de despliegue](0015-dokploy-plataforma-de-despliegue.md)
 
 ## Contexto
 

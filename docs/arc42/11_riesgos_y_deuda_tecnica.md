@@ -38,7 +38,7 @@ evolución.
 | Despliegue y configuración dependientes de pasos manuales. | Aumenta los errores entre ambientes y dificulta reproducir la operación. | Actual | Documentar los ambientes y automatizar gradualmente la preparación y publicación. |
 | Estrategia de respaldo y recuperación no definida en detalle. | Un incidente podría causar pérdida o indisponibilidad de información. | Actual | Definir frecuencia, retención, responsables y procedimiento de restauración. |
 | Dependencia de una infraestructura inicial pequeña. | El crecimiento puede exigir cambios urgentes de capacidad y operación. | Futura | Revisar la infraestructura con base en métricas reales de uso y rendimiento. |
-| Sin reintentos automáticos ante proveedores externos. | Una caída transitoria breve se responde como degradada en vez de reintentarse. | Actual | Aceptado por ADR 0014 para no multiplicar latencia en el plan gratuito; revisar si el p95 lo permite. |
+| Sin reintentos automáticos ante proveedores externos. | Una caída transitoria breve se responde como degradada en vez de reintentarse. | Actual | Aceptado por ADR 0014 para no multiplicar la latencia; revisar si el p95 lo permite. |
 
 ### Deuda técnica aceptada y deuda a evitar
 

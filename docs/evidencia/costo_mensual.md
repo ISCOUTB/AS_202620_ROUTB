@@ -1,4 +1,4 @@
-# Estimación de costo mensual y punto de ruptura de la capa gratuita ($0 USD)
+# Estimación de costo mensual y puntos de ruptura por capacidad
 
 ## 1. Supuestos de volumen y carga (Escenarios de Calidad)
 
@@ -23,12 +23,12 @@ De acuerdo con lo definido en el Árbol de Utilidad y Escenarios de Calidad de R
 
 | Componente | Proveedor | Recurso / Plan | Capacidad Incluida | Consumo Estimado ROUTB | Costo Mensual ($ USD) |
 |---|---|---|---|---|---|
-| **Cómputo Backend API** | **Render** | Web Service (Free Tier) | 750 horas/mes de instancia, 512 MB RAM, 0.1 CPU compartida | 720 horas/mes (1 instancia continua), ~150 MB RAM usada | **$0.00** |
+| **Cómputo Backend API** | **Servidor propio / Dokploy** | Dokploy | Sin costo para el proyecto; capacidad limitada por el servidor donde se ejecuta | 1 instancia continua; consumo de RAM de la API sin medir | **$0.00** |
 | **Base de Datos Relacional** | **Supabase** | PostgreSQL Cloud (Free Tier) | 500 MB almacenamiento, 2 proyectos activos, conexión PgBouncer | ~50 MB almacenamiento semestral, 20 conexiones simultáneas | **$0.00** |
-| **Transferencia y Egress** | **Render & Supabase** | Egress incluido | 100 GB/mes (Render) / 5 GB/mes (Supabase) | ~0.6 GB/mes | **$0.00** |
-| **Certificados TLS / HTTPS** | **Render** | Let's Encrypt Gestionado | Renovación automática ilimitada | 1 dominio `.onrender.com` | **$0.00** |
+| **Transferencia y Egress** | **Servidor propio & Supabase** | Incluido en el servidor | 5 GB/mes (Supabase) | ~0.6 GB/mes | **$0.00** |
+| **Certificados TLS / HTTPS** | **Let's Encrypt** (gestionado por Dokploy) | Sin costo | Renovación automática ilimitada | 1 dominio `routb.iscoutb.dev` | **$0.00** |
 | **Pipeline de CI/CD** | **GitHub Actions** | Repositorio público / Free Tier | 2.000 minutos/mes (o ilimitado en repositorios públicos) | ~150 minutos/mes (~50 ejecuciones de 3 min) | **$0.00** |
-| **Registro de Contenedores** | **Render Build Cache** | Docker Builder interno | Builds estándar basados en Git | ~15 builds/mes | **$0.00** |
+| **Gestión de plataforma** | **Dokploy** | Autoalojado en el mismo servidor | — | Alojado junto al backend, sin costo adicional | **$0.00** |
 | **Costo Total Estimado** | — | — | — | — | **$0.00 USD/mes** |
 
 ---
@@ -37,13 +37,12 @@ De acuerdo con lo definido en el Árbol de Utilidad y Escenarios de Calidad de R
 
 A continuación se determina con precisión el umbral a partir del cual cada servicio superaría los límites gratuitos y qué impacto tendría:
 
-### 3.1 Cómputo del Backend (Render Free Tier)
-* **Límite gratuito:** 750 horas de cómputo por mes por cuenta y 512 MB de memoria RAM.
+### 3.1 Cómputo del Backend (servidor propio con Dokploy)
+* **Límite:** la capacidad del servidor propio donde corre Dokploy. Ya no aplican el techo de 750 horas ni el de 512 MB que imponía el plan gratuito de Render.
 * **Punto de ruptura:**
-  1. *Horas de uso:* Si el equipo añade un segundo servicio web en la misma cuenta gratuita (por ejemplo, frontend web independiente o worker en segundo plano), las 750 horas se repartirían, agotándose a mitad de mes (día 15).
-  2. *Memoria RAM:* Si la concurrencia supera los **180-200 usuarios concurrentes reales** o si se realizan cargas en memoria de mapas/grafos que superen los **512 MB**, el kernel de Render emitirá un evento OOM (*Out Of Memory Killer*) y reiniciará el contenedor.
+  1. *Memoria RAM:* si la carga supera la memoria disponible, el proceso es descartado por el sistema y el contenedor se reinicia. El umbral concreto depende de la RAM del servidor y **no está medido**.
 * **Siguiente escalón (Plan de contingencia):**
-  - Pasar al plan *Starter Web Service* en Render ($7 USD/mes por instancia, con 512 MB RAM fija sin spin-down) o *Standard* ($25 USD/mes, 2 GB RAM).
+  - Ampliar el servidor (más RAM y CPU) o distribuir la carga entre varios servicios.
 
 ### 3.2 Base de Datos (Supabase Free Tier)
 * **Límite gratuito:** 500 MB de almacenamiento en disco, 50.000 usuarios activos mensuales, 5 GB de ancho de banda y pausa del proyecto tras 7 días sin peticiones.
@@ -54,14 +53,15 @@ A continuación se determina con precisión el umbral a partir del cual cada ser
   - Supabase *Pro Plan* ($25 USD/mes con 8 GB de almacenamiento y sin pausa por inactividad).
 
 ### 3.3 Ancho de banda y red
-* **Límite gratuito:** 100 GB/mes en Render.
-* **Punto de ruptura:** Con el tráfico actual de ~0.6 GB/mes, se necesitaría multiplicar el tráfico por más de **150 veces** (> 25.000.000 de solicitudes/mes) para exceder el ancho de banda gratuito.
+* **Límite:** la capacidad de red del servidor propio, más los 5 GB/mes incluidos en Supabase.
+* **Punto de ruptura:** Con el tráfico actual de ~0.6 GB/mes, el consumo es marginal para cualquier servidor de uso académico.
 
 ---
 
 ## 4. Conclusión de viabilidad
 
 El dimensionamiento de ROUTB para el alcance académico demuestra que:
-1. La plataforma opera holgadamente dentro de los márgenes de los planes gratuitos (**menos del 10 % del cupo de almacenamiento de Supabase** y **menos del 1 % del ancho de banda de Render**).
-2. Se cumple de manera estricta la restricción **RC-04 (Costo $0 USD y Cero Tarjetas de Crédito)**.
-3. El único riesgo operativo asociado a la capa gratuita es el retardo de arranque en frío (*cold start* de 30-50 segundos en Render tras 15 minutos de inactividad), el cual es asumible y está contemplado en el ADR 0005.
+1. La base de datos opera holgadamente dentro de los márgenes del plan gratuito de Supabase (**menos del 10 % del cupo de almacenamiento**), y el consumo de cómputo del backend es marginal.
+2. **Se mantiene la restricción RC-04 (Costo $0 USD y Cero Tarjetas de Crédito)**: el uso de Dokploy en este proyecto no genera costo, y el servidor donde se ejecuta tampoco genera facturación para el equipo. El costo total sigue siendo **$0.00 USD/mes**.
+3. El arranque en frío (*cold start* de 30-50 segundos tras 15 minutos sin tráfico) **no aplica en Dokploy**: la plataforma no suspende el contenedor por inactividad y el servicio corre de forma continua, por lo que ese mecanismo desaparece. En las mediciones externas la latencia estuvo estable alrededor de 680 ms. Ver [ADR 0015](../adr/0015-dokploy-plataforma-de-despliegue.md) y [verificación de despliegue](despliegue-dokploy.md).
+4. El riesgo operativo cambió de naturaleza: ya no está la plataforma que duerme la instancia, sino que el servidor es responsabilidad del equipo. No hay réplicas, de modo que una caída del servidor sí representa indisponibilidad hasta que alguien intervenga.

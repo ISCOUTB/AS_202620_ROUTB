@@ -8,7 +8,7 @@ Las decisiones arquitectónicas que impactan significativamente la estructura, l
 | [ADR 0002](../adr/0002-usar-arquitectura-interna-por-capas.md) | Aceptado | Usar una arquitectura interna por capas para estructurar la lógica dentro de cada módulo. |
 | [ADR 0003](../adr/0003-control-atomico-de-cupos.md) | Aceptado | Usar una actualización atómica condicionada en SQL para evitar la sobreventa de cupos. |
 | [ADR 0004](../adr/0004-integracion-sincrona-rest.md) | Aceptado | Usar integración síncrona mediante API REST sobre HTTPS para la comunicación de clientes y servicios. |
-| [ADR 0005](../adr/0005-render-plataforma-de-despliegue.md) | Aceptado | Adoptar Render (Free Web Service) como plataforma de cómputo y despliegue del backend contenerizado. |
+| [ADR 0005](../adr/0005-render-plataforma-de-despliegue.md) | Reemplazado por [ADR 0015](../adr/0015-dokploy-plataforma-de-despliegue.md) | Adoptar Render (Free Web Service) como plataforma de cómputo y despliegue del backend contenerizado. |
 | [ADR 0006](../adr/0006-base-de-datos-supabase.md) | Aceptado | Adoptar Supabase (Free Tier) como plataforma de base de datos relacional PostgreSQL administrada. |
 | [ADR 0007](../adr/0007-reserva-grupal-de-cupos.md) | Aceptado | Aceptar la reserva grupal de cupos como mecanismo para permitir que los usuarios reserven múltiples cupos en una sola transacción. |
 | [ADR 0008](../adr/0008-no-componente-generativo.md) | Aceptado | Rechazar la implementación de un componente generativo en el sistema. |
@@ -18,5 +18,6 @@ Las decisiones arquitectónicas que impactan significativamente la estructura, l
 | [ADR 0012](../adr/0012-sugerencias-matching-y-orden-de-paradas.md) | Aceptado | Sugerir viajes compatibles con scoring y ETA mediante matching de solo lectura, con aprobación final del conductor y paradas ordenadas a lo largo de la ruta. |
 | [ADR 0013](../adr/0013-notificaciones-push-fcm.md) | Aceptado | Avisar por push con FCM como canal complementario a REST, sin romper el flujo si FCM falla y borrando tokens inválidos. |
 | [ADR 0014](../adr/0014-fallback-geocode-cache.md) | Aceptado | Configurar el timeout de routing y no retener fallbacks degradados en la caché de rutas. |
+| [ADR 0015](../adr/0015-dokploy-plataforma-de-despliegue.md) | Aceptado | Desplegar el backend contenedorizado en Dokploy, sobre un servidor propio, con dominio propio y TLS automático. |
 
 ---

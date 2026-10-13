@@ -23,5 +23,5 @@ USER appuser
 
 EXPOSE 8000
 
-# Ejecutar Uvicorn usando la variable PORT (compatible con Render y local)
+# Ejecutar Uvicorn usando la variable PORT (compatible con Dokploy, Render y local)
 CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

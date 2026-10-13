@@ -116,7 +116,7 @@ docker build -t routb-backend:local backend         # solo la imagen del backend
 - No relajes CORS, TLS, permisos de contenedor ni validaciones solo para hacer
   pasar una prueba.
 - No ejecutes pruebas destructivas contra la base de datos de desarrollo.
-- Las variables de producción se configuran en Render, nunca en el repositorio.
+- Las variables de producción se configuran en Dokploy, nunca en el repositorio.
 - No cambies dependencias sin justificarlo y sin actualizar su archivo.
   `requirements.txt` está fijado con hashes y debe seguir siendo reproducible.
 - Mantén compatibilidad con las versiones de Python y Dart declaradas en
