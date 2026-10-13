@@ -131,6 +131,18 @@ Justificación: Las herramientas fueron utilizadas con propósitos diferentes. C
 - **Justificación:** Cada criterio de la rúbrica quedó con su evidencia ejecutada y sus pendientes nombrados. La IA propuso y el equipo dispuso tras evidencia de ejecución.
 - **Fecha:** 2026-10-11
 
+### Semana 10 (corte 2, degradación controlada)
+
+- **Actividad realizada:** Decisión e implementación de degradación controlada ante caída de Photon/Nominatim/OSRM: timeout único configurable, no persistencia de rutas degradadas, pruebas con `timeout` en el nombre y medición con/sin fallo con p95 exactos.
+- **Herramienta utilizada:** OpenCode (Muse Spark).
+- **Contexto proporcionado:** Plan `plan-final-corte2-routb.md` con 9 correcciones al plan anterior; servicios con timeout fijo de 3,0 s y caché que guardaba degradados; prueba N=50 que colisionaba en caché por redondeo a 5 decimales.
+- **Respuesta que se obtuvo:** Parametrizar `ROUTING_TIMEOUT_SECONDS` (1,4 s), aplicarlo a Photon/Nominatim, no cachear `degraded=true`, y aislar ramas del experimento con coordenadas separadas por caso.
+- **Qué se aceptó:** El default de 1,4 s respaldado por temporización real (3,24/3,03 s con 3,0 frente a 1,42/1,43 s con 1,4); la corrección del aislamiento de caché verificada por ejecución.
+- **Qué se corrigió:** La segunda prueba de geocode propagaba `TimeoutException` por encima de los manejadores reales; se reescribió para atravesarlos. La rama con fallo de la prueba N=50 leía de caché la ruta sana por colisión de claves.
+- **Qué se rechazó:** Reintentos automáticos (multiplican latencia en plan gratuito) y declarar cumplida la medición sin valores exactos de p95.
+- **Justificación:** Cada cambio se verificó ejecutando la prueba afectada; la decisión de timeout quedó registrada en el ADR 0014 sin estado provisional.
+- **Fecha:** 2026-10-13
+
 ## Observaciones
 
 La Inteligencia Artificial se utiliza como una herramienta de apoyo durante el desarrollo y la documentación del proyecto. Las respuestas generadas no se incorporan automáticamente: son revisadas, contrastadas con el contexto y los requisitos del proyecto y, cuando corresponde, modificadas o rechazadas por el equipo.

@@ -85,7 +85,7 @@ Se verificó que la porción no introdujo dependencias ajenas al alcance del pro
 
 - **Dependencias:** no se añadieron paquetes nuevos; la solución reutiliza el stack ya definido (`requirements.txt` sigue fijado con hashes). El pipeline incluye el escaneo de SonarQube Cloud y usa el secreto `SONAR_TOKEN`; el resultado del Quality Gate depende de la corrida de CI.
 - **Credenciales:** barrido de patrones de secretos en el código y de archivos `.env`/`google-services.json` en el historial: los `.env` están ignorados y nunca se versionaron; solo aparece el placeholder documentado de `.env.example`. Limpio.
-- **Despliegue:** `GET /health` en Render respondió `{"status":"ok"}` en la comprobación documentada (tras arranque en frío; se observó un 503 transitorio propio del plan gratuito). En ese levantamiento, la versión publicada era 0.4.0 con 15 rutas frente al contrato 0.6.0 con 20 rutas del repo. La configuración posterior de auto despliegue desde `Changes` tras checks se registra en la sección 10; no se da por verificado un nuevo despliegue sin comprobar el servicio.
+- **Despliegue:** `GET /health` en Render respondió `HTTP/1.1 200 OK` el `Date: Tue, 13 Oct 2026 02:32:12 GMT` (`codigo=200 tiempo=0.275703s`, `rndr-id: 3cfcc4be-940c-4a41`, origen `uvicorn`, cuerpo `{"status":"ok"}`). En otra comprobación del mismo día, `/health` y `/openapi.json` respondieron `503` (plan gratuito: arranque en frío o instancia detenida). Versión servida y commit del deploy pendientes: la API no los expone. El contrato del repo es 0.6.0 con 20 rutas; el auto despliegue desde `Changes` tras checks se registra en la sección 10.
 - **Alcance:** se confirma la decisión de no incorporar IA generativa en runtime (ADR 0008) y no se creó ningún flujo de extracción de datos de acompañantes ni de cuentas adicionales.
 - **Equipo:** 4 autores con aportes en el historial (MKeinerrr con dos correos, junior14700, juliandmanjarrez-tech, diegobrr999-commits).
 
@@ -103,26 +103,45 @@ Al cierre de la medición original quedaban pendientes el redespliegue de produc
 
 ## 10. Continuidad: resiliencia del cálculo de rutas
 
-Se incorporó una corrección adicional al servicio de routing: el TTL de
-`route_cache` usa un intervalo PostgreSQL parametrizado, el timeout de OSRM se
-configura con `ROUTING_TIMEOUT_SECONDS` (3.0 s por defecto), y los resultados
+Se incorporó una corrección adicional al servicio de routing y geocodificación:
+el TTL de `route_cache` usa un intervalo PostgreSQL parametrizado, el timeout
+de OSRM, Photon y Nominatim se configura con `ROUTING_TIMEOUT_SECONDS`
+(1,4 s por defecto tras la medición del 13-10-2026), y los resultados
 `degraded` no se guardan ni se sirven desde caché. El detalle de la decisión y
 las pruebas está en el [ADR 0014](../adr/0014-fallback-geocode-cache.md) y en la
 [evidencia del corte 2](corte2-fallo-medicion.md).
 
 El workflow en `Changes` ejecuta la suite backend, el contrato OpenAPI por
-separado y SonarQube Cloud con `SONAR_TOKEN`; Render declara auto despliegue de
-`Changes` tras los checks. En las corridas registradas para `64986a2` y `e1bae37`,
-backend y OpenAPI pasaron; Sonar falló y el estado general de CI no quedó en
-verde, lo que impidió el redespliegue sujeto a checks. La medición pasó la
-aserción `p95 < 3.99 s` en ambos escenarios, pero no se dispone de los p95
-exactos. Como OSRM se simula, esta medición no compara los timeouts de 1.4 s y
-3.0 s; se conserva provisionalmente `3.0 s` por compatibilidad con el valor
-anterior, pendiente de decisión y medición real controlada.
+separado y SonarQube Cloud con `SONAR_TOKEN`; Render declara auto despliegue
+de `Changes` tras los checks. En las corridas registradas para `64986a2` y
+`e1bae37`, backend y OpenAPI pasaron; Sonar falló y el estado general de CI no
+quedó en verde, lo que impidió el redespliegue sujeto a checks. La medición
+local N=50 del 13-10-2026 (`66c8250`) dio p95=1,6368 s sin fallo y p95=2,7047 s
+con timeout OSRM (cero `500`, 100 % contractual) → **CUMPLE**; la
+temporización directa justificó el default de 1,4 s (peor caso ≈ 3,9 s <
+3,99 s frente a ≈ 7,1 s con 3,0 s).
+
+Caracterización del escenario (detalle en
+[corte2-fallo-escenario.md](corte2-fallo-escenario.md)): hipótesis — con
+Photon/Nominatim/OSRM caídos, la API responde `200` degradado o `503` tipado
+con cero `500`; montaje — backend local, base de pruebas, `N=50` por rama,
+fallo con `TimeoutException` y temporización real contra host que no
+responde; variables — proveedor sano/caído, código y `duration_ms`,
+commit/carga/base fijas; umbral — `500=0`, 100 % contractual, p95 < 3,99 s.
+
+Trazabilidad del corte 2: commits `64986a2`, `e1bae37` y `66c8250`
+(`fix: timeout unico de 1.4s...`) en `Changes` (URL del run final pendiente
+del push); ADR 0010 confirmado y
+extendido por el [ADR 0014](../adr/0014-fallback-geocode-cache.md); aspecto 8
+en `docs/aspectos.md`; contrato 0.6.0/20 rutas sin cambios (verificado con
+`test_openapi_contract.py`); barrido de secretos en
+[corte2-fallo-barrido.md](corte2-fallo-barrido.md) (limpio, 13-10-2026).
 
 En la comprobación de producción del 12 de octubre de 2026, `GET /health` y
 `GET /openapi.json` respondieron HTTP 200; OpenAPI publicó la versión 0.6.0 y 20
-rutas. No se confirmó el commit desplegado ni se verificó el estado de las
-migraciones de producción. El ciclo de migraciones que pasó en CI se ejecutó
+rutas. En la comprobación del 13 de octubre de 2026 ambos respondieron
+HTTP 503 (plan gratuito: arranque en frío o instancia detenida). No se confirmó
+el commit desplegado ni se verificó el estado de las migraciones de
+producción. El ciclo de migraciones que pasó en CI se ejecutó
 contra PostgreSQL efímero y no constituye validación de producción. Sonar,
-redespliegue y pruebas en dispositivo permanecen pendientes.
+merge a `master` con redespliegue y pruebas en dispositivo permanecen pendientes.
