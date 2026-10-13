@@ -112,8 +112,17 @@ las pruebas está en el [ADR 0014](../adr/0014-fallback-geocode-cache.md) y en l
 
 El workflow en `Changes` ejecuta la suite backend, el contrato OpenAPI por
 separado y SonarQube Cloud con `SONAR_TOKEN`; Render declara auto despliegue de
-`Changes` tras los checks. En la primera corrida de `64986a2`, backend y OpenAPI
-pasaron; Sonar terminó con error del scanner y bloqueó el despliegue. La medición
-pasó el umbral en ambos escenarios (`p95 < 3.99 s`), aunque el p95 exacto no fue
-accesible desde la consulta pública. El redespliegue real y las pruebas en
-dispositivo siguen pendientes de confirmación.
+`Changes` tras los checks. En las corridas registradas para `64986a2` y `e1bae37`,
+backend y OpenAPI pasaron; Sonar falló y el estado general de CI no quedó en
+verde, lo que impidió el redespliegue sujeto a checks. La medición pasó la
+aserción `p95 < 3.99 s` en ambos escenarios, pero no se dispone de los p95
+exactos. Como OSRM se simula, esta medición no compara los timeouts de 1.4 s y
+3.0 s; se conserva provisionalmente `3.0 s` por compatibilidad con el valor
+anterior, pendiente de decisión y medición real controlada.
+
+En la comprobación de producción del 12 de octubre de 2026, `GET /health` y
+`GET /openapi.json` respondieron HTTP 200; OpenAPI publicó la versión 0.6.0 y 20
+rutas. No se confirmó el commit desplegado ni se verificó el estado de las
+migraciones de producción. El ciclo de migraciones que pasó en CI se ejecutó
+contra PostgreSQL efímero y no constituye validación de producción. Sonar,
+redespliegue y pruebas en dispositivo permanecen pendientes.
