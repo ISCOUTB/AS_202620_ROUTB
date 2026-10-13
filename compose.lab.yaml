@@ -1,7 +1,9 @@
+# Despliegue de ROUTB en Dokploy.
+# Las variables se definen en la pestaña "Environment" del servicio en el panel.
 services:
   backend:
     build:
-      context: ../backend
+      context: ./backend
       dockerfile: Dockerfile
     restart: unless-stopped
     environment:
