@@ -39,8 +39,10 @@ class Settings:
     NOMINATIM_BASE_URL: str = os.getenv("NOMINATIM_BASE_URL", "https://nominatim.openstreetmap.org")
     NOMINATIM_USER_AGENT: str = os.getenv("NOMINATIM_USER_AGENT", "ROUTB/1.0 (contacto@utb.edu.co)")
 
-    # Routing (Fase 1)
+    # Routing (Fase 1). ADR 0014: timeout único de proveedores externos;
+    # 2 x 1.4 + 1.05 = 3.85 s < umbral p95 de 3.99 s.
     ROUTING_BASE_URL: str = os.getenv("ROUTING_BASE_URL", "https://router.project-osrm.org")
+    ROUTING_TIMEOUT_SECONDS: float = float(os.getenv("ROUTING_TIMEOUT_SECONDS", "1.4"))
 
     # Retención de privacidad (días)
     RETENTION_TRIP_DAYS: int = int(os.getenv("RETENTION_TRIP_DAYS", "30"))

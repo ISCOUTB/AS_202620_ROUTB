@@ -96,7 +96,7 @@ def _call_photon(q: str) -> list[dict[str, Any]] | None:
         pass
 
     try:
-        with httpx.Client(timeout=3.0) as client:
+        with httpx.Client(timeout=settings.ROUTING_TIMEOUT_SECONDS) as client:
             resp = client.get(f"{base_url}/api", params=params)
             resp.raise_for_status()
             data = resp.json()
@@ -159,7 +159,7 @@ def _call_nominatim(q: str) -> list[dict[str, Any]] | None:
 
     try:
         with httpx.Client(
-            timeout=3.0,
+            timeout=settings.ROUTING_TIMEOUT_SECONDS,
             headers={"User-Agent": settings.NOMINATIM_USER_AGENT},
         ) as client:
             resp = client.get(f"{base_url}/search", params=params)

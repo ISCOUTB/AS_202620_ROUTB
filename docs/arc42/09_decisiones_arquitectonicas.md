@@ -17,5 +17,6 @@ Las decisiones arquitectónicas que impactan significativamente la estructura, l
 | [ADR 0011](../adr/0011-consentimiento-y-privacidad-de-ubicacion.md) | Aceptado | Pedir consentimiento para usar ubicaciones exactas y aplicar retención, revocación y purga de los datos geoespaciales. |
 | [ADR 0012](../adr/0012-sugerencias-matching-y-orden-de-paradas.md) | Aceptado | Sugerir viajes compatibles con scoring y ETA mediante matching de solo lectura, con aprobación final del conductor y paradas ordenadas a lo largo de la ruta. |
 | [ADR 0013](../adr/0013-notificaciones-push-fcm.md) | Aceptado | Avisar por push con FCM como canal complementario a REST, sin romper el flujo si FCM falla y borrando tokens inválidos. |
+| [ADR 0014](../adr/0014-fallback-geocode-cache.md) | Aceptado | Configurar el timeout de routing y no retener fallbacks degradados en la caché de rutas. |
 
 ---

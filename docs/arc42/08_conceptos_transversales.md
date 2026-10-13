@@ -89,3 +89,12 @@ El backend implementa logging estructurado en formato JSON a través de un middl
 - **Cobertura automática:** Aplica transversalmente a todos los endpoints del sistema, incluyendo `/health` y las operaciones de negocio (`/users`, `/trips`, `/auth`, `/requests`).
 - **Compatibilidad cloud:** La salida a `stdout` permite que el recolector de logs de Render ingiera y presente los eventos sin requerir agentes pesados ni servicios de terceros de pago.
 
+## 8.5 Degradación controlada ante fallo de proveedores externos
+
+Cuando Photon, Nominatim u OSRM no responden, ROUTB degrada sin romperse (ADR 0014):
+
+- **Timeout único configurable:** `ROUTING_TIMEOUT_SECONDS` (1,4 s por defecto) limita cada llamada a proveedores externos; geocodificación peor caso 2 × 1,4 + 1,05 = 3,85 s, bajo el umbral p95 de 3,99 s.
+- **Respaldo tipado:** ruteo responde `200` con ruta geodésica marcada `degraded=true`; geocodificación responde `503 geocode_unavailable`. Nunca `500` por un fallo externo.
+- **Caché solo válida:** los resultados `degraded` no se persisten ni se sirven desde caché, para no ocultar la recuperación del proveedor.
+- **Sin reintentos automáticos:** reintentar multiplicaría la latencia en el plan gratuito de Render.
+

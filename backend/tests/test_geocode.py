@@ -224,3 +224,67 @@ def test_nominatim_rate_limit():
 
     if len(call_times) == 2:
         assert call_times[1] - call_times[0] >= 1.0
+
+
+# ---------------------------------------------------------------------------
+# Tests de timeout real (ADR 0014)
+# ---------------------------------------------------------------------------
+
+def test_geocode_timeout_uses_configured_timeout(monkeypatch):
+    """Photon y Nominatim deben usar ROUTING_TIMEOUT_SECONDS (ADR 0014)."""
+    db = _make_db(cached=None)
+    monkeypatch.setattr(
+        "app.shared.geocode.service.settings.ROUTING_TIMEOUT_SECONDS", 1.4
+    )
+    seen_timeouts: list[float] = []
+
+    def fake_client(*args, **kwargs):
+        seen_timeouts.append(kwargs.get("timeout"))
+        instance = MagicMock()
+        instance.__enter__ = MagicMock(return_value=instance)
+        instance.__exit__ = MagicMock(return_value=False)
+        instance.get.side_effect = httpx.TimeoutException("timeout")
+        return instance
+
+    monkeypatch.setattr("app.shared.geocode.service.httpx.Client", fake_client)
+    monkeypatch.setattr("app.shared.geocode.service.time.sleep", lambda _: None)
+
+    with pytest.raises(GeocodeUnavailable):
+        geocode(db, "Timeout Cartagena")
+
+    assert seen_timeouts == [1.4, 1.4]
+
+
+def test_geocode_timeout_photon_falls_back_to_nominatim(monkeypatch):
+    """Timeout real en Photon → se intenta Nominatim y se usa su respuesta."""
+    db = _make_db(cached=None)
+    monkeypatch.setattr("app.shared.geocode.service.time.sleep", lambda _: None)
+
+    def fake_client(*args, **kwargs):
+        instance = MagicMock()
+        instance.__enter__ = MagicMock(return_value=instance)
+        instance.__exit__ = MagicMock(return_value=False)
+
+        def fake_get(url, params=None, **kw):
+            if "photon" in str(url):
+                raise httpx.TimeoutException("photon timeout")
+            resp = MagicMock()
+            resp.raise_for_status.return_value = None
+            resp.json.return_value = [
+                {
+                    "lat": "10.40",
+                    "lon": "-75.50",
+                    "display_name": "Centro, Cartagena",
+                }
+            ]
+            return resp
+
+        instance.get = fake_get
+        return instance
+
+    monkeypatch.setattr("app.shared.geocode.service.httpx.Client", fake_client)
+
+    with patch("app.shared.geocode.service._cache_put"):
+        result = geocode(db, "Timeout Cartagena")
+
+    assert result[0]["source"] == "nominatim"

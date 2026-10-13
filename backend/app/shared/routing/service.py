@@ -56,7 +56,8 @@ def _cache_get(db: Session, key: str) -> dict[str, Any] | None:
         text(
             "SELECT response FROM route_cache "
             "WHERE cache_key = :k "
-            "AND created_at > NOW() - INTERVAL ':h hours'"
+            "AND COALESCE(response->>'degraded', 'false') <> 'true' "
+            "AND created_at > NOW() - (:h * INTERVAL '1 hour')"
         ).bindparams(k=key, h=_CACHE_TTL_HOURS)
     ).fetchone()
     if row:
@@ -119,7 +120,7 @@ def _call_osrm(coords: list[tuple[float, float]]) -> dict[str, Any] | None:
     params = {"overview": "full", "geometries": "geojson", "steps": "false"}
 
     try:
-        with httpx.Client(timeout=3.0) as client:
+        with httpx.Client(timeout=settings.ROUTING_TIMEOUT_SECONDS) as client:
             resp = client.get(url, params=params)
             resp.raise_for_status()
             data = resp.json()
@@ -176,7 +177,8 @@ def calculate_route(
     if result is None:
         result = _geodesic_fallback(coords)
 
-    # 4. Persistir en caché
-    _cache_put(db, key, result)
+    # 4. Persistir solo rutas reales; el fallback debe reintentarse al expirar el fallo.
+    if not result.get("degraded", False):
+        _cache_put(db, key, result)
 
     return result
