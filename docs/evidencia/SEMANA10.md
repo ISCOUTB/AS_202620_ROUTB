@@ -129,9 +129,12 @@ fallo con `TimeoutException` y temporización real contra host que no
 responde; variables — proveedor sano/caído, código y `duration_ms`,
 commit/carga/base fijas; umbral — `500=0`, 100 % contractual, p95 < 3,99 s.
 
-Trazabilidad del corte 2: commits `64986a2`, `e1bae37` y `66c8250`
-(`fix: timeout unico de 1.4s...`) en `Changes` (URL del run final pendiente
-del push); ADR 0010 confirmado y
+Trazabilidad del corte 2: commits `64986a2`, `e1bae37`, `66c8250`
+(`fix: timeout unico de 1.4s...`) y `531caec` (fix YAML de CI) en `Changes`;
+run final
+[38338723685](https://github.com/ISCOUTB/AS_202620_ROUTB/actions/runs/38338723685)
+sobre `531caec` con `test`, contrato OpenAPI y `sonar` reservado en verde;
+ADR 0010 confirmado y
 extendido por el [ADR 0014](../adr/0014-fallback-geocode-cache.md); aspecto 8
 en `docs/aspectos.md`; contrato 0.6.0/20 rutas sin cambios (verificado con
 `test_openapi_contract.py`); barrido de secretos en

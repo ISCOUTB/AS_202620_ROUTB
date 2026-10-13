@@ -15,6 +15,12 @@ aprobaron el job backend y el contrato OpenAPI. Sonar falló en ambas; por
 tanto, el resultado general de CI sigue en rojo y el redespliegue sujeto a
 checks sigue pendiente.
 
+Run final
+[38338723685](https://github.com/ISCOUTB/AS_202620_ROUTB/actions/runs/38338723685)
+sobre `531caec` (fix de sintaxis YAML del paso sonar reservado, sin
+`SONAR_TOKEN`): jobs `test`, contrato OpenAPI y `sonar` reservado en verde
+antes del merge.
+
 ## Verificación automatizada
 
 - `test_matching_50_responses_remain_contractual`: compara 50 solicitudes con
