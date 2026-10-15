@@ -6,6 +6,7 @@ import '../../../core/models/trip_schedule.dart';
 import '../../../core/theme/routb_palette.dart';
 import '../../../core/theme/routb_text.dart';
 import '../../../core/widgets/address_search_field.dart';
+import '../../../core/widgets/date_quick_picker.dart';
 import '../../../core/widgets/routb_button.dart';
 import '../../../core/widgets/routb_card.dart';
 import '../../../core/widgets/routb_field.dart';
@@ -150,24 +151,6 @@ class _PublishSheetState extends State<_PublishSheet> {
     super.dispose();
   }
 
-  Future<void> _chooseDate() async {
-    final today = TripSchedule.dateOnly(DateTime.now());
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _draft.departureDate.isBefore(today)
-          ? today
-          : _draft.departureDate,
-      firstDate: today,
-      lastDate: today.add(const Duration(days: 30)),
-      helpText: '¿Qué día viajas?',
-      cancelText: 'Cancelar',
-      confirmText: 'Elegir día',
-    );
-    if (picked != null && mounted) {
-      setState(() => _draft.departureDate = TripSchedule.dateOnly(picked));
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return RoutbSheetScaffold(
@@ -177,13 +160,9 @@ class _PublishSheetState extends State<_PublishSheet> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SectionLabel(title: 'Fecha del viaje'),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: OutlinedButton.icon(
-              onPressed: _chooseDate,
-              icon: const Icon(Icons.calendar_today_rounded, size: 16),
-              label: Text(TripSchedule.dateLabel(_draft.departureDate)),
-            ),
+          DateQuickPicker(
+            value: _draft.departureDate,
+            onChanged: (date) => setState(() => _draft.departureDate = date),
           ),
 
           SectionLabel(

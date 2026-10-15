@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from fastapi.testclient import TestClient
 from unittest.mock import patch
 
@@ -309,3 +311,45 @@ def test_viaje_legado_sin_coordenadas_sigue_funcionando():
         if u:
             db.delete(u)
         db.commit()
+
+
+def test_crear_viaje_rechaza_fecha_fuera_de_hoy_manana():
+    """La publicación solo admite hoy o mañana; una fecha lejana responde 422."""
+    with SessionLocal() as db:
+        driver, token = _create_driver_with_consent(db, "3110001999")
+        driver_id = driver.id
+
+    try:
+        payload = {
+            "origin": "Centro",
+            "destination": "UTB",
+            "total_seats": 2,
+            "departure_time": "11:59 PM",
+        }
+
+        payload["departure_date"] = str(colombia_today() + timedelta(days=2))
+        rejected = client.post(
+            "/trips/",
+            headers={"Authorization": f"Bearer {token}"},
+            json=payload,
+        )
+        assert rejected.status_code == 422
+        assert "hoy o mañana" in rejected.json()["detail"]
+
+        payload["departure_date"] = str(colombia_today() + timedelta(days=1))
+        accepted = client.post(
+            "/trips/",
+            headers={"Authorization": f"Bearer {token}"},
+            json=payload,
+        )
+        assert accepted.status_code == 201
+    finally:
+        from app.modules.trips.infrastructure.models import Trip
+
+        with SessionLocal() as db:
+            for trip in db.query(Trip).filter(Trip.driver_id == driver_id).all():
+                db.delete(trip)
+            user = db.get(User, driver_id)
+            if user:
+                db.delete(user)
+            db.commit()

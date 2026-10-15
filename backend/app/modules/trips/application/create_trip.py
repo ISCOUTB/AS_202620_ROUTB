@@ -4,9 +4,9 @@ from __future__ import annotations
  
 import json
 import logging
-from datetime import datetime
+from datetime import date, datetime, timedelta
 import re
-from app.core.timezone import get_colombia_tz
+from app.core.timezone import colombia_today, get_colombia_tz
  
 from geoalchemy2.functions import ST_GeomFromGeoJSON
 from sqlalchemy.orm import Session
@@ -44,6 +44,13 @@ def _parse_departure_to_timestamptz(date_val, time_str: str | None) -> datetime 
         return None
  
  
+def _validate_departure_date(departure_date: date) -> None:
+    """Solo se permite publicar para hoy o mañana (hora de Colombia)."""
+    today = colombia_today()
+    if departure_date not in (today, today + timedelta(days=1)):
+        raise ValueError("La fecha del viaje debe ser hoy o mañana")
+
+
 def _point_geojson(lat: float, lng: float) -> str:
     """Devuelve el GeoJSON de un punto para usarlo con ST_GeomFromGeoJSON."""
     return json.dumps({"type": "Point", "coordinates": [lng, lat]})
@@ -114,11 +121,14 @@ def create_trip(db: Session, trip_data: TripCreate, driver_id: int | None = None
     Raises:
         PermissionError: si el conductor no tiene consentimiento de ubicación
             y aporta coordenadas.
-        ValueError: si las coordenadas están fuera del bounding box.
+        ValueError: si la fecha no es hoy o mañana, o si las coordenadas
+            están fuera de rango.
     """
+    _validate_departure_date(trip_data.departure_date)
+
     dep_time = trip_data.departure_time or "7:00 AM"
     dep_at = _parse_departure_to_timestamptz(trip_data.departure_date, dep_time)
- 
+
     driver_point = getattr(trip_data, "driver_point", None)
     direction = getattr(trip_data, "direction", None)
     lat, lng = _extract_coords(driver_point)

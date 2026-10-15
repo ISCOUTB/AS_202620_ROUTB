@@ -41,6 +41,19 @@ abstract final class TripSchedule {
     return '${_weekdays[selected.weekday - 1]}, $day';
   }
 
+  /// Cierra [date] a la ventana permitida por la app: hoy o mañana.
+  ///
+  /// La API rechaza publicar o buscar viajes fuera de esa ventana (ADR 0016),
+  /// así que una fecha heredada de una versión anterior se ajusta aquí.
+  static DateTime clampToTripWindow(DateTime date, {DateTime? now}) {
+    final today = dateOnly(now ?? DateTime.now());
+    final tomorrow = today.add(const Duration(days: 1));
+    final selected = dateOnly(date);
+    if (selected.isBefore(today)) return today;
+    if (selected.isAfter(tomorrow)) return tomorrow;
+    return selected;
+  }
+
   /// Próxima fecha en que la hora elegida todavía no haya pasado.
   static DateTime nextOccurrence(TravelTime time, {DateTime? now}) {
     final current = now ?? DateTime.now();

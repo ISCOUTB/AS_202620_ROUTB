@@ -19,5 +19,6 @@ Las decisiones arquitectónicas que impactan significativamente la estructura, l
 | [ADR 0013](../adr/0013-notificaciones-push-fcm.md) | Aceptado | Avisar por push con FCM como canal complementario a REST, sin romper el flujo si FCM falla y borrando tokens inválidos. |
 | [ADR 0014](../adr/0014-fallback-geocode-cache.md) | Aceptado | Configurar el timeout de routing y no retener fallbacks degradados en la caché de rutas. |
 | [ADR 0015](../adr/0015-dokploy-plataforma-de-despliegue.md) | Aceptado | Desplegar el backend contenedorizado en Dokploy, sobre un servidor propio, con dominio propio y TLS automático. |
+| [ADR 0016](../adr/0016-ventana-de-viajes-hoy-manana.md) | Aceptado | Limitar la publicación y la búsqueda de viajes a hoy y mañana para concentrar la oferta en una comunidad pequeña. |
 
 ---

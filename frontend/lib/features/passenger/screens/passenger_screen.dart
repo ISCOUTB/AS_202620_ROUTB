@@ -213,20 +213,11 @@ class _PassengerScreenState extends State<PassengerScreen> {
     });
   }
 
-  Future<void> _chooseDate() async {
-    final today = TripSchedule.dateOnly(DateTime.now());
-    final selected = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate.isBefore(today) ? today : _selectedDate,
-      firstDate: today,
-      lastDate: today.add(const Duration(days: 30)),
-      helpText: '¿Qué día viajas?',
-      cancelText: 'Cancelar',
-      confirmText: 'Elegir día',
-    );
-    if (selected == null || !mounted) return;
+  Future<void> _setDate(DateTime date) async {
+    final selected = TripSchedule.clampToTripWindow(date);
+    if (selected == _selectedDate) return;
     setState(() {
-      _selectedDate = TripSchedule.dateOnly(selected);
+      _selectedDate = selected;
       _filtering = true;
     });
     await _load();
@@ -309,13 +300,13 @@ class _PassengerScreenState extends State<PassengerScreen> {
     RoutbToast.show(context, 'Cerraste sesión');
   }
 
-  Future<void> _openLocationPrivacy() => Navigator.of(context).push(
-    RoutbPageRoute<void>(child: const LocationPrivacyScreen()),
-  );
+  Future<void> _openLocationPrivacy() =>
+      Navigator.of(context)
+          .push(RoutbPageRoute<void>(child: const LocationPrivacyScreen()));
 
-  Future<void> _openSuggestions() => Navigator.of(context).push(
-    RoutbPageRoute<void>(child: const SuggestionsScreen()),
-  );
+  Future<void> _openSuggestions() =>
+      Navigator.of(context)
+          .push(RoutbPageRoute<void>(child: const SuggestionsScreen()));
 
   @override
   Widget build(BuildContext context) {
@@ -340,7 +331,7 @@ class _PassengerScreenState extends State<PassengerScreen> {
                         selectedDate: _selectedDate,
                         onOriginChanged: _onQueryChanged,
                         onDestinationChanged: _onQueryChanged,
-                        onDateTap: _chooseDate,
+                        onDateChanged: _setDate,
                         onLogout: _logout,
                         onLocationPrivacy: _openLocationPrivacy,
                         onOpenMap: _openFullMap,
@@ -402,7 +393,7 @@ class _PassengerHero extends StatelessWidget {
     required this.selectedDate,
     required this.onOriginChanged,
     required this.onDestinationChanged,
-    required this.onDateTap,
+    required this.onDateChanged,
     required this.onLogout,
     required this.onLocationPrivacy,
     required this.onOpenMap,
@@ -415,7 +406,7 @@ class _PassengerHero extends StatelessWidget {
   final DateTime selectedDate;
   final ValueChanged<String> onOriginChanged;
   final ValueChanged<String> onDestinationChanged;
-  final VoidCallback onDateTap;
+  final ValueChanged<DateTime> onDateChanged;
   final VoidCallback onLogout;
   final VoidCallback onLocationPrivacy;
   final VoidCallback onOpenMap;
@@ -497,7 +488,7 @@ class _PassengerHero extends StatelessWidget {
             onOriginChanged: onOriginChanged,
             onDestinationChanged: onDestinationChanged,
             selectedDate: selectedDate,
-            onDateTap: onDateTap,
+            onDateChanged: onDateChanged,
           ),
           const SizedBox(height: 10),
           RoutbButton(
@@ -642,10 +633,7 @@ class _TripsList extends StatelessWidget {
             if (myRequest != null)
               SliverToBoxAdapter(child: emptyState)
             else
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: emptyState,
-              )
+              SliverFillRemaining(hasScrollBody: false, child: emptyState)
           else
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(14, 0, 14, 28),

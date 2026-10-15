@@ -130,21 +130,38 @@ def test_matching_accepts_points_outside_default_bbox():
 
 
 def test_matching_empty_results_returns_200_empty_list():
-    """Si no hay viajes en esa fecha o dirección, responde 200 []."""
+    """Si no hay viajes para mañana, responde 200 []."""
     _, token = _create_user(role="passenger", has_consent=True)
-    future_date = colombia_today() + timedelta(days=20)
+    tomorrow = colombia_today() + timedelta(days=1)
     resp = client.get(
         "/matching/suggestions",
         params={
             "direction": "to_campus",
             "points": "10.4236,-75.5478",
-            "date": str(future_date),
+            "date": str(tomorrow),
             "time": "07:00 AM",
         },
         headers={"Authorization": f"Bearer {token}"},
     )
     assert resp.status_code == 200
     assert resp.json() == []
+
+
+def test_matching_rechaza_fecha_fuera_de_hoy_manana():
+    """La búsqueda solo admite hoy o mañana (ADR 0016)."""
+    _, token = _create_user(role="passenger", has_consent=True)
+    resp = client.get(
+        "/matching/suggestions",
+        params={
+            "direction": "to_campus",
+            "points": "10.4236,-75.5478",
+            "date": str(colombia_today() + timedelta(days=2)),
+            "time": "07:00 AM",
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 422
+    assert "hoy o mañana" in resp.json()["detail"]
 
 
 def test_matching_suggests_compatible_trip():

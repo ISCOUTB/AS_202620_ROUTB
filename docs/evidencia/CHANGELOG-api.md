@@ -33,7 +33,7 @@ introdujo o modificó.
 
 ## Ajustes de matching y sugerencias (Fase 2)
 
-- `GET /matching/suggestions` sugiere viajes compatibles a partir de sentido, puntos de parada, fecha, hora y cupos solicitados.
+- `GET /matching/suggestions` sugiere viajes compatibles a partir de sentido, puntos de parada, fecha, hora y cupos solicitados; la fecha debe ser hoy o mañana (`422` fuera de la ventana, ADR 0016).
 - Exige autenticación y consentimiento previo de ubicación (`403 location_consent_required`).
 - Filtra por cercanía de ruta en PostGIS (`ST_DWithin` geográfico), calcula desvío y ETA con OSRM (con caché y respaldo), y ordena por score ponderado normalizado.
 - `POST /requests/trips/{trip_id}` acepta `requested_at` y hasta cuatro `stops`, con coordenadas, dirección, tipo de lugar y cantidad de personas; valida consentimiento, rangos geográficos de coordenadas (`-90..90`, `-180..180`), cupos y reglas del sentido.
@@ -43,7 +43,7 @@ introdujo o modificó.
 
 ## Ajustes de geocodificación y privacidad (Fase 1)
 
-- `POST /trips/` acepta `direction` (`to_campus` | `from_campus`) y `driver_point` opcionales; con coordenadas exige consentimiento (`403 location_consent_required`) y valida rangos de lat/lng (`422`); al publicar calcula y guarda la ruta (`route_geom`, `route_distance_m`, `route_duration_s`, `route_source`, con respaldo `fallback`).
+- `POST /trips/` acepta `direction` (`to_campus` | `from_campus`) y `driver_point` opcionales; con coordenadas exige consentimiento (`403 location_consent_required`) y valida rangos de lat/lng (`422`); solo admite fechas de hoy o mañana (`422` fuera de la ventana, ADR 0016); al publicar calcula y guarda la ruta (`route_geom`, `route_distance_m`, `route_duration_s`, `route_source`, con respaldo `fallback`).
 - `GET /geocode/search` exige consentimiento (`403 location_consent_required`);
 - Si Photon y Nominatim están indisponibles responde `503 geocode_unavailable`; una búsqueda válida sin coincidencias conserva `200 []`.
 - `DELETE /users/me/location-consent` cancela solicitudes pendientes y elimina sus paradas geográficas.

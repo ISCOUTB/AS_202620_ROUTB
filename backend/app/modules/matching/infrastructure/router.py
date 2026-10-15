@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.timezone import colombia_today
 from app.modules.auth.infrastructure.security import get_current_user
 from app.modules.matching.application.suggest_trips import suggest_trips as suggest_trips_use_case
 from app.modules.matching.schemas import SuggestionItem
@@ -51,6 +52,13 @@ def get_trip_suggestions(
 ) -> list[SuggestionItem]:
     """Sugiere viajes compatibles ordenados por qué tan poco desvían al conductor."""
     _check_location_consent(current_user)
+
+    today = colombia_today()
+    if date not in (today, today + timedelta(days=1)):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Solo se pueden buscar viajes para hoy o mañana.",
+        )
 
     # Parsear y validar puntos
     parsed_points: list[tuple[float, float]] = []
