@@ -111,8 +111,8 @@ def test_matching_requires_location_consent():
     assert resp.json()["detail"] == "location_consent_required"
 
 
-def test_matching_validates_bbox():
-    """Puntos fuera de Cartagena (BBOX) deben responder 422."""
+def test_matching_accepts_points_outside_default_bbox():
+    """Puntos fuera del BBOX de Cartagena siguen siendo aceptados si son coordenadas válidas."""
     _, token = _create_user(role="passenger", has_consent=True)
     # Coordenadas en Bogotá
     resp = client.get(
@@ -125,7 +125,8 @@ def test_matching_validates_bbox():
         },
         headers={"Authorization": f"Bearer {token}"},
     )
-    assert resp.status_code == 422
+    assert resp.status_code == 200
+    assert isinstance(resp.json(), list)
 
 
 def test_matching_empty_results_returns_200_empty_list():

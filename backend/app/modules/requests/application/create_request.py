@@ -3,7 +3,6 @@ from datetime import datetime
 from geoalchemy2.elements import WKTElement
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
 from app.core.timezone import colombia_now
 from app.modules.notifications.application.manage_device_token import get_tokens_for_user
 from app.modules.notifications.application.send_notification import send_push
@@ -51,16 +50,10 @@ def create_request(
         if trip.direction == "from_campus" and len(stop_data) > seat_count:
             raise ValueError("No puede haber más paradas que pasajeros")
 
-        try:
-            lon_min, lat_min, lon_max, lat_max = settings.parse_geocode_bbox(
-                settings.GEOCODE_BBOX
-            )
-        except (TypeError, ValueError):
-            lon_min, lat_min, lon_max, lat_max = -180, -90, 180, 90
         for stop in stop_data:
             lat, lng = float(stop["lat"]), float(stop["lng"])
-            if not (lon_min <= lng <= lon_max and lat_min <= lat <= lat_max):
-                raise ValueError("Las coordenadas de la parada están fuera del área de operación")
+            if not (-90 <= lat <= 90 and -180 <= lng <= 180):
+                raise ValueError("Coordenadas de la parada fuera de rango")
 
     existing = (
         db.query(TripRequest)

@@ -82,7 +82,7 @@ class _RouteMapState extends State<RouteMap> {
   @override
   void initState() {
     super.initState();
-    _applyCatalog();
+    _applyBestKnownPoints();
     _lookupDone = !_useRemote;
     _scheduleResolve();
   }
@@ -95,7 +95,7 @@ class _RouteMapState extends State<RouteMap> {
       return;
     }
     setState(() {
-      _applyCatalog();
+      _applyBestKnownPoints();
       _lookupDone = !_useRemote;
     });
     _scheduleResolve();
@@ -109,9 +109,14 @@ class _RouteMapState extends State<RouteMap> {
     super.dispose();
   }
 
-  void _applyCatalog() {
-    _start = PlaceLocator.catalogPoint(widget.origin);
-    _end = PlaceLocator.catalogPoint(widget.destination);
+  void _applyBestKnownPoints() {
+    final locator = PlaceLocator.instance;
+    _start =
+        locator.cachedPoint(widget.origin) ??
+        PlaceLocator.catalogPoint(widget.origin);
+    _end =
+        locator.cachedPoint(widget.destination) ??
+        PlaceLocator.catalogPoint(widget.destination);
     _road = null;
   }
 

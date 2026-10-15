@@ -62,6 +62,12 @@ Para iniciar el proyecto, ejecuta el script correspondiente según tu sistema op
 - **Windows:** `start.bat`
 - **Linux/Mac:** `start.sh`
 
+Para **compilar la app Android** hace falta además
+`frontend/android/app/google-services.json`, descargado de la consola de Firebase
+del proyecto del equipo. El archivo está excluido de Git (`.gitignore`), así que
+cada persona lo baja por su cuenta: el plugin `com.google.gms.google-services` se
+aplica siempre y sin ese archivo el build de Android falla.
+
 ---
 
 ## Pruebas y calidad de código
@@ -134,6 +140,8 @@ El manifiesto de referencia del contenedor y de sus variables es [`compose.lab.y
 | `DATABASE_URL` | Cadena de conexión con la que la API accede a la base de datos (SSL requerido) | Datos de conexión del proyecto, en el panel de Supabase | Dokploy (Environment del servicio) |
 | `JWT_SECRET_KEY` | Clave secreta con la que la API firma los tokens de autenticación | Se genera una cadena aleatoria (ver paso 4) | Dokploy (Environment del servicio) |
 | `ROUTING_TIMEOUT_SECONDS` | Tiempo máximo de espera por petición a OSRM (segundos) | `1.4` por defecto; ajustable según latencia y disponibilidad del proveedor | Dokploy (Environment del servicio) |
+| `FCM_PROJECT_ID` | Identificador del proyecto de Firebase desde el que se envían las notificaciones push | Consola de Firebase del proyecto del equipo | Dokploy (Environment del servicio) |
+| `FCM_SERVICE_ACCOUNT_B64` | Credencial de la cuenta de servicio de Firebase (el JSON en base64) con la que la API firma cada envío | Consola de Firebase → *Cuentas de servicio* → *Generar nueva clave privada* | Dokploy (Environment del servicio) |
 
 ### Pasos para recrear el entorno desde cero
 

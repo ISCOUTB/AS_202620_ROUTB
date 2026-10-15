@@ -8,7 +8,6 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
 from app.core.database import get_db
 from app.modules.auth.infrastructure.security import get_current_user
 from app.modules.matching.application.suggest_trips import suggest_trips as suggest_trips_use_case
@@ -24,19 +23,6 @@ def _check_location_consent(current_user: UserIdentity) -> None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="location_consent_required",
-        )
-
-
-def _validate_point_in_bbox(lat: float, lng: float) -> None:
-    """Valida que un punto caiga dentro del BBOX configurado."""
-    try:
-        lon_min, lat_min, lon_max, lat_max = settings.parse_geocode_bbox(settings.GEOCODE_BBOX)
-    except (TypeError, ValueError):
-        return
-    if not (lon_min <= lng <= lon_max and lat_min <= lat <= lat_max):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Las coordenadas de la parada están fuera del área de operación.",
         )
 
 
@@ -101,7 +87,6 @@ def get_trip_suggestions(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=f"Coordenadas fuera de rango en punto: '{pair}'",
             )
-        _validate_point_in_bbox(pt_lat, pt_lng)
         parsed_points.append((pt_lat, pt_lng))
 
     return suggest_trips_use_case(

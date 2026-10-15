@@ -25,6 +25,7 @@ import '../../auth/screens/location_privacy_screen.dart';
 import '../../trips/data/trip_repository.dart';
 import '../../matching/presentation/suggestions_screen.dart';
 import '../widgets/my_trip_card.dart';
+import '../widgets/reserve_seats_sheet.dart';
 import '../widgets/trip_card.dart';
 import 'my_trip_screen.dart';
 
@@ -247,42 +248,23 @@ class _PassengerScreenState extends State<PassengerScreen> {
     await _load();
   }
 
+  /// Abre la mini pantalla de solicitud y envía lo que se pidió en ella.
+  ///
+  /// Antes los viajes con `direction` se desviaban a [SuggestionsScreen], que
+  /// empieza una búsqueda nueva y descarta el viaje ya elegido: se perdía el
+  /// cupo que se estaba pidiendo. La parada que exige el backend para esos
+  /// viajes se pide ahora dentro de la propia mini pantalla.
   Future<void> _reserve(Trip trip) async {
     if (_busyTripId != null) return;
-    if (trip.direction != null) {
-      await Navigator.of(context).push(
-        RoutbPageRoute<void>(
-          child: SuggestionsScreen(
-            initialDirection: trip.direction,
-            initialDate: trip.departureDate ?? _selectedDate,
-          ),
-        ),
-      );
-      return;
-    }
-    final maximum = trip.availableSeats.clamp(1, 4).toInt();
-    final seatCount = await showDialog<int>(
-      context: context,
-      builder: (context) => SimpleDialog(
-        title: const Text('¿Para cuántas personas?'),
-        children: [
-          for (final count in List<int>.generate(maximum, (index) => index + 1))
-            SimpleDialogOption(
-              onPressed: () => Navigator.of(context).pop(count),
-              child: Text(
-                '$count ${count == 1 ? 'cupo (solo tú)' : 'cupos (tú y ${count - 1} más)'}',
-              ),
-            ),
-        ],
-      ),
-    );
-    if (seatCount == null || !mounted) return;
+    final choice = await showReserveSeatsSheet(context: context, trip: trip);
+    if (choice == null || !mounted) return;
     setState(() => _busyTripId = trip.id);
 
     try {
       final request = await _repository.requestSeat(
         trip.id,
-        seatCount: seatCount,
+        seatCount: choice.seatCount,
+        stops: choice.stops,
       );
       if (!mounted) return;
       // El backend descuenta los cupos al aceptar el conductor, no al solicitar,
@@ -291,9 +273,10 @@ class _PassengerScreenState extends State<PassengerScreen> {
       // Y con ella aparece la solicitud en «Mis viajes» sin esperar al
       // siguiente refresco.
       unawaited(_loadMyRequests());
+      final seats = choice.seatCount;
       RoutbToast.show(
         context,
-        'Solicitud de $seatCount ${seatCount == 1 ? 'cupo' : 'cupos'} enviada a ${trip.hasDriverName ? trip.driverName!.split(' ').first : 'el conductor'}',
+        'Solicitud de $seats ${seats == 1 ? 'cupo' : 'cupos'} enviada a ${trip.hasDriverName ? trip.driverName!.split(' ').first : 'el conductor'}',
       );
     } on ApiException catch (error) {
       if (!mounted) return;

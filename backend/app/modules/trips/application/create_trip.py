@@ -58,17 +58,6 @@ def _validate_consent(db: Session, driver_id: int | None) -> None:
         raise PermissionError("location_consent_required")
  
  
-def _validate_bbox(lat: float, lng: float) -> None:
-    """Lanza ValueError si la coordenada está fuera del GEOCODE_BBOX."""
-    try:
-        parts = [float(x) for x in settings.GEOCODE_BBOX.split(",")]
-        lon_min, lat_min, lon_max, lat_max = parts
-    except (ValueError, AttributeError):
-        return
-    if not (lon_min <= lng <= lon_max and lat_min <= lat <= lat_max):
-        raise ValueError("Las coordenadas del viaje están fuera del área de operación.")
- 
- 
 def _extract_coords(driver_point) -> tuple[float | None, float | None]:
     """Obtiene (lat, lng) de un ``driver_point`` que puede ser dict u objeto."""
     if driver_point is None:
@@ -84,12 +73,13 @@ def _validate_driver_location(
     lat: float | None,
     lng: float | None,
 ) -> None:
-    """Valida consentimiento y bounding box cuando el conductor aporta coordenadas."""
+    """Valida consentimiento y rango de coordenadas cuando el conductor aporta ubicación."""
     if driver_id is None:
         raise PermissionError("location_consent_required")
     _validate_consent(db, driver_id)
     if lat is not None and lng is not None:
-        _validate_bbox(lat, lng)
+        if not (-90 <= lat <= 90 and -180 <= lng <= 180):
+            raise ValueError("Coordenadas del viaje fuera de rango.")
  
  
 def _build_trip_geoms(direction: str | None, lat: float, lng: float):

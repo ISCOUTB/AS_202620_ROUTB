@@ -36,14 +36,14 @@ introdujo o modificó.
 - `GET /matching/suggestions` sugiere viajes compatibles a partir de sentido, puntos de parada, fecha, hora y cupos solicitados.
 - Exige autenticación y consentimiento previo de ubicación (`403 location_consent_required`).
 - Filtra por cercanía de ruta en PostGIS (`ST_DWithin` geográfico), calcula desvío y ETA con OSRM (con caché y respaldo), y ordena por score ponderado normalizado.
-- `POST /requests/trips/{trip_id}` acepta `requested_at` y hasta cuatro `stops`, con coordenadas, dirección, tipo de lugar y cantidad de personas; valida consentimiento, área, cupos y reglas del sentido.
+- `POST /requests/trips/{trip_id}` acepta `requested_at` y hasta cuatro `stops`, con coordenadas, dirección, tipo de lugar y cantidad de personas; valida consentimiento, rangos geográficos de coordenadas (`-90..90`, `-180..180`), cupos y reglas del sentido.
 - `GET /requests/trips/{trip_id}` queda restringido al conductor y devuelve direcciones de paradas sin coordenadas; `GET /requests/me` aplica vencimiento y devuelve los estados de cada solicitud.
 - `PATCH /requests/{id}/accept` serializa aceptaciones del pasajero, reserva cupos atómicamente, cancela sus alternativas del mismo día y sentido y ordena las paradas aceptadas en la ruta.
 - `PUT` y `DELETE /notifications/device-token` gestionan tokens Android. Las pushes informan al conductor de nuevas solicitudes y al pasajero de aceptación/rechazo; la API REST conserva la verdad del estado.
 
 ## Ajustes de geocodificación y privacidad (Fase 1)
 
-- `POST /trips/` acepta `direction` (`to_campus` | `from_campus`) y `driver_point` opcionales; con coordenadas exige consentimiento (`403 location_consent_required`) y valida `GEOCODE_BBOX` (`422`); al publicar calcula y guarda la ruta (`route_geom`, `route_distance_m`, `route_duration_s`, `route_source`, con respaldo `fallback`).
+- `POST /trips/` acepta `direction` (`to_campus` | `from_campus`) y `driver_point` opcionales; con coordenadas exige consentimiento (`403 location_consent_required`) y valida rangos de lat/lng (`422`); al publicar calcula y guarda la ruta (`route_geom`, `route_distance_m`, `route_duration_s`, `route_source`, con respaldo `fallback`).
 - `GET /geocode/search` exige consentimiento (`403 location_consent_required`);
 - Si Photon y Nominatim están indisponibles responde `503 geocode_unavailable`; una búsqueda válida sin coincidencias conserva `200 []`.
 - `DELETE /users/me/location-consent` cancela solicitudes pendientes y elimina sus paradas geográficas.

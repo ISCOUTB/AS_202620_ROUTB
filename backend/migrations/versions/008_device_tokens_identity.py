@@ -12,10 +12,12 @@ valor por defecto. Por eso:
 Esta migración inspecciona el tipo real y alinea la columna con el modelo,
 conservando las filas y sin crear secuencias ni valores duplicados:
 
-- Si ``id`` ya genera valores (default o identity), no hace nada.
-- Si ``id`` es entero, agrega la identidad que falte.
+- Si ``id`` ya es entero y genera valores (identity o default), no hace nada.
+- Si ``id`` es entero pero no genera valores, agrega la identidad que falte.
 - Si ``id`` es de otro tipo (``uuid``, ``text``, ``numeric``...), lo convierte a
-  ``integer`` asignando ids únicos con una secuencia temporal.
+  ``integer`` asignando ids únicos con una secuencia temporal. Un ``default``
+  como ``gen_random_uuid()`` no basta: el modelo y el esquema de respuesta
+  esperan un entero, así que también se convierte (y se descarta el default).
 
 Revision ID: 008_device_tokens_identity
 Revises: 007_add_device_tokens
@@ -52,9 +54,11 @@ BEGIN
         RETURN;
     END IF;
 
-    -- Ya genera valores: no tocar para no duplicar secuencias/identidades.
-    IF v_has_default OR v_is_identity = 'YES' THEN
-        RAISE NOTICE 'device_tokens.id ya genera valores (%); sin cambios', v_data_type;
+    -- El modelo declara Integer + Identity: si ya es entero y genera valores,
+    -- no tocar, para no duplicar secuencias ni identidades.
+    IF v_data_type IN ('smallint', 'integer', 'bigint')
+       AND (v_has_default OR v_is_identity = 'YES') THEN
+        RAISE NOTICE 'device_tokens.id ya es entero y genera valores (%); sin cambios', v_data_type;
         RETURN;
     END IF;
 
@@ -71,6 +75,9 @@ BEGIN
         -- Tipo incompatible (uuid, text, ...). Se convierte a integer con una
         -- secuencia temporal: se conservan las filas y cada una recibe un id
         -- único y nuevo, sin reutilizar valores ni chocar con el NOT NULL.
+        -- El default se descarta primero porque Postgres no puede castearlo al
+        -- nuevo tipo (p. ej. ``gen_random_uuid()``).
+        ALTER TABLE device_tokens ALTER COLUMN id DROP DEFAULT;
         CREATE SEQUENCE IF NOT EXISTS device_tokens_id_tmp_seq;
         ALTER TABLE device_tokens
             ALTER COLUMN id TYPE integer

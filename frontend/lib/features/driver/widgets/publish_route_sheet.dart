@@ -225,6 +225,7 @@ class _PublishSheetState extends State<_PublishSheet> {
             initialLocation: _draft.driverPoint,
             onLocationSelected: (location) =>
                 setState(() => _draft.driverPoint = location),
+            onLocationCleared: () => setState(() => _draft.driverPoint = null),
           ),
 
           const SizedBox(height: 22),

@@ -36,9 +36,7 @@ void main() {
               <String, String>{'lat': '10.4011', 'lon': '-75.5122'},
             ]),
             200,
-            headers: const <String, String>{
-              'content-type': 'application/json',
-            },
+            headers: const <String, String>{'content-type': 'application/json'},
           );
         }),
         minInterval: Duration.zero,
@@ -46,6 +44,28 @@ void main() {
 
       final point = await locator.locate('Manga');
       expect(point, const LatLng(10.4011, -75.5122));
+    });
+
+    test('Turbaco se busca en Bolívar con sesgo de viewbox sin bloquear otras zonas', () async {
+      final locator = PlaceLocator(
+        client: MockClient((request) async {
+          expect(
+            request.url.queryParameters['q'],
+            'Turbaco, Bolívar, Colombia',
+          );
+          expect(request.url.queryParameters['viewbox'], isNotEmpty);
+          expect(request.url.queryParameters.containsKey('bounded'), isFalse);
+          return http.Response(
+            jsonEncode(<Map<String, String>>[
+              <String, String>{'lat': '10.334', 'lon': '-75.416'},
+            ]),
+            200,
+          );
+        }),
+        minInterval: Duration.zero,
+      );
+
+      expect(await locator.locate('Turbaco'), const LatLng(10.334, -75.416));
     });
 
     test('si Nominatim no encuentra, usa el catálogo', () async {

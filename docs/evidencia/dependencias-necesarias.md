@@ -31,7 +31,11 @@ Dependencia directa de la app Flutter (`frontend/pubspec.yaml`):
 
 La compilación Android requiere `frontend/android/app/google-services.json` del
 proyecto Firebase. El archivo está excluido de Git y se comparte por el canal
-privado del equipo.
+privado del equipo. El plugin `com.google.gms.google-services` se aplica siempre
+en `frontend/android/app/build.gradle.kts`, así que sin ese archivo el build de
+Android falla: cada persona debe descargarlo de la consola de Firebase.
+`backend/.env.example` ya trae los marcadores de posición de las credenciales que
+usa el servidor para enviar.
 
 ## Instalación
 

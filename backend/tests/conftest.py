@@ -20,6 +20,18 @@ from alembic.config import Config
 from sqlalchemy import text
 
 
+def pytest_configure(config):
+    """Registra el marcador ``external`` (el proyecto no tiene pytest.ini).
+
+    Las pruebas externas llaman a proveedores reales y están apagadas por
+    defecto: se activan con ``RUN_EXTERNAL_TESTS=1``.
+    """
+    config.addinivalue_line(
+        "markers",
+        "external: llama a proveedores externos reales; requiere RUN_EXTERNAL_TESTS=1",
+    )
+
+
 @pytest.fixture(scope="session", autouse=True)
 def crear_tablas():
     with engine.begin() as conn:

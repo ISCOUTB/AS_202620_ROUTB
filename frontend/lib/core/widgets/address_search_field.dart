@@ -30,6 +30,7 @@ class AddressSearchField extends StatefulWidget {
   const AddressSearchField({
     required this.geocodeRepository,
     required this.onLocationSelected,
+    this.onLocationCleared,
     this.initialLocation,
     this.label = 'Dirección o punto exacto',
     this.locateCurrentPosition,
@@ -38,6 +39,10 @@ class AddressSearchField extends StatefulWidget {
 
   final GeocodeRepository geocodeRepository;
   final ValueChanged<SelectedLocation> onLocationSelected;
+
+  /// Se dispara cuando el texto deja de corresponder con el punto seleccionado.
+  final VoidCallback? onLocationCleared;
+
   final SelectedLocation? initialLocation;
   final String label;
 
@@ -58,6 +63,8 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
   String? _errorMessage;
   LatLng? _pinnedPoint;
   String? _selectedAddress;
+  bool _hasSelection = false;
+  int _searchEpoch = 0;
 
   // Centro por defecto: Cartagena / UTB
   static const LatLng _defaultCenter = LatLng(10.371078, -75.466261);
@@ -72,6 +79,7 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
       );
       _selectedAddress = widget.initialLocation!.addressText;
       _queryController.text = _selectedAddress!;
+      _hasSelection = true;
     } else {
       _pinnedPoint = _defaultCenter;
     }
@@ -86,6 +94,7 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
   Future<void> _search() async {
     final query = _queryController.text.trim();
     if (query.length < 2) return;
+    final epoch = ++_searchEpoch;
 
     setState(() {
       _isLoading = true;
@@ -95,14 +104,24 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
 
     try {
       final results = await widget.geocodeRepository.search(query);
-      if (mounted) {
+      if (mounted && epoch == _searchEpoch) {
         setState(() {
           _suggestions = results;
           _isLoading = false;
+          if (results.isNotEmpty) {
+            final first = results.first;
+            _pinnedPoint = LatLng(first.lat, first.lng);
+            _selectedAddress = first.displayName;
+            _hasSelection = true;
+          }
         });
+        if (results.isNotEmpty) {
+          _moveMapIfReady(_pinnedPoint!, 15.0);
+          _notifyChange();
+        }
       }
     } on Exception catch (error) {
-      if (mounted) {
+      if (mounted && epoch == _searchEpoch) {
         setState(() {
           _isLoading = false;
           _errorMessage = error.toString();
@@ -116,11 +135,21 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
     setState(() {
       _pinnedPoint = point;
       _selectedAddress = result.displayName;
+      _hasSelection = true;
       _queryController.text = result.displayName;
       _suggestions = const [];
     });
-    _mapController.move(point, 15.0);
     _notifyChange();
+    _moveMapIfReady(point, 15.0);
+  }
+
+  void _moveMapIfReady(LatLng point, double zoom) {
+    if (!_showMap) return;
+    try {
+      _mapController.move(point, zoom);
+    } on Object {
+      // El controlador aún no está vinculado a un FlutterMap montado.
+    }
   }
 
   void _notifyChange() {
@@ -135,6 +164,27 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
     }
   }
 
+  void _onQueryChanged(String query) {
+    // Invalida resultados de una búsqueda anterior: no se deben poder elegir
+    // sugerencias que ya no corresponden al texto visible.
+    _searchEpoch++;
+    final selectedAddress = _selectedAddress?.trim();
+    final invalidatesLocation =
+        _hasSelection && selectedAddress != query.trim();
+
+    setState(() {
+      _suggestions = const [];
+      _errorMessage = null;
+      _isLoading = false;
+      if (invalidatesLocation) {
+        _hasSelection = false;
+        _selectedAddress = null;
+      }
+    });
+
+    if (invalidatesLocation) widget.onLocationCleared?.call();
+  }
+
   Future<void> _useMyLocation() async {
     setState(() => _errorMessage = null);
     try {
@@ -146,9 +196,11 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
       setState(() {
         _pinnedPoint = point;
         _selectedAddress = selected.addressText;
+        _hasSelection = true;
         _queryController.text = selected.addressText;
       });
       _notifyChange();
+      _moveMapIfReady(point, 15.0);
     } on Exception {
       if (!mounted) return;
       setState(() {
@@ -191,6 +243,7 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
               child: RoutbField(
                 controller: _queryController,
                 hint: widget.label,
+                onChanged: _onQueryChanged,
                 onSubmitted: (_) => _search(),
               ),
             ),
@@ -215,29 +268,34 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
               border: Border.all(color: palette.line),
             ),
             constraints: const BoxConstraints(maxHeight: 180),
-            child: ListView.separated(
-              shrinkWrap: true,
-              itemCount: _suggestions.length,
-              separatorBuilder: (_, _) =>
-                  Divider(height: 1, color: palette.line),
-              itemBuilder: (context, index) {
-                final item = _suggestions[index];
-                return ListTile(
-                  dense: true,
-                  leading: Icon(
-                    Icons.location_pin,
-                    color: palette.brand,
-                    size: 20,
-                  ),
-                  title: Text(
-                    item.displayName,
-                    style: textTheme.bodySmall?.copyWith(color: palette.ink),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  onTap: () => _selectSuggestion(item),
-                );
-              },
+            child: Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
+              clipBehavior: Clip.antiAlias,
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: _suggestions.length,
+                separatorBuilder: (_, _) =>
+                    Divider(height: 1, color: palette.line),
+                itemBuilder: (context, index) {
+                  final item = _suggestions[index];
+                  return ListTile(
+                    dense: true,
+                    leading: Icon(
+                      Icons.location_pin,
+                      color: palette.brand,
+                      size: 20,
+                    ),
+                    title: Text(
+                      item.displayName,
+                      style: textTheme.bodySmall?.copyWith(color: palette.ink),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    onTap: () => _selectSuggestion(item),
+                  );
+                },
+              ),
             ),
           ),
         if (_errorMessage != null)
@@ -284,6 +342,7 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
                         if (hasGesture) {
                           setState(() {
                             _pinnedPoint = pos.center;
+                            _hasSelection = true;
                           });
                           _notifyChange();
                         }

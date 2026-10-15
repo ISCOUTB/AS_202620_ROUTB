@@ -50,6 +50,17 @@ class PlaceLocator {
     return zone == null ? null : Zones.pointOf(zone);
   }
 
+  /// Coordenada geocodificada que ya está en caché, sin hacer una petición.
+  ///
+  /// Las vistas previas pueden montarse de nuevo mientras la pantalla cambia
+  /// de estado. Si ya se conoce la coordenada real, permite pintarla desde el
+  /// primer frame en vez de volver brevemente al punto aproximado del catálogo.
+  LatLng? cachedPoint(String query) {
+    final key = Zones.normalize(query.trim());
+    if (key.isEmpty || !_geocodeCache.containsKey(key)) return null;
+    return _geocodeCache[key];
+  }
+
   /// Coordenada más fiel al texto: Nominatim y, si falla, el catálogo.
   Future<LatLng?> locate(String query) async {
     final trimmed = query.trim();
@@ -138,10 +149,7 @@ class PlaceLocator {
       return <LatLng>[
         for (final pair in coordinates)
           if (pair is List && pair.length >= 2)
-            LatLng(
-              (pair[1] as num).toDouble(),
-              (pair[0] as num).toDouble(),
-            ),
+            LatLng((pair[1] as num).toDouble(), (pair[0] as num).toDouble()),
       ];
     } on Object {
       return null;
@@ -170,14 +178,19 @@ class PlaceLocator {
   }
 
   Map<String, String> get _headers => <String, String>{
-        'User-Agent': userAgent,
-        'Accept': 'application/json',
-        'Accept-Language': 'es',
-      };
+    'User-Agent': userAgent,
+    'Accept': 'application/json',
+    'Accept-Language': 'es',
+  };
 
   static String _searchQuery(String raw) {
     final lower = raw.toLowerCase();
     if (lower.contains('cartagena')) return raw;
+    if (lower.contains('turbaco') || lower.contains('arjona')) {
+      return lower.contains('bolivar') || lower.contains('bolívar')
+          ? raw
+          : '$raw, Bolívar, Colombia';
+    }
     return '$raw, Cartagena, Bolívar, Colombia';
   }
 

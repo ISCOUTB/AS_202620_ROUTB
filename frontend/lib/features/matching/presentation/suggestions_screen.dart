@@ -97,6 +97,7 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> {
                 geocodeRepository: _dependencies.geocode,
                 label: 'Dirección o punto de encuentro',
                 onLocationSelected: (location) => setState(() => _stops[index].location = location),
+                onLocationCleared: () => setState(() => _stops[index].location = null),
               ),
               if (_direction == 'from_campus')
                 DropdownButtonFormField<int>(
