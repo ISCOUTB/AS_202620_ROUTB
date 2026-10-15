@@ -132,6 +132,8 @@ docker build -t routb-backend:local backend         # solo la imagen del backend
   de despliegue.
 - Hacer un cambio que rompa el contrato actual de la API.
 - Hacer push o merge directo a `master`.
+- Modificar un ADR existente en `docs/adr/`. Los ADR son inmodificables: si hace
+  falta un cambio, lo maneja el equipo.
 
 ## Git
 
@@ -164,7 +166,8 @@ docker build -t routb-backend:local backend         # solo la imagen del backend
      `Dockerfile`, `requirements.txt` o el arranque de la API.
 2. Revisa `git diff`: sin secretos, artefactos ni cambios ajenos a la tarea.
 3. Actualiza la documentación directamente afectada: endpoint, esquema, variable
-   de entorno, comando, capas, despliegue, migraciones o decisión técnica (ADR
-   en `docs/`).
+   de entorno, comando, capas, despliegue o migraciones. Si la tarea introduce
+   una decisión técnica nueva, crea un ADR nuevo en `docs/`; nunca edites un ADR
+   existente (son inmodificables).
 4. Reporta qué cambiaste, cómo lo verificaste, qué no pudiste ejecutar y
    cualquier consideración de configuración o despliegue.

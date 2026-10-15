@@ -12,6 +12,7 @@ from app.core.database import SessionLocal
 from app.core.timezone import colombia_today
 from app.main import app
 from app.modules.auth.application.tokens import create_access_token
+from app.modules.notifications.domain.exceptions import DeviceTokenRegistrationError
 from app.modules.notifications.infrastructure.models import DeviceToken
 from app.modules.requests.infrastructure.models import TripRequest
 from app.modules.trips.infrastructure.models import Trip
@@ -239,3 +240,64 @@ def test_no_se_registran_tokens_en_logs():
             assert "secret_token_12345" not in record.getMessage()
     finally:
         logger.removeHandler(handler)
+
+
+def test_registro_de_token_genera_id_en_la_base():
+    """El ``id`` de ``device_tokens`` lo genera la base, no el cliente.
+
+    Regresión del ``NotNullViolation`` que en producción devolvía 500: el alta
+    debe persistir el token y asignar un id sin recibirlo del cliente.
+    """
+    user_id, user_token = _crear_usuario("3400000008", "driver")
+
+    try:
+        _registrar_token(user_token, "fcm_id_gen_1")
+        _registrar_token(user_token, "fcm_id_gen_2")
+
+        with SessionLocal() as db:
+            ids = [
+                row.id
+                for row in db.query(DeviceToken)
+                .filter(DeviceToken.user_id == user_id)
+                .all()
+            ]
+
+        assert len(ids) == 2
+        assert all(i is not None for i in ids)
+        assert len(set(ids)) == 2
+    finally:
+        _limpiar(user_id)
+
+
+def test_modelo_device_token_id_es_entero_con_identity():
+    """El modelo exige ``id`` entero generado por la base.
+
+    Es el contrato que la migración 008 restaura en producción: si la columna
+    deja de ser entera o pierde la generación, este test avisa.
+    """
+    from sqlalchemy import Integer
+
+    columna = DeviceToken.__table__.c.id
+    assert isinstance(columna.type, Integer)
+    assert columna.identity is not None
+
+
+def test_registro_token_con_fallo_de_bd_devuelve_500_claro():
+    """Un fallo de persistencia del token se traduce a 500 con detalle."""
+    user_id, user_token = _crear_usuario("3400000009", "driver")
+
+    try:
+        with patch(
+            "app.modules.notifications.infrastructure.router.upsert_token",
+            side_effect=DeviceTokenRegistrationError(),
+        ):
+            resp = client.put(
+                "/notifications/device-token",
+                headers={"Authorization": f"Bearer {user_token}"},
+                json={"device_token": "fcm_error", "platform": "android"},
+            )
+
+        assert resp.status_code == 500
+        assert resp.json()["detail"] == "device_token_registration_failed"
+    finally:
+        _limpiar(user_id)

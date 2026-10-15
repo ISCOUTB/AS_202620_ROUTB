@@ -1,11 +1,16 @@
 """Casos de uso: alta / actualización / eliminación de tokens de dispositivo."""
 
+import logging
 from datetime import datetime, timezone
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.modules.notifications.domain.exceptions import DeviceTokenRegistrationError
 from app.modules.notifications.infrastructure.models import DeviceToken
+
+logger = logging.getLogger(__name__)
 
 
 def upsert_token(
@@ -39,7 +44,12 @@ def upsert_token(
         token_row.platform = platform
         token_row.last_seen_at = now
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        logger.exception("No se pudo registrar el token de dispositivo")
+        raise DeviceTokenRegistrationError() from exc
     db.refresh(token_row)
     return token_row
 

@@ -8,24 +8,45 @@ from app.main import app
 from app.modules.trips.application.reserve_seat import reserve_seat
 from app.modules.trips.infrastructure.models import Trip
 
+from tests.helpers import crear_usuario, crear_viaje, limpiar, parada
+
 client = TestClient(app)
 
 
 def test_crear_consultar_y_reservar_cupo():
-    response = client.post(
-        "/trips/",
-        json={"origin": "Campus", "destination": "Centro", "total_seats": 2},
-    )
-    assert response.status_code == 201
-    trip_id = response.json()["id"]
+    """Publica un viaje autenticado y descuenta un cupo por el flujo real.
 
-    response = client.get(f"/trips/{trip_id}")
-    assert response.status_code == 200
-    assert response.json()["available_seats"] == 2
+    El endpoint legado ``POST /trips/{id}/reservations`` ya no existe (reserva
+    anónima); ahora el cupo se toma solicitando y aceptando, que es el camino
+    que usa la app.
+    """
+    driver_id, driver_token = crear_usuario("3190000001", "driver")
+    passenger_id, passenger_token = crear_usuario("3190000002", "passenger")
+    try:
+        trip_id = crear_viaje(driver_token, total_seats=2, direction="to_campus")
 
-    response = client.post(f"/trips/{trip_id}/reservations")
-    assert response.status_code == 200
-    assert response.json()["available_seats"] == 1
+        response = client.get(f"/trips/{trip_id}")
+        assert response.status_code == 200
+        assert response.json()["available_seats"] == 2
+
+        response = client.post(
+            f"/requests/trips/{trip_id}",
+            headers={"Authorization": f"Bearer {passenger_token}"},
+            json={"seat_count": 1, "stops": [parada()]},
+        )
+        assert response.status_code == 201, response.text
+        request_id = response.json()["id"]
+
+        response = client.patch(
+            f"/requests/{request_id}/accept",
+            headers={"Authorization": f"Bearer {driver_token}"},
+        )
+        assert response.status_code == 200, response.text
+
+        response = client.get(f"/trips/{trip_id}")
+        assert response.json()["available_seats"] == 1
+    finally:
+        limpiar(passenger_id, driver_id)
 
 
 def test_reservas_concurrentes_no_sobrevenden_cupos():

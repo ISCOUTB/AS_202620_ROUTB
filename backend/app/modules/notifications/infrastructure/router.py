@@ -11,6 +11,7 @@ from app.modules.notifications.application.manage_device_token import (
     delete_token,
     upsert_token,
 )
+from app.modules.notifications.domain.exceptions import DeviceTokenRegistrationError
 from app.modules.notifications.infrastructure.schemas import (
     DeviceTokenResponse,
     DeviceTokenUpsert,
@@ -40,12 +41,18 @@ def register_device_token(
     Si el token ya existe se actualiza `last_seen_at`; si pertenecía a otra
     cuenta se reasigna al usuario actual.
     """
-    token_row = upsert_token(
-        db,
-        user_id=current_user.id,
-        device_token=payload.device_token,
-        platform=payload.platform,
-    )
+    try:
+        token_row = upsert_token(
+            db,
+            user_id=current_user.id,
+            device_token=payload.device_token,
+            platform=payload.platform,
+        )
+    except DeviceTokenRegistrationError:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="device_token_registration_failed",
+        )
     return DeviceTokenResponse.model_validate(token_row)
 
 

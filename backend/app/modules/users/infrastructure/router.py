@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.modules.auth.infrastructure.security import get_current_user
-from app.modules.users.application import UserIdentity, create_user, get_users
+from app.modules.users.application import UserIdentity, create_user
 from app.modules.users.application.location_consent import (
     grant_location_consent,
     revoke_location_consent,
@@ -28,11 +28,6 @@ def register_basic_user(
             status_code=status.HTTP_409_CONFLICT,
             detail=e.message,
         )
-
-
-@router.get("/")
-def list_users(db: Annotated[Session, Depends(get_db)]):
-    return get_users(db=db)
 
 
 @router.post(

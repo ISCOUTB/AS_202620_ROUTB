@@ -16,6 +16,20 @@ introdujo o modificó.
 | 0.4.0   | Cambios locales sin commit | `Changes` | Añade fecha de salida y punto de encuentro a los viajes; permite filtrar por día y devuelve esos datos en las solicitudes del pasajero. |
 | 0.5.0   | Cambios locales sin commit | `Changes` | Añade endpoint de matching (`GET /matching/suggestions`) con sugerencias ordenadas por score de compatibilidad (Fase 2). |
 | 0.6.0   | Cambios locales sin commit | `Changes` | Amplía solicitudes con fecha y paradas; agrega estados `cancelled`/`expired`, vencimiento, exclusividad por día y sentido, y registro de tokens y push FCM. |
+| 0.7.0   | Cambios locales sin commit | `Changes` | Endurece la identidad de endpoints del Aspecto 3: retira `GET /users/` y `POST /trips/{trip_id}/reservations`, y exige token y propiedad en `POST /trips/` y `PATCH /trips/{trip_id}/cancel`. |
+
+## Endurecimiento de endpoints (Aspecto 3)
+
+- Se retira `GET /users/`, que respondía sin autenticación y sin `response_model`
+  devolviendo la tabla de usuarios (incluido `hashed_password`). El registro sigue
+  en `POST /users/`.
+- Se retira `POST /trips/{trip_id}/reservations`, reserva anónima legada
+  sustituida por `POST /requests/trips/{trip_id}` con aceptación del conductor.
+  La primitiva atómica `reserve_seat` se conserva para la prueba de concurrencia.
+- `POST /trips/` exige token; ya no se crean viajes sin dueño (`driver_id` nulo).
+- `PATCH /trips/{trip_id}/cancel` exige token y propiedad; se elimina el caso en
+  que un llamador anónimo cancelaba cualquier viaje.
+- CORS pasa a `allow_credentials=False` (la autenticación es Bearer, no cookies).
 
 ## Ajustes de matching y sugerencias (Fase 2)
 

@@ -106,27 +106,27 @@ Se realizaron cuatro peticiones consecutivas sin pausa entre ellas y se midió e
 
 ---
 
-## 5. Verificaciones de seguridad pendientes
+## 5. Verificaciones de seguridad
 
-Esta sección deja registrado un hallazgo **detectado y aún no corregido** en el momento de
-la verificación. No forma parte de los criterios de disponibilidad, pero se documenta para
-que no se pierda de vista:
+Durante la verificación se detectaron cuatro puntos sin control de identidad. Ya
+están **corregidos**:
 
-- `GET /users/` respondía `200` **sin autenticación** y sin `response_model`, por lo que
-  devolvía la tabla completa de usuarios incluyendo el campo `hashed_password`.
-- `POST /trips/{trip_id}/reservations` respondía **sin autenticación**, permitiendo descontar
-  cupos de cualquier viaje sin dejar registro.
-- `PATCH /trips/{trip_id}/cancel` no exigía token; la comprobación de propiedad se
-  omitía cuando el llamador era anónimo.
-- La configuración de CORS usaba `allow_origins=["*"]` junto con
-  `allow_credentials=True`, de modo que cualquier origen externo podía leer esas
-  respuestas desde el navegador de un visitante.
+- `GET /users/` se **retiró**: respondía `200` **sin autenticación** y sin
+  `response_model`, devolviendo la tabla completa de usuarios incluido
+  `hashed_password`. El registro sigue en `POST /users/`.
+- `POST /trips/{trip_id}/reservations` se **retiró**: reservaba cupos sin
+  autenticación. La reserva pasa por `POST /requests/trips/{trip_id}` con
+  aceptación del conductor.
+- `PATCH /trips/{trip_id}/cancel` ahora exige token y propiedad; antes omitía la
+  comprobación cuando el llamador era anónimo.
+- `POST /trips/` ahora exige token; antes creaba viajes sin dueño.
+- El CORS pasó de `allow_origins=["*"]` con `allow_credentials=True` a
+  `allow_credentials=False` (la autenticación es Bearer, no por cookies).
 
-La corrección de estos puntos es independiente del despliegue. **No existe todavía un ticket,
-ADR ni entrada en el registro de riesgos que los recoja**, de modo que en su estado actual
-contradicen el Aspecto 3 de [aspectos.md](../aspectos.md) ("todo endpoint sensible valida
-identidad mediante JWT"). Hasta que se cierren, esa afirmación del Aspecto 3 debe leerse
-como requisito y no como estado verificado.
+Con esto, el Aspecto 3 de [aspectos.md](../aspectos.md) ("todo endpoint sensible
+valida identidad mediante JWT") queda satisfecho. Los cambios están registrados
+en el contrato OpenAPI `0.7.0` y se cubren en
+[`backend/tests/test_seguridad_endpoints.py`](../../backend/tests/test_seguridad_endpoints.py).
 
 ---
 
