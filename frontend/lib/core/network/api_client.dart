@@ -14,7 +14,7 @@ import 'api_exception.dart';
 /// de espera y la traducción de fallos a [ApiException]. Los repositorios de
 /// cada módulo solo llaman a [get], [post] y [patch].
 class ApiClient {
-  ApiClient(this._session, {http.Client? client})
+  ApiClient(this._session, {http.Client? client, this.onUnauthorized})
       : _client = client ?? http.Client();
 
   /// Margen holgado para redes móviles lentas.
@@ -27,6 +27,7 @@ class ApiClient {
 
   final SessionStore _session;
   final http.Client _client;
+  final Future<void> Function()? onUnauthorized;
 
   bool _closed = false;
 
@@ -154,6 +155,10 @@ class ApiClient {
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return decoded;
+    }
+
+    if (response.statusCode == 401 && onUnauthorized != null) {
+      unawaited(onUnauthorized!());
     }
 
     final failure = ApiException.fromResponse(response.statusCode, decoded);

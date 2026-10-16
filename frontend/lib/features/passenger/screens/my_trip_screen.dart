@@ -94,7 +94,6 @@ class _MyTripScreenState extends State<MyTripScreen> {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final arrival = _request.estimatedArrival;
 
     return Scaffold(
       backgroundColor: palette.background,
@@ -142,9 +141,7 @@ class _MyTripScreenState extends State<MyTripScreen> {
                             ),
                             TimelineStop(
                               title: _request.destination,
-                              subtitle: arrival == null
-                                  ? 'Sin hora de llegada estimada'
-                                  : 'Llegada estimada ${arrival.label}',
+                              subtitle: 'Destino final',
                             ),
                           ],
                         ),

@@ -1,30 +1,27 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/dependencies.dart';
+import '../../../core/constants/zones.dart';
 import '../../../core/models/trip.dart';
+import '../../../core/models/trip_request.dart';
+import '../../../core/network/api_exception.dart';
 import '../../../core/theme/routb_palette.dart';
 import '../../../core/theme/routb_text.dart';
 import '../../../core/widgets/address_search_field.dart';
 import '../../../core/widgets/routb_button.dart';
 import '../../../core/widgets/routb_seats.dart';
 import '../../../core/widgets/routb_sheet.dart';
+import '../../../core/widgets/routb_toast.dart';
 import '../../trips/data/trip_repository.dart';
 
-/// Mini pantalla de solicitud de cupos.
+/// Mini pantalla de solicitud de cupos simplificada (B-1).
 ///
-/// El pasajero ya eligió el viaje en el listado, así que aquí solo se le pide
-/// **cuántos cupos** quiere. Si el viaje tiene `direction` se pide además el
-/// **punto** (recogida o bajada), porque `create_request` rechaza con una
-/// excepción las solicitudes sin paradas en los viajes con sentido: sin este
-/// campo la petición volvería 500 y el cupo no se pediría.
+/// Si el viaje va a la UTB, el destino ya es conocido (UTB) y solo se pide
+/// el punto de recogida. Si el viaje sale de la UTB, el origen ya es conocido
+/// (UTB) y solo se pide el punto de bajada.
 ///
-/// Una sola parada satisface los dos sentidos: `to_campus` exige exactamente
-/// una y `from_campus` admite hasta una por pasajero con `seats` igual al total.
-///
-/// ```dart
-/// final choice = await showReserveSeatsSheet(context: context, trip: trip);
-/// if (choice == null) return;
-/// ```
+/// La hora de salida se toma de la ruta seleccionada y no se pregunta aquí.
+/// La solicitud se despacha directamente al conductor desde esta hoja.
 Future<ReserveSeatsResult?> showReserveSeatsSheet({
   required BuildContext context,
   required Trip trip,
@@ -43,9 +40,7 @@ Future<ReserveSeatsResult?> showReserveSeatsSheet({
     ),
     builder: (_) => DraggableScrollableSheet(
       expand: false,
-      // Con parada el formulario es más alto: se abre más lleno para que el
-      // campo de dirección no quede bajo el pliegue.
-      initialChildSize: trip.direction == null ? 0.55 : 0.82,
+      initialChildSize: 0.86,
       minChildSize: 0.5,
       maxChildSize: 1.0,
       builder: (context, scrollController) =>
@@ -54,15 +49,22 @@ Future<ReserveSeatsResult?> showReserveSeatsSheet({
   );
 }
 
-/// Respuesta de la mini pantalla: cuántos cupos y con qué paradas enviar.
+/// Respuesta de la mini pantalla: cupos, paradas y solicitud creada.
 class ReserveSeatsResult {
-  const ReserveSeatsResult({required this.seatCount, required this.stops});
+  const ReserveSeatsResult({
+    required this.seatCount,
+    required this.stops,
+    this.request,
+  });
 
   /// Cupos pedidos, de 1 a 4.
   final int seatCount;
 
-  /// Paradas a enviar; vacías en los viajes legados sin `direction`.
+  /// Paradas a enviar.
   final List<RequestStopInput> stops;
+
+  /// Solicitud ya despachada y creada en el servidor, si aplica.
+  final TripRequest? request;
 }
 
 class _ReserveSeatsSheet extends StatefulWidget {
@@ -82,53 +84,148 @@ class _ReserveSeatsSheetState extends State<_ReserveSeatsSheet> {
   int _seatCount = 1;
   SelectedLocation? _location;
   String _placeType = 'door';
+  bool _submitting = false;
 
   Trip get _trip => widget.trip;
 
-  /// Los viajes con sentido exigen una parada; los legados, ninguna.
-  bool get _needsStop => _trip.direction != null;
-
-  bool get _toCampus => _trip.direction == 'to_campus';
+  /// Determina si el viaje va hacia el campus o sale de él.
+  bool get _toCampus {
+    if (_trip.direction == 'to_campus') return true;
+    if (_trip.direction == 'from_campus') return false;
+    return _trip.destination.toLowerCase().contains('utb') ||
+        Zones.byName(_trip.destination)?.isCampus == true;
+  }
 
   /// El backend acepta de 1 a 4 cupos y solo los que queden libres.
   int get _maximum => _trip.availableSeats.clamp(1, 4).toInt();
 
-  /// El texto se normaliza porque arrastrar el mapa sin buscar deja la
-  /// dirección vacía, y `address_text` no puede llegar en blanco.
+  /// El texto se normaliza para asegurar un `address_text` válido.
   String get _addressText {
     final text = _location?.addressText.trim() ?? '';
     if (text.isNotEmpty) return text;
     return _toCampus ? 'Punto de recogida' : 'Punto de bajada';
   }
 
-  ReserveSeatsResult get _result => ReserveSeatsResult(
-    seatCount: _seatCount,
-    stops: _needsStop && _location != null
-        ? <RequestStopInput>[
-            RequestStopInput(
-              seats: _seatCount,
-              placeType: _placeType,
-              location: SelectedLocation(
-                lat: _location!.lat,
-                lng: _location!.lng,
-                addressText: _addressText,
-              ),
+  String get _driverFirstName =>
+      _trip.hasDriverName ? _trip.driverName!.split(' ').first : 'el conductor';
+
+  List<RequestStopInput> get _stops => _location != null
+      ? <RequestStopInput>[
+          RequestStopInput(
+            seats: _seatCount,
+            placeType: _placeType,
+            location: SelectedLocation(
+              lat: _location!.lat,
+              lng: _location!.lng,
+              addressText: _addressText,
             ),
-          ]
-        : const <RequestStopInput>[],
-  );
+          ),
+        ]
+      : const <RequestStopInput>[];
+
+  bool get _canConfirm => _location != null && !_submitting;
+
+  Future<void> _submit() async {
+    if (!_canConfirm) return;
+    setState(() => _submitting = true);
+
+    try {
+      final repository = RoutbScopeDependencies.of(context).trips;
+      final created = await repository.requestSeat(
+        _trip.id,
+        seatCount: _seatCount,
+        stops: _stops,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop(
+        ReserveSeatsResult(
+          seatCount: _seatCount,
+          stops: _stops,
+          request: created,
+        ),
+      );
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      RoutbToast.show(context, error.message);
+    } on Exception catch (error) {
+      if (!mounted) return;
+      RoutbToast.show(context, 'No se pudo enviar la solicitud: $error');
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final canConfirm = !_needsStop || _location != null;
+    final palette = context.palette;
 
     return RoutbSheetScaffold(
-      title: 'Solicitar cupos',
-      subtitle: '${_trip.origin} → ${_trip.destination}',
+      title: _toCampus
+          ? 'Solicitar cupo hacia la UTB'
+          : 'Solicitar cupo desde la UTB',
+      subtitle: _toCampus
+          ? 'Destino fijo: UTB Campus Tecnológico'
+          : 'Salida fija: UTB · ${_trip.meetingPoint}',
       scrollController: widget.scrollController,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Tarjeta contextual con información del viaje (no editable aquí)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: palette.card,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: palette.line),
+            ),
+            child: Row(
+              children: [
+                InitialsAvatar(
+                  name: _trip.driverName ?? 'Conductor',
+                  initials: _trip.driverInitials,
+                  size: 38,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _trip.driverName ?? 'Conductor ROUTB',
+                        style: RoutbText.headline(14, color: palette.ink),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Salida ${_trip.departureLabel} · ${_trip.departureDateLabel}',
+                        style: RoutbText.copy(12, color: palette.muted),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: palette.brandSurface,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    _toCampus ? 'Hacia UTB' : 'Desde UTB',
+                    style: RoutbText.copy(
+                      11,
+                      color: palette.onBrandSurface,
+                      weight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
+
+          // Selector de cupos
           _SectionLabel(
             title: '¿Cuántos cupos necesitas?',
             trailing: _seatCount == 1 ? '1 cupo' : '$_seatCount cupos',
@@ -137,49 +234,58 @@ class _ReserveSeatsSheetState extends State<_ReserveSeatsSheet> {
             child: SeatSlots(
               selected: _seatCount,
               maxSeats: _maximum,
-              onChanged: (value) => setState(() => _seatCount = value),
+              onChanged: _submitting
+                  ? null
+                  : (value) => setState(() => _seatCount = value),
             ),
           ),
-          if (_needsStop) ...[
-            const SizedBox(height: 18),
-            _SectionLabel(
-              title: _toCampus ? '¿Dónde te recogemos?' : '¿Dónde te bajamos?',
-              trailing: 'Obligatorio',
-            ),
-            AddressSearchField(
-              geocodeRepository: RoutbScopeDependencies.of(context).geocode,
-              label: _toCampus
-                  ? 'Busca tu punto de recogida'
-                  : 'Busca tu punto de bajada',
-              onLocationSelected: (location) =>
-                  setState(() => _location = location),
-              onLocationCleared: () => setState(() => _location = null),
-            ),
-            const SizedBox(height: 18),
-            const _SectionLabel(title: 'Tipo de punto'),
-            RoutbSegmented<String>(
-              options: const <({String value, String label})>[
-                (value: 'door', label: 'En la puerta'),
-                (value: 'meeting_point', label: 'Punto de encuentro'),
-              ],
-              value: _placeType,
-              onChanged: (value) => setState(() => _placeType = value),
-            ),
-          ],
+          const SizedBox(height: 20),
+
+          // Pregunta única de ubicación según el sentido
+          _SectionLabel(
+            title: _toCampus ? '¿Dónde te recogemos?' : '¿Dónde te bajamos?',
+            trailing: 'Obligatorio',
+          ),
+          AddressSearchField(
+            geocodeRepository: RoutbScopeDependencies.of(context).geocode,
+            toCampus: _toCampus,
+            label: _toCampus
+                ? 'Escribe tu dirección o barrio de recogida'
+                : 'Escribe tu dirección o barrio de bajada',
+            onLocationSelected: (location) =>
+                setState(() => _location = location),
+            onLocationCleared: () => setState(() => _location = null),
+          ),
+          const SizedBox(height: 18),
+
+          // Tipo de punto (en la puerta / punto de encuentro)
+          const _SectionLabel(title: 'Tipo de punto'),
+          RoutbSegmented<String>(
+            options: const <({String value, String label})>[
+              (value: 'door', label: 'En la puerta'),
+              (value: 'meeting_point', label: 'Punto de encuentro'),
+            ],
+            value: _placeType,
+            onChanged: (value) {
+              if (!_submitting) setState(() => _placeType = value);
+            },
+          ),
+          const SizedBox(height: 12),
         ],
       ),
       footer: RoutbButton(
         label: _seatCount == 1
-            ? 'Solicitar 1 cupo'
-            : 'Solicitar $_seatCount cupos',
-        onPressed: canConfirm ? () => Navigator.of(context).pop(_result) : null,
+            ? 'Enviar solicitud a $_driverFirstName (1 cupo)'
+            : 'Enviar solicitud a $_driverFirstName ($_seatCount cupos)',
+        icon: Icons.send_rounded,
+        busy: _submitting,
+        onPressed: _canConfirm ? _submit : null,
       ),
     );
   }
 }
 
-/// Etiqueta de sección con el valor a la derecha, igual que en la hoja de
-/// publicación de rutas.
+/// Etiqueta de sección con el valor a la derecha.
 class _SectionLabel extends StatelessWidget {
   const _SectionLabel({required this.title, this.trailing});
 
@@ -191,7 +297,7 @@ class _SectionLabel extends StatelessWidget {
     final palette = context.palette;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
           Expanded(

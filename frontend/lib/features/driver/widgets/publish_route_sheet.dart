@@ -65,10 +65,18 @@ class DraftRoute {
   final String driverInitials;
 
   /// Barrio de partida.
-  String get origin => toCampus ? zone.name : Zones.campus.name;
+  String get origin => toCampus
+      ? (driverPoint != null && driverPoint!.addressText.trim().isNotEmpty
+          ? driverPoint!.addressText.trim()
+          : zone.name)
+      : Zones.campus.name;
 
   /// Barrio de llegada.
-  String get destination => toCampus ? Zones.campus.name : zone.name;
+  String get destination => toCampus
+      ? Zones.campus.name
+      : (driverPoint != null && driverPoint!.addressText.trim().isNotEmpty
+          ? driverPoint!.addressText.trim()
+          : zone.name);
 
   /// Texto del trayecto, como lo muestra el conductor.
   String get routeLabel => '$origin → $destination';
@@ -151,6 +159,31 @@ class _PublishSheetState extends State<_PublishSheet> {
     super.dispose();
   }
 
+  Zone _resolveZone(SelectedLocation location) {
+    final direct = Zones.byName(location.addressText);
+    if (direct != null && !direct.isCampus) return direct;
+
+    final lower = location.addressText.toLowerCase();
+    for (final zone in Zones.neighborhoods) {
+      if (lower.contains(zone.name.toLowerCase())) {
+        return zone;
+      }
+    }
+
+    Zone best = Zones.neighborhoods.first;
+    double minDistance = double.infinity;
+    for (final zone in Zones.neighborhoods) {
+      final dLat = zone.latitude - location.lat;
+      final dLng = zone.longitude - location.lng;
+      final d2 = dLat * dLat + dLng * dLng;
+      if (d2 < minDistance) {
+        minDistance = d2;
+        best = zone;
+      }
+    }
+    return best;
+  }
+
   @override
   Widget build(BuildContext context) {
     return RoutbSheetScaffold(
@@ -159,16 +192,8 @@ class _PublishSheetState extends State<_PublishSheet> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SectionLabel(title: 'Fecha del viaje'),
-          DateQuickPicker(
-            value: _draft.departureDate,
-            onChanged: (date) => setState(() => _draft.departureDate = date),
-          ),
-
-          SectionLabel(
-            title: 'Trayecto',
-            trailing: _draft.toCampus ? 'Sales desde' : 'Llegas a',
-          ),
+          // 1. Sentido y Horario
+          const SectionLabel(title: 'Trayecto y horario'),
           RoutbSegmented<bool>(
             options: const <({bool value, String label})>[
               (value: true, label: 'Voy a la UTB'),
@@ -178,46 +203,46 @@ class _PublishSheetState extends State<_PublishSheet> {
             onChanged: (value) => setState(() => _draft.toCampus = value),
           ),
           const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final zone in Zones.neighborhoods)
-                RoutbChip(
-                  label: zone.name,
-                  selected: zone.name == _draft.zone.name,
-                  onTap: () => setState(() => _draft.zone = zone),
-                ),
-            ],
+          DateQuickPicker(
+            value: _draft.departureDate,
+            onChanged: (date) => setState(() => _draft.departureDate = date),
           ),
-
-          const SizedBox(height: 18),
-          SectionLabel(
-            title: _draft.toCampus
-                ? 'Dirección exacta de salida'
-                : 'Dirección exacta de llegada',
-            trailing: 'Opcional',
-          ),
-          AddressSearchField(
-            geocodeRepository: widget.geocodeRepository,
-            label: _draft.toCampus ? 'Busca dónde sales' : 'Busca dónde llegas',
-            initialLocation: _draft.driverPoint,
-            onLocationSelected: (location) =>
-                setState(() => _draft.driverPoint = location),
-            onLocationCleared: () => setState(() => _draft.driverPoint = null),
-          ),
-
-          const SizedBox(height: 22),
-          const SectionLabel(title: 'Hora de salida'),
+          const SizedBox(height: 12),
           DepartureStepper(
             departure: _draft.departure,
-            zoneMinutes: _draft.zone.minutes,
             onChanged: (value) => setState(() => _draft.departure = value),
           ),
 
-          const SizedBox(height: 22),
+          const SizedBox(height: 20),
+          // 2. Ubicación en Cartagena (búsqueda, barrios, GPS y mapa)
           SectionLabel(
-            title: 'Cupos que ofreces',
+            title: _draft.toCampus
+                ? 'Punto de salida en Cartagena'
+                : 'Punto de llegada en Cartagena',
+            trailing: _draft.driverPoint != null
+                ? _draft.zone.name
+                : 'Obligatorio',
+          ),
+          AddressSearchField(
+            geocodeRepository: widget.geocodeRepository,
+            toCampus: _draft.toCampus,
+            label: _draft.toCampus
+                ? 'Escribe tu dirección o barrio de salida'
+                : 'Escribe tu dirección o barrio de llegada',
+            initialLocation: _draft.driverPoint,
+            onLocationSelected: (location) {
+              setState(() {
+                _draft.driverPoint = location;
+                _draft.zone = _resolveZone(location);
+              });
+            },
+            onLocationCleared: () => setState(() => _draft.driverPoint = null),
+          ),
+
+          const SizedBox(height: 20),
+          // 3. Cupos y Punto de encuentro
+          SectionLabel(
+            title: 'Cupos disponibles',
             trailing: _draft.seats == 1 ? '1 cupo' : '${_draft.seats} cupos',
           ),
           Center(
@@ -227,29 +252,37 @@ class _PublishSheetState extends State<_PublishSheet> {
             ),
           ),
 
-          const SizedBox(height: 18),
-          const SectionLabel(title: 'Punto de encuentro'),
-          RoutbField(
-            hint: 'Ej. Portería principal de la UTB',
-            icon: Icons.place_outlined,
-            controller: _meetingPoint,
-            textCapitalization: TextCapitalization.sentences,
-            onChanged: (value) {
-              setState(() => _draft.meetingPoint = value);
-            },
-          ),
+          if (!_draft.toCampus) ...[
+            const SizedBox(height: 20),
+            const SectionLabel(title: 'Punto de encuentro en UTB'),
+            RoutbField(
+              hint: 'Ej. Portería principal / Bahía de buses UTB',
+              icon: Icons.flag_outlined,
+              controller: _meetingPoint,
+              textCapitalization: TextCapitalization.sentences,
+              onChanged: (value) {
+                setState(() => _draft.meetingPoint = value);
+              },
+            ),
+          ],
 
           const RoutbHint(
-            'El trayecto del mapa es una estimación: al publicar se calcula y guarda la ruta real.',
-            margin: EdgeInsets.only(top: 16),
+            'El trayecto se calcula y publica con base en el barrio y las paradas.',
+            margin: EdgeInsets.only(top: 18),
           ),
         ],
       ),
       footer: RoutbButton(
         label: 'Publicar ruta',
-        onPressed: _draft.meetingPoint.trim().length < 3
+        onPressed: ((!_draft.toCampus && _draft.meetingPoint.trim().length < 3) ||
+                    _draft.driverPoint == null)
             ? null
-            : () => Navigator.of(context).pop(_draft),
+            : () {
+                if (_draft.toCampus && _draft.meetingPoint.trim().isEmpty) {
+                  _draft.meetingPoint = 'Por coordinar';
+                }
+                Navigator.of(context).pop(_draft);
+              },
       ),
     );
   }
@@ -267,62 +300,101 @@ class SeatPicker extends StatelessWidget {
       SeatSlots(selected: seats, onChanged: onChanged, maxSeats: 4);
 }
 
-/// `.tm`: ajuste de la hora de salida en saltos de quince minutos.
+/// Selector de hora de salida práctico e interactivo (B-8) sin leyenda artificial (B-7).
 class DepartureStepper extends StatelessWidget {
   const DepartureStepper({
     required this.departure,
-    required this.zoneMinutes,
     required this.onChanged,
+    this.zoneMinutes,
     super.key,
   });
 
   /// Hora actual del formulario.
   final TravelTime departure;
 
-  /// Minutos del barrio, para estimar la llegada.
-  final int zoneMinutes;
+  /// Minutos opcionales por compatibilidad.
+  final int? zoneMinutes;
 
-  /// Se dispara con la hora ya desplazada.
+  /// Se dispara con la hora ya ajustada.
   final ValueChanged<TravelTime> onChanged;
 
   static const int stepMinutes = 15;
 
+  Future<void> _pickTime(BuildContext context) async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: departure.hour, minute: departure.minute),
+      helpText: 'Selecciona la hora de salida',
+      cancelText: 'Cancelar',
+      confirmText: 'Aceptar',
+    );
+    if (picked != null) {
+      onChanged(TravelTime.fromClock(picked.hour, picked.minute));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final arrival = departure.shifted(zoneMinutes);
 
     return Container(
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: palette.card,
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: palette.line, width: 1),
       ),
       child: Row(
         children: [
           _StepButton(
-            label: '−',
-            semanticLabel: 'Quince minutos antes',
+            label: '−15',
+            semanticLabel: '15 minutos antes',
             onTap: () => onChanged(departure.shifted(-stepMinutes)),
           ),
           Expanded(
-            child: Column(
-              children: [
-                Text(
-                  departure.label,
-                  style: RoutbText.headline(32, color: palette.ink, height: 1),
+            child: InkWell(
+              onTap: () => _pickTime(context),
+              borderRadius: BorderRadius.circular(14),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.schedule_rounded,
+                          size: 20,
+                          color: palette.brand,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          departure.label,
+                          style: RoutbText.headline(
+                            28,
+                            color: palette.ink,
+                            height: 1,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Toca para cambiar la hora',
+                      style: RoutbText.copy(
+                        11,
+                        color: palette.muted,
+                        weight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  'Llegas sobre las ${arrival.label}',
-                  style: RoutbText.copy(12, color: palette.muted),
-                ),
-              ],
+              ),
             ),
           ),
           _StepButton(
-            label: '+',
-            semanticLabel: 'Quince minutos después',
+            label: '+15',
+            semanticLabel: '15 minutos después',
             onTap: () => onChanged(departure.shifted(stepMinutes)),
           ),
         ],

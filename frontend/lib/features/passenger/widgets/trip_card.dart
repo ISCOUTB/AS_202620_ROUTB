@@ -42,7 +42,6 @@ class TripCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
     final state = trip.bookingState;
-    final arrival = trip.estimatedArrival;
     final driverName = trip.hasDriverName
         ? trip.driverName!
         : 'Conductor ROUTB';
@@ -84,7 +83,7 @@ class TripCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${trip.departureDateLabel} · ${arrival == null ? 'llegada sin estimar' : 'llega ${arrival.label}'}',
+                      trip.departureDateLabel,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: RoutbText.copy(12, color: palette.muted),

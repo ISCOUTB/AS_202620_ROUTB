@@ -97,12 +97,36 @@ class AuthRepository {
     await _api.delete('/users/me/location-consent');
   }
 
-  /// Devuelve la cuenta guardada en el dispositivo, o `null` si no hay.
+  /// Devuelve la cuenta guardada en el dispositivo si sigue siendo válida en
+  /// el backend, o `null` si no hay o si el token ya expiró.
   Future<Account?> restore() async {
     final token = await _session.readToken();
     final name = await _session.readName();
     final role = await _session.readRole();
     if (token == null || name == null || role == null) return null;
+
+    try {
+      final user = await _api.get('/auth/me');
+      if (user is Map<String, dynamic>) {
+        final serverName = (user['name'] as String?)?.trim();
+        final serverRole = UserRole.fromWire(user['role'] as String?);
+        return Account(
+          name: serverName != null && serverName.isNotEmpty ? serverName : name,
+          role: serverRole,
+          token: token,
+        );
+      }
+    } on ApiException catch (e) {
+      if (e.isUnauthorized) {
+        // El token expiró o ya no es válido en el servidor: limpiamos sesión.
+        await _session.clear();
+        return null;
+      }
+      // Si fue error de red temporal (sin conexión), permitimos pasar con la sesión en caché.
+    } catch (_) {
+      // Si fue error de red u otro, permitimos restaurar la sesión local.
+    }
+
     return Account(name: name, role: role, token: token);
   }
 

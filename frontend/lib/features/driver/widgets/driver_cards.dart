@@ -211,7 +211,6 @@ class RouteCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
     final phase = trip.phaseAt(DateTime.now());
-    final arrival = trip.estimatedArrival;
 
     final (Color pillBackground, Color pillForeground) = switch (phase) {
       TripPhase.onCourse => (palette.mintSurface, palette.onMintSurface),
@@ -254,6 +253,39 @@ class RouteCard extends StatelessWidget {
                       background: pillBackground,
                       foreground: pillForeground,
                     ),
+                    if (trip.requests.pending.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: palette.amberSurface,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: palette.amber, width: 1),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.notifications_active_rounded,
+                              size: 13,
+                              color: palette.onAmberSurface,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${trip.requests.pending.length} ${trip.requests.pending.length == 1 ? 'solicitud' : 'solicitudes'}',
+                              style: RoutbText.copy(
+                                11,
+                                color: palette.onAmberSurface,
+                                weight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     const SizedBox(width: 8),
                     _ChevronButton(
                       onTap: onOpenDetail,
@@ -272,9 +304,7 @@ class RouteCard extends StatelessWidget {
                     ),
                     TimelineStop(
                       title: trip.destination,
-                      subtitle: arrival == null
-                          ? 'Llegada sin estimar'
-                          : 'Llegada estimada ${arrival.label}',
+                      subtitle: 'Destino final',
                       reached: false,
                     ),
                   ],
@@ -355,29 +385,26 @@ class HeroSeatSlots extends StatelessWidget {
 
   final Trip trip;
 
-  static const int _slots = 4;
-
   @override
   Widget build(BuildContext context) {
     final confirmed = _confirmedSeatInitials(trip);
     final occupied = trip.takenSeats;
+    final slots = trip.totalSeats.clamp(1, 4);
 
-    // El lado de cada pip sale del ancho disponible: cuatro pips de 32 px mÃ¡s
-    // sus separadores no entran en el hero de un telÃ©fono estrecho, y una fila
-    // de ancho fijo desborda en lugar de encogerse.
+    // El lado de cada pip sale del ancho disponible según los cupos reales del viaje.
     return LayoutBuilder(
       builder: (context, constraints) {
         const gap = 6.0;
         final size = math.min(
           32.0,
-          math.max(0.0, (constraints.maxWidth - gap * (_slots - 1)) / _slots),
+          math.max(0.0, (constraints.maxWidth - gap * (slots - 1)) / slots),
         );
 
         return Row(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.end,
           children: <Widget>[
-            for (var seat = 0; seat < _slots; seat++)
+            for (var seat = 0; seat < slots; seat++)
               Padding(
                 padding: EdgeInsets.only(left: seat == 0 ? 0 : gap),
                 child: _SeatPip(
@@ -385,7 +412,7 @@ class HeroSeatSlots extends StatelessWidget {
                   initials: seat < confirmed.length
                       ? confirmed[seat]
                       : seat < occupied
-                      ? 'â€“'
+                      ? '–'
                       : null,
                 ),
               ),
@@ -477,6 +504,7 @@ class OccupiedSeatsCard extends StatelessWidget {
 
     return SeatSlots(
       selected: trip.totalSeats,
+      maxSeats: trip.totalSeats.clamp(1, 4),
       onChanged: null,
       locked: true,
       occupiedBy: names,

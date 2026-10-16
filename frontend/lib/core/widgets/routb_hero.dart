@@ -127,7 +127,11 @@ class HeroAction extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             label,
-            style: RoutbText.copy(11, color: Colors.white, weight: FontWeight.w700),
+            style: RoutbText.copy(
+              11,
+              color: Colors.white,
+              weight: FontWeight.w700,
+            ),
           ),
         ],
       ),
@@ -164,9 +168,7 @@ class ThemeToggle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = context.isDarkMode;
-    final foreground = onDarkBackground
-        ? Colors.white
-        : (isDark ? const Color(0xFFA79BFF) : const Color(0xFF6C5CFF));
+    final foreground = onDarkBackground ? Colors.white : context.palette.brand;
 
     return Semantics(
       button: true,

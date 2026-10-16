@@ -12,6 +12,7 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/theme/routb_palette.dart';
 import '../../../core/theme/routb_text.dart';
 import '../../../core/theme/routb_theme.dart';
+import '../../../core/widgets/date_quick_picker.dart';
 import '../../../core/widgets/route_map.dart';
 import '../../../core/widgets/routb_anim.dart';
 import '../../../core/widgets/routb_button.dart';
@@ -252,23 +253,54 @@ class _PassengerScreenState extends State<PassengerScreen> {
     setState(() => _busyTripId = trip.id);
 
     try {
-      final request = await _repository.requestSeat(
-        trip.id,
-        seatCount: choice.seatCount,
-        stops: choice.stops,
-      );
+      final request =
+          choice.request ??
+          await _repository.requestSeat(
+            trip.id,
+            seatCount: choice.seatCount,
+            stops: choice.stops,
+          );
       if (!mounted) return;
       // El backend descuenta los cupos al aceptar el conductor, no al solicitar,
       // así que aquí solo se marca la solicitud en curso.
       _replaceTrip(trip.copyWith(myRequestStatus: request.status));
       // Y con ella aparece la solicitud en «Mis viajes» sin esperar al
       // siguiente refresco.
-      unawaited(_loadMyRequests());
+      await _loadMyRequests();
+      if (!mounted) return;
       final seats = choice.seatCount;
       RoutbToast.show(
         context,
         'Solicitud de $seats ${seats == 1 ? 'cupo' : 'cupos'} enviada a ${trip.hasDriverName ? trip.driverName!.split(' ').first : 'el conductor'}',
       );
+
+      // B-2: La pantalla de búsqueda se convierte en seguimiento de ruta al solicitar/confirmar el viaje.
+      // Al finalizar o cancelarse regresa limpiamente al buscador.
+      final activeReq =
+          _myRequests.cast<MyRequest?>().firstWhere(
+            (r) => r != null && (r.tripId == trip.id || r.id == request.id),
+            orElse: () => null,
+          ) ??
+          MyRequest(
+            id: request.id,
+            tripId: trip.id,
+            seatCount: choice.seatCount,
+            status: request.status,
+            origin: trip.origin,
+            destination: trip.destination,
+            rawDeparture: trip.rawDeparture,
+            departure: trip.departure,
+            departureDate: trip.departureDate,
+            meetingPoint: trip.meetingPoint,
+            totalSeats: trip.totalSeats,
+            availableSeats: trip.availableSeats,
+            tripStatus: trip.status,
+            createdAt: request.createdAt,
+            driverName: trip.driverName,
+            driverPhone: null,
+          );
+
+      await _openMyTrip(activeReq);
     } on ApiException catch (error) {
       if (!mounted) return;
       RoutbToast.show(context, error.message);
@@ -345,7 +377,20 @@ class _PassengerScreenState extends State<PassengerScreen> {
                             onRetry: _load,
                           ),
                           PassengerStatus.ready => _TripsList(
-                            trips: _trips,
+                            trips: () {
+                              final confirmedTripIds = _myRequests
+                                  .where((r) => r.isConfirmed)
+                                  .map((r) => r.tripId)
+                                  .toSet();
+                              return confirmedTripIds.isEmpty
+                                  ? _trips
+                                  : _trips
+                                        .where(
+                                          (t) =>
+                                              !confirmedTripIds.contains(t.id),
+                                        )
+                                        .toList(growable: false);
+                            }(),
                             myRequest: _currentRequest,
                             busyTripId: _busyTripId,
                             filtering: _filtering,
@@ -384,28 +429,28 @@ class _PassengerScreenState extends State<PassengerScreen> {
   }
 }
 
-/// Hero del modo pasajero: saludo y buscador.
+/// Hero del modo pasajero: saludo, mapa y acceso a búsqueda.
 class _PassengerHero extends StatelessWidget {
   const _PassengerHero({
     required this.userName,
-    required this.origin,
-    required this.destination,
     required this.selectedDate,
-    required this.onOriginChanged,
-    required this.onDestinationChanged,
     required this.onDateChanged,
     required this.onLogout,
     required this.onLocationPrivacy,
     required this.onOpenMap,
     required this.onOpenSuggestions,
+    this.origin,
+    this.destination,
+    this.onOriginChanged,
+    this.onDestinationChanged,
   });
 
   final String userName;
-  final TextEditingController origin;
-  final TextEditingController destination;
+  final TextEditingController? origin;
+  final TextEditingController? destination;
   final DateTime selectedDate;
-  final ValueChanged<String> onOriginChanged;
-  final ValueChanged<String> onDestinationChanged;
+  final ValueChanged<String>? onOriginChanged;
+  final ValueChanged<String>? onDestinationChanged;
   final ValueChanged<DateTime> onDateChanged;
   final VoidCallback onLogout;
   final VoidCallback onLocationPrivacy;
@@ -414,15 +459,13 @@ class _PassengerHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Mapa compacto dentro del buscador, y hoja a pantalla casi completa para
-    // moverlo. Aquí no hay viaje guardado todavía, solo lo que se está
-    // escribiendo, así que el mapa se redibuja con cada búsqueda.
-    final originText = origin.text.trim();
-    final destinationText = destination.text.trim();
+    final originText = origin?.text.trim() ?? '';
+    final destinationText = destination?.text.trim() ?? '';
+    final palette = context.palette;
 
     return Container(
       decoration: BoxDecoration(
-        gradient: context.palette.heroGradient,
+        gradient: palette.heroGradient,
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(34)),
       ),
       padding: const EdgeInsets.fromLTRB(18, 12, 18, 20),
@@ -449,7 +492,7 @@ class _PassengerHero extends StatelessWidget {
                 right: 6,
                 top: 6,
                 child: Material(
-                  color: context.palette.card,
+                  color: palette.card,
                   borderRadius: BorderRadius.circular(RoutbTheme.radiusPill),
                   child: InkWell(
                     onTap: onOpenMap,
@@ -462,14 +505,14 @@ class _PassengerHero extends StatelessWidget {
                           Icon(
                             Icons.fullscreen_rounded,
                             size: 13,
-                            color: context.palette.ink,
+                            color: palette.ink,
                           ),
                           const SizedBox(width: 4),
                           Text(
                             'Abrir mapa',
                             style: RoutbText.copy(
                               11,
-                              color: context.palette.ink,
+                              color: palette.ink,
                               weight: FontWeight.w700,
                             ),
                           ),
@@ -482,21 +525,59 @@ class _PassengerHero extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          SearchCard(
-            origin: origin,
-            destination: destination,
-            onOriginChanged: onOriginChanged,
-            onDestinationChanged: onDestinationChanged,
-            selectedDate: selectedDate,
-            onDateChanged: onDateChanged,
-          ),
-          const SizedBox(height: 10),
-          RoutbButton(
-            label: 'Buscar sugerencias puerta a puerta',
-            icon: Icons.route_outlined,
-            variant: RoutbButtonVariant.secondary,
-            onPressed: onOpenSuggestions,
-            height: 42,
+          Container(
+            decoration: BoxDecoration(
+              color: palette.card,
+              borderRadius: BorderRadius.circular(22),
+              boxShadow: palette.searchShadow,
+            ),
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DateQuickPicker(value: selectedDate, onChanged: onDateChanged),
+                const SizedBox(height: 10),
+                Material(
+                  color: palette.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  child: InkWell(
+                    onTap: onOpenSuggestions,
+                    borderRadius: BorderRadius.circular(16),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.search_rounded,
+                            size: 20,
+                            color: palette.brand,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              '¿A dónde vas? Buscar ruta y paradas',
+                              style: RoutbText.copy(
+                                13,
+                                color: palette.ink,
+                                weight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          Icon(
+                            Icons.arrow_forward_ios_rounded,
+                            size: 13,
+                            color: palette.muted,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),

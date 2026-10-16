@@ -308,9 +308,9 @@ class _DriverScreenState extends State<DriverScreen> {
     RoutbToast.show(context, 'Cerraste sesión');
   }
 
-  Future<void> _openLocationPrivacy() => Navigator.of(context).push(
-    RoutbPageRoute<void>(child: const LocationPrivacyScreen()),
-  );
+  Future<void> _openLocationPrivacy() =>
+      Navigator.of(context)
+          .push(RoutbPageRoute<void>(child: const LocationPrivacyScreen()));
 
   @override
   Widget build(BuildContext context) {
@@ -454,21 +454,15 @@ class _Body extends StatelessWidget {
                 offset: const Offset(0, 12),
                 child: Column(
                   children: [
-                    RoutbCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          RoutbCardHeader(
-                            title: 'Solicitudes',
-                            count: state.pendingRequestCount,
-                          ),
-                          if (state.tripsWithPendingRequests.isEmpty)
-                            const RoutbEmptyState(
-                              message:
-                                  'Sin solicitudes por ahora. Te avisamos '
-                                  'cuando llegue una.',
-                            )
-                          else
+                    if (state.tripsWithPendingRequests.isNotEmpty) ...[
+                      RoutbCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            RoutbCardHeader(
+                              title: 'Solicitudes pendientes',
+                              count: state.pendingRequestCount,
+                            ),
                             for (final pendingTrip
                                 in state.tripsWithPendingRequests)
                               for (final request
@@ -485,10 +479,11 @@ class _Body extends StatelessWidget {
                                         onReject(pendingTrip, request),
                                   ),
                                 ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 14),
+                      const SizedBox(height: 14),
+                    ],
                     RoutbCard(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,

@@ -116,7 +116,10 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> {
               AddressSearchField(
                 key: ValueKey<int>(index),
                 geocodeRepository: _dependencies.geocode,
-                label: 'Dirección o punto de encuentro',
+                toCampus: _direction == 'to_campus',
+                label: _direction == 'to_campus'
+                    ? 'Escribe dirección o barrio de recogida'
+                    : 'Escribe dirección o barrio de bajada',
                 onLocationSelected: (location) =>
                     setState(() => _stops[index].location = location),
                 onLocationCleared: () =>

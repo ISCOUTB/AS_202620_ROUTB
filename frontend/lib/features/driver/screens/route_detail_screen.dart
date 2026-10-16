@@ -78,6 +78,77 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
     }
   }
 
+  final Set<int> _busyRequests = <int>{};
+
+  Future<void> _acceptRequest(TripRequest request) async {
+    if (_busyRequests.contains(request.id)) return;
+    setState(() => _busyRequests.add(request.id));
+
+    final repository = RoutbScopeDependencies.of(context).trips;
+    try {
+      final accepted = await repository.accept(request.id);
+      final updated = _trip.copyWith(
+        availableSeats: (_trip.availableSeats - accepted.seatCount).clamp(
+          0,
+          _trip.totalSeats,
+        ),
+        requests: [
+          for (final req in _trip.requests)
+            if (req.id == accepted.id) accepted else req,
+        ],
+      );
+      setState(() => _trip = updated);
+      widget.onChanged(updated);
+      if (!mounted) return;
+      final free = updated.availableSeats;
+      RoutbToast.show(
+        context,
+        free > 0
+            ? 'Aceptaste a ${request.passengerName.split(' ').first} · quedan $free cupos'
+            : 'Aceptaste a ${request.passengerName.split(' ').first} · el viaje quedó lleno',
+      );
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      RoutbToast.show(context, error.message);
+      await _reloadRequests();
+    } finally {
+      if (mounted) setState(() => _busyRequests.remove(request.id));
+    }
+  }
+
+  Future<void> _rejectRequest(TripRequest request) async {
+    if (_busyRequests.contains(request.id)) return;
+    setState(() => _busyRequests.add(request.id));
+
+    final repository = RoutbScopeDependencies.of(context).trips;
+    try {
+      final rejected = await repository.reject(request.id);
+      final availableSeats = request.isAccepted
+          ? (_trip.availableSeats + request.seatCount).clamp(
+              0,
+              _trip.totalSeats,
+            )
+          : _trip.availableSeats;
+      final updated = _trip.copyWith(
+        availableSeats: availableSeats,
+        requests: [
+          for (final req in _trip.requests)
+            if (req.id == rejected.id) rejected else req,
+        ],
+      );
+      setState(() => _trip = updated);
+      widget.onChanged(updated);
+      if (!mounted) return;
+      RoutbToast.show(context, 'Solicitud rechazada');
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      RoutbToast.show(context, error.message);
+      await _reloadRequests();
+    } finally {
+      if (mounted) setState(() => _busyRequests.remove(request.id));
+    }
+  }
+
   Future<void> _cancel() async {
     final accepted = _trip.requests.accepted.fold<int>(
       0,
@@ -133,7 +204,6 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
   Widget build(BuildContext context) {
     final palette = context.palette;
     final phase = _trip.phaseAt(DateTime.now());
-    final arrival = _trip.estimatedArrival;
     final accepted = _trip.requests.accepted;
     final acceptedSeatCount = accepted.fold<int>(
       0,
@@ -202,9 +272,7 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                             ),
                             TimelineStop(
                               title: _trip.destination,
-                              subtitle: arrival == null
-                                  ? 'Sin hora de llegada estimada'
-                                  : 'Llegada estimada ${arrival.label}',
+                              subtitle: 'Destino final',
                             ),
                           ],
                         ),
@@ -249,6 +317,32 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                       ],
                     ),
                   ),
+
+                  if (_trip.requests.pending.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    RoutbCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          RoutbCardHeader(
+                            title: 'Solicitudes pendientes',
+                            count: _trip.requests.pending.length,
+                          ),
+                          for (final req in _trip.requests.pending)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: RequestTile(
+                                request: req,
+                                trip: _trip,
+                                busy: _busyRequests.contains(req.id),
+                                onAccept: () => _acceptRequest(req),
+                                onReject: () => _rejectRequest(req),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
 
                   const SizedBox(height: 14),
                   RoutbCard(
