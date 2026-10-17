@@ -1,3 +1,4 @@
+import '../../../core/models/user_profile.dart';
 import '../../../core/models/user_role.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
@@ -89,6 +90,19 @@ class AuthRepository {
   /// Registra en el backend el consentimiento para usar geocodificación.
   Future<void> grantLocationConsent() async {
     await _api.post('/users/me/location-consent');
+  }
+
+  /// `GET /auth/me`
+  ///
+  /// Perfil de solo lectura para la pantalla de Perfil: nombre completo,
+  /// teléfono, rol y estado del consentimiento de ubicación. Es la misma
+  /// información que devuelve el ingreso, pero siempre fresca.
+  Future<UserProfile> fetchProfile() async {
+    final response = await _api.get('/auth/me');
+    if (response is! Map<String, dynamic>) {
+      throw const ApiException('El servidor no devolvió el perfil.');
+    }
+    return UserProfile.fromJson(response);
   }
 
   /// Revoca el consentimiento y hace que el backend elimine las paradas de

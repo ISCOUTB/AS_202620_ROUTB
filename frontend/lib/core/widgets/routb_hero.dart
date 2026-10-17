@@ -16,7 +16,6 @@ class HeroBar extends StatelessWidget {
     required this.role,
     required this.userName,
     required this.onLogout,
-    this.onLocationPrivacy,
     required this.isDarkBackground,
     this.wave = false,
     super.key,
@@ -30,7 +29,6 @@ class HeroBar extends StatelessWidget {
 
   /// Acción de cerrar sesión.
   final VoidCallback onLogout;
-  final VoidCallback? onLocationPrivacy;
 
   /// `true` si el hero se pinta en tema oscuro.
   final bool isDarkBackground;
@@ -65,6 +63,8 @@ class HeroBar extends StatelessWidget {
             children: [
               Text(
                 role.modeLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: RoutbText.copy(12, color: const Color(0xB8FFFFFF)),
               ),
               Text(
@@ -76,22 +76,6 @@ class HeroBar extends StatelessWidget {
             ],
           ),
         ),
-        ThemeToggle(onDarkBackground: isDarkBackground),
-        const SizedBox(width: 4),
-        if (onLocationPrivacy != null) ...[
-          IconButton(
-            tooltip: 'Privacidad de ubicación',
-            onPressed: onLocationPrivacy,
-            constraints: const BoxConstraints.tightFor(width: 32, height: 36),
-            padding: EdgeInsets.zero,
-            icon: const Icon(
-              Icons.location_on_outlined,
-              size: 18,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(width: 4),
-        ],
         HeroAction(label: 'Salir', icon: Icons.logout_rounded, onTap: onLogout),
       ],
     );

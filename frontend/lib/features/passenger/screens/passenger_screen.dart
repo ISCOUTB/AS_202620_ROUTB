@@ -17,12 +17,13 @@ import '../../../core/widgets/route_map.dart';
 import '../../../core/widgets/routb_anim.dart';
 import '../../../core/widgets/routb_button.dart';
 import '../../../core/widgets/routb_hero.dart';
+import '../../../core/widgets/routb_nav_bar.dart';
 import '../../../core/widgets/routb_seats.dart';
 import '../../../core/widgets/routb_sheet.dart';
 import '../../../core/widgets/routb_toast.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../auth/screens/auth_flow.dart';
-import '../../auth/screens/location_privacy_screen.dart';
+import '../../profile/screens/profile_screen.dart';
 import '../../trips/data/trip_repository.dart';
 import '../../matching/presentation/suggestions_screen.dart';
 import '../widgets/my_trip_card.dart';
@@ -33,7 +34,7 @@ import 'my_trip_screen.dart';
 /// Estado de la lista de viajes del pasajero.
 enum PassengerStatus { loading, ready, failed }
 
-enum _PassengerTab { search, myTrips }
+enum _PassengerTab { search, myTrips, profile }
 
 /// Modo pasajero: busca viajes, compara horarios y solicita cupos.
 ///
@@ -332,10 +333,6 @@ class _PassengerScreenState extends State<PassengerScreen> {
     RoutbToast.show(context, 'Cerraste sesión');
   }
 
-  Future<void> _openLocationPrivacy() =>
-      Navigator.of(context)
-          .push(RoutbPageRoute<void>(child: const LocationPrivacyScreen()));
-
   Future<void> _openSuggestions() =>
       Navigator.of(context)
           .push(RoutbPageRoute<void>(child: const SuggestionsScreen()));
@@ -353,77 +350,87 @@ class _PassengerScreenState extends State<PassengerScreen> {
             constraints: const BoxConstraints(
               maxWidth: RoutbTheme.contentMaxWidth,
             ),
-            child: _selectedTab == _PassengerTab.search
-                ? Column(
-                    children: [
-                      _PassengerHero(
-                        userName: widget.account.name,
-                        origin: _origin,
-                        destination: _destination,
-                        selectedDate: _selectedDate,
-                        onOriginChanged: _onQueryChanged,
-                        onDestinationChanged: _onQueryChanged,
-                        onDateChanged: _setDate,
-                        onLogout: _logout,
-                        onLocationPrivacy: _openLocationPrivacy,
-                        onOpenMap: _openFullMap,
-                        onOpenSuggestions: _openSuggestions,
-                      ),
-                      Expanded(
-                        child: switch (_status) {
-                          PassengerStatus.loading => const _TripsLoading(),
-                          PassengerStatus.failed => _TripsFailed(
-                            message: _errorMessage,
-                            onRetry: _load,
-                          ),
-                          PassengerStatus.ready => _TripsList(
-                            trips: () {
-                              final confirmedTripIds = _myRequests
-                                  .where((r) => r.isConfirmed)
-                                  .map((r) => r.tripId)
-                                  .toSet();
-                              return confirmedTripIds.isEmpty
-                                  ? _trips
-                                  : _trips
-                                        .where(
-                                          (t) =>
-                                              !confirmedTripIds.contains(t.id),
-                                        )
-                                        .toList(growable: false);
-                            }(),
-                            myRequest: _currentRequest,
-                            busyTripId: _busyTripId,
-                            filtering: _filtering,
-                            origin: _origin.text.trim(),
-                            destination: _destination.text.trim(),
-                            selectedDate: _selectedDate,
-                            onReserve: _reserve,
-                            onOpenMyTrip: _openMyTrip,
-                            onRefresh: _load,
-                            onClearFilters: _clearFilters,
-                          ),
-                        },
-                      ),
-                    ],
-                  )
-                : _MyTripsTab(
+            child: switch (_selectedTab) {
+              _PassengerTab.search => Column(
+                children: [
+                  _PassengerHero(
                     userName: widget.account.name,
-                    requests: _myRequests,
-                    loading: _myRequestsLoading,
-                    failed: _myRequestsFailed,
+                    origin: _origin,
+                    destination: _destination,
+                    selectedDate: _selectedDate,
+                    onOriginChanged: _onQueryChanged,
+                    onDestinationChanged: _onQueryChanged,
+                    onDateChanged: _setDate,
                     onLogout: _logout,
-                    onLocationPrivacy: _openLocationPrivacy,
-                    onRefresh: _loadMyRequests,
-                    onRetry: _loadMyRequests,
-                    onOpen: _openMyTrip,
+                    onOpenMap: _openFullMap,
+                    onOpenSuggestions: _openSuggestions,
                   ),
+                  Expanded(
+                    child: switch (_status) {
+                      PassengerStatus.loading => const _TripsLoading(),
+                      PassengerStatus.failed => _TripsFailed(
+                        message: _errorMessage,
+                        onRetry: _load,
+                      ),
+                      PassengerStatus.ready => _TripsList(
+                        trips: () {
+                          final confirmedTripIds = _myRequests
+                              .where((r) => r.isConfirmed)
+                              .map((r) => r.tripId)
+                              .toSet();
+                          return confirmedTripIds.isEmpty
+                              ? _trips
+                              : _trips
+                                    .where(
+                                      (t) => !confirmedTripIds.contains(t.id),
+                                    )
+                                    .toList(growable: false);
+                        }(),
+                        myRequest: _currentRequest,
+                        busyTripId: _busyTripId,
+                        filtering: _filtering,
+                        origin: _origin.text.trim(),
+                        destination: _destination.text.trim(),
+                        selectedDate: _selectedDate,
+                        onReserve: _reserve,
+                        onOpenMyTrip: _openMyTrip,
+                        onRefresh: _load,
+                        onClearFilters: _clearFilters,
+                      ),
+                    },
+                  ),
+                ],
+              ),
+              _PassengerTab.myTrips => _MyTripsTab(
+                userName: widget.account.name,
+                requests: _myRequests,
+                loading: _myRequestsLoading,
+                failed: _myRequestsFailed,
+                onLogout: _logout,
+                onRefresh: _loadMyRequests,
+                onRetry: _loadMyRequests,
+                onOpen: _openMyTrip,
+              ),
+              _PassengerTab.profile => ProfileScreen(account: widget.account),
+            },
           ),
         ),
       ),
-      bottomNavigationBar: _PassengerNavigationBar(
-        selected: _selectedTab,
-        activeTrips: _myRequests.where((request) => request.isActive).length,
-        onSelected: _selectTab,
+      bottomNavigationBar: RoutbNavBar(
+        items: [
+          const RoutbNavItem(label: 'Buscar', icon: Icons.search_rounded),
+          RoutbNavItem(
+            label: 'Mis viajes',
+            icon: Icons.luggage_outlined,
+            badge: _myRequests.where((request) => request.isActive).length,
+          ),
+          const RoutbNavItem(
+            label: 'Perfil',
+            icon: Icons.person_outline_rounded,
+          ),
+        ],
+        selectedIndex: _selectedTab.index,
+        onSelected: (index) => _selectTab(_PassengerTab.values[index]),
       ),
     );
   }
@@ -436,7 +443,6 @@ class _PassengerHero extends StatelessWidget {
     required this.selectedDate,
     required this.onDateChanged,
     required this.onLogout,
-    required this.onLocationPrivacy,
     required this.onOpenMap,
     required this.onOpenSuggestions,
     this.origin,
@@ -453,7 +459,6 @@ class _PassengerHero extends StatelessWidget {
   final ValueChanged<String>? onDestinationChanged;
   final ValueChanged<DateTime> onDateChanged;
   final VoidCallback onLogout;
-  final VoidCallback onLocationPrivacy;
   final VoidCallback onOpenMap;
   final VoidCallback onOpenSuggestions;
 
@@ -476,7 +481,6 @@ class _PassengerHero extends StatelessWidget {
             role: UserRole.passenger,
             userName: userName,
             onLogout: onLogout,
-            onLocationPrivacy: onLocationPrivacy,
             isDarkBackground: true,
             wave: true,
           ),
@@ -798,7 +802,6 @@ class _MyTripsTab extends StatelessWidget {
     required this.loading,
     required this.failed,
     required this.onLogout,
-    required this.onLocationPrivacy,
     required this.onRefresh,
     required this.onRetry,
     required this.onOpen,
@@ -809,7 +812,6 @@ class _MyTripsTab extends StatelessWidget {
   final bool loading;
   final bool failed;
   final VoidCallback onLogout;
-  final VoidCallback onLocationPrivacy;
   final Future<void> Function() onRefresh;
   final Future<void> Function() onRetry;
   final ValueChanged<MyRequest> onOpen;
@@ -835,7 +837,6 @@ class _MyTripsTab extends StatelessWidget {
                 role: UserRole.passenger,
                 userName: userName,
                 onLogout: onLogout,
-                onLocationPrivacy: onLocationPrivacy,
                 isDarkBackground: true,
                 wave: true,
               ),
@@ -884,137 +885,6 @@ class _MyTripsTab extends StatelessWidget {
                 ),
         ),
       ],
-    );
-  }
-}
-
-/// Barra compacta que conserva la paleta y las superficies de ROUTB.
-class _PassengerNavigationBar extends StatelessWidget {
-  const _PassengerNavigationBar({
-    required this.selected,
-    required this.activeTrips,
-    required this.onSelected,
-  });
-
-  final _PassengerTab selected;
-  final int activeTrips;
-  final ValueChanged<_PassengerTab> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-    return Container(
-      decoration: BoxDecoration(
-        color: palette.card,
-        border: Border(top: BorderSide(color: palette.line)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: 64,
-          child: Row(
-            children: [
-              _PassengerNavItem(
-                label: 'Buscar',
-                icon: Icons.search_rounded,
-                selected: selected == _PassengerTab.search,
-                onTap: () => onSelected(_PassengerTab.search),
-              ),
-              _PassengerNavItem(
-                label: 'Mis viajes',
-                icon: Icons.luggage_outlined,
-                selected: selected == _PassengerTab.myTrips,
-                badge: activeTrips,
-                onTap: () => onSelected(_PassengerTab.myTrips),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PassengerNavItem extends StatelessWidget {
-  const _PassengerNavItem({
-    required this.label,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-    this.badge = 0,
-  });
-
-  final String label;
-  final IconData icon;
-  final bool selected;
-  final int badge;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-    final color = selected ? palette.brand : palette.muted;
-    return Expanded(
-      child: Semantics(
-        button: true,
-        selected: selected,
-        label: badge > 0 ? '$label, $badge activos' : label,
-        child: InkWell(
-          onTap: onTap,
-          child: Center(
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 160),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-              decoration: BoxDecoration(
-                color: selected ? palette.brandSurface : Colors.transparent,
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Icon(icon, size: 20, color: color),
-                      if (badge > 0)
-                        Positioned(
-                          right: -8,
-                          top: -5,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            decoration: BoxDecoration(
-                              color: palette.mint,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            constraints: const BoxConstraints(minWidth: 15),
-                            child: Text(
-                              badge > 9 ? '9+' : '$badge',
-                              textAlign: TextAlign.center,
-                              style: RoutbText.copy(9, color: palette.onMint),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(width: 7),
-                  Flexible(
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: RoutbText.copy(
-                        12,
-                        color: color,
-                        weight: selected ? FontWeight.w700 : FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

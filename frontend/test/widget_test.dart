@@ -452,18 +452,21 @@ void main() {
     testWidgets('la insignia «Nuevo» solo se pinta cuando la marca el viaje', (
       tester,
     ) async {
+      // Reloj fijo: con la hora real, una salida «en 40 minutos» cruza la
+      // medianoche de noche y la insignia dejaba de pintarse (el cálculo de
+      // minutos es solo de reloj, sin fechas).
+      final reference = DateTime(2026, 10, 16, 7, 0);
+
       final soon = Trip.fromJson(<String, dynamic>{
         'id': 1,
         'origin': 'Centro',
         'destination': 'UTB',
         'total_seats': 4,
         'available_seats': 2,
-        'departure_time': _clockPlus(const Duration(minutes: 40)),
+        'departure_time': '7:40 AM',
       });
 
-      await tester.pumpWidget(
-        card(soon, isNew: soon.isImminent(DateTime.now())),
-      );
+      await tester.pumpWidget(card(soon, isNew: soon.isImminent(reference)));
       await tester.pump();
       expect(find.text('Nuevo'), findsOneWidget);
 
@@ -473,21 +476,12 @@ void main() {
         'destination': 'UTB',
         'total_seats': 4,
         'available_seats': 2,
-        'departure_time': _clockPlus(const Duration(hours: 5)),
+        'departure_time': '1:00 PM',
       });
 
-      await tester.pumpWidget(card(far, isNew: far.isImminent(DateTime.now())));
+      await tester.pumpWidget(card(far, isNew: far.isImminent(reference)));
       await tester.pump();
       expect(find.text('Nuevo'), findsNothing);
     });
   });
-}
-
-/// Hora de salida dentro de [offset] desde ahora, en el formato de la API.
-String _clockPlus(Duration offset) {
-  final moment = DateTime.now().add(offset);
-  final hour24 = moment.hour;
-  final hour12 = hour24 % 12 == 0 ? 12 : hour24 % 12;
-  final meridiem = hour24 < 12 ? 'AM' : 'PM';
-  return '$hour12:${moment.minute.toString().padLeft(2, '0')} $meridiem';
 }

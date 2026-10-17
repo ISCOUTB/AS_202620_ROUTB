@@ -209,6 +209,17 @@ class Trip {
         : TripPhase.scheduled;
   }
 
+  /// `true` si la fecha programada ya quedó atrás (solo día, sin hora).
+  ///
+  /// Es el criterio con el que el conductor separa sus rutas vigentes de las
+  /// que pasan al historial. Sin fecha programada se asume que no ha pasado.
+  bool isPastDate(DateTime now) {
+    final scheduled = departureDate;
+    if (scheduled == null) return false;
+    return TripSchedule.dateOnly(scheduled)
+        .isBefore(TripSchedule.dateOnly(now));
+  }
+
   /// `true` si el viaje sale dentro de [window] y todavía tiene cupo.
   ///
   /// Criterio de la insignia «Nuevo» para los viajes que salen pronto hoy.

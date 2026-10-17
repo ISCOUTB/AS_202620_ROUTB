@@ -40,3 +40,23 @@ def test_login_devuelve_jwt():
     assert data["token_type"] == "bearer"
     assert data["access_token"]
     assert data["user"]["role"] == "driver"
+
+
+def test_auth_me_devuelve_perfil_completo():
+    """El perfil de solo lectura incluye apellido y estado del consentimiento."""
+    token = client.post(
+        "/auth/login",
+        json={"phone": "3001234567", "password": "PasswordSegura123!"},
+    ).json()["access_token"]
+
+    response = client.get(
+        "/auth/me", headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "Juan"
+    assert data["last_name"] == "Pérez"
+    assert data["phone"] == "3001234567"
+    assert data["role"] == "driver"
+    assert data["location_consent_at"] is None

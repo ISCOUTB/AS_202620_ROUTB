@@ -3,7 +3,7 @@
   "info": {
     "title": "ROUTB API",
     "description": "ROUTB",
-    "version": "0.7.0"
+    "version": "0.8.0"
   },
   "paths": {
     "/users/": {
@@ -230,27 +230,56 @@
         ],
         "summary": "Get My Trips",
         "operationId": "get_my_trips_trips_my_trips_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "scope",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "active",
+                "history",
+                "all"
+              ],
+              "type": "string",
+              "description": "active: solo rutas activas; history: canceladas o con fecha pasada; all: todas",
+              "default": "active",
+              "title": "Scope"
+            },
+            "description": "active: solo rutas activas; history: canceladas o con fecha pasada; all: todas"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
+                  "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/TripResponse"
                   },
-                  "type": "array",
                   "title": "Response Get My Trips Trips My Trips Get"
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
+        }
       }
     },
     "/trips/{trip_id}": {

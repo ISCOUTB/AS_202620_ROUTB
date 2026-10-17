@@ -16,6 +16,7 @@ Map<String, dynamic> tripPayload({
   String status = 'active',
   String? driverName = 'Enzo Fernández',
   String? myRequestStatus,
+  String? departureDate,
   List<Map<String, dynamic>> requests = const <Map<String, dynamic>>[],
 }) => <String, dynamic>{
   'id': id,
@@ -24,6 +25,7 @@ Map<String, dynamic> tripPayload({
   'total_seats': totalSeats,
   'available_seats': availableSeats,
   'departure_time': departure,
+  'departure_date': ?departureDate,
   'status': status,
   'driver_id': 9,
   'driver_name': driverName,
@@ -142,6 +144,31 @@ void main() {
     test('una hora ilegible deja el viaje programado', () {
       final raro = Trip.fromJson(tripPayload(departure: 'mañana'));
       expect(raro.phaseAt(DateTime(2026, 10, 1, 7, 10)), TripPhase.scheduled);
+    });
+  });
+
+  group('Trip: fecha pasada', () {
+    final now = DateTime(2026, 10, 16, 8);
+
+    test('marca como pasada solo la fecha anterior', () {
+      // El día manda sobre la hora: las rutas del día siguen vigentes aunque
+      // ya hayan salido, y pasan al historial al día siguiente.
+      expect(
+        Trip.fromJson(tripPayload(departureDate: '2026-10-15')).isPastDate(now),
+        isTrue,
+      );
+      expect(
+        Trip.fromJson(tripPayload(departureDate: '2026-10-16')).isPastDate(now),
+        isFalse,
+      );
+      expect(
+        Trip.fromJson(tripPayload(departureDate: '2026-10-17')).isPastDate(now),
+        isFalse,
+      );
+    });
+
+    test('sin fecha programada no se considera pasada', () {
+      expect(Trip.fromJson(tripPayload()).isPastDate(now), isFalse);
     });
   });
 

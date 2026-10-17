@@ -17,6 +17,7 @@ introdujo o modificó.
 | 0.5.0   | Cambios locales sin commit | `Changes` | Añade endpoint de matching (`GET /matching/suggestions`) con sugerencias ordenadas por score de compatibilidad (Fase 2). |
 | 0.6.0   | Cambios locales sin commit | `Changes` | Amplía solicitudes con fecha y paradas; agrega estados `cancelled`/`expired`, vencimiento, exclusividad por día y sentido, y registro de tokens y push FCM. |
 | 0.7.0   | Cambios locales sin commit | `Changes` | Endurece la identidad de endpoints del Aspecto 3: retira `GET /users/` y `POST /trips/{trip_id}/reservations`, y exige token y propiedad en `POST /trips/` y `PATCH /trips/{trip_id}/cancel`. |
+| 0.8.0   | Cambios locales sin commit | `Changes` | Añade el historial del conductor (parámetro `scope` en `GET /trips/my-trips`) y expone `location_consent_at` en `GET /auth/me` para el perfil de solo lectura. Cambios aditivos. |
 
 ## Endurecimiento de endpoints (Aspecto 3)
 
@@ -55,6 +56,18 @@ introdujo o modificó.
   mismo timeout a Photon y Nominatim; se corrige la expresión PostgreSQL del
   TTL de `route_cache` y se evita guardar rutas `degraded`. No cambia el
   contrato HTTP/OpenAPI; decisión en [ADR 0014](../adr/0014-fallback-geocode-cache.md).
+
+## Historial del conductor y perfil (cambio actual)
+
+- `GET /trips/my-trips` acepta el parámetro de consulta `scope` con tres
+  valores: `active` (por defecto, mismo comportamiento de antes: solo rutas
+  activas), `history` (canceladas o con fecha pasada) y `all` (todas). Un
+  valor fuera del conjunto responde `422`. El cambio es aditivo y no altera
+  las respuestas existentes.
+- `GET /auth/me` incorpora `location_consent_at` (o `null`) a su respuesta
+  para el perfil de solo lectura. Esta operación no declara esquema de
+  respuesta en el contrato OpenAPI, así que el campo no aparece en
+  `docs/openapi.json`.
 
 ## Salida de `git log`
 

@@ -1,5 +1,5 @@
 from datetime import date
-from typing import Annotated
+from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
@@ -118,8 +118,12 @@ def get_active_trips(
 def get_my_trips(
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[UserIdentity, Depends(get_current_user)],
+    scope: Annotated[
+        Literal["active", "history", "all"],
+        Query(description="active: solo rutas activas; history: canceladas o con fecha pasada; all: todas"),
+    ] = "active",
 ):
-    trips = get_driver_trips_use_case(db, driver_id=current_user.id)
+    trips = get_driver_trips_use_case(db, driver_id=current_user.id, scope=scope)
     return [_to_response(t) for t in trips]
 
 

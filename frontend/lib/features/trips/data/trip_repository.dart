@@ -17,12 +17,12 @@ class RequestStopInput {
   final SelectedLocation location;
 
   Map<String, Object?> toJson() => <String, Object?>{
-        'seats': seats,
-        'place_type': placeType,
-        'lat': location.lat,
-        'lng': location.lng,
-        'address_text': location.addressText,
-      };
+    'seats': seats,
+    'place_type': placeType,
+    'lat': location.lat,
+    'lng': location.lng,
+    'address_text': location.addressText,
+  };
 }
 
 /// Acceso a los viajes, sin importar quién los pide.
@@ -58,10 +58,15 @@ class TripRepository {
 
   /// `GET /trips/my-trips`
   ///
-  /// Solo trae los viajes activos del conductor; las canceladas no aparecen,
-  /// así que cancelar una ruta es definitivo desde el punto de vista de la app.
-  Future<List<Trip>> listMine() async {
-    final response = await _api.get('/trips/my-trips');
+  /// Sin `scope` trae las rutas activas del conductor, incluidas las que ya
+  /// pasaron de fecha; la pantalla decide cuáles son vigentes. Con
+  /// `scope: 'history'` trae las canceladas o con fecha pasada, que son las
+  /// del historial; `'all'` trae todas.
+  Future<List<Trip>> listMine({String? scope}) async {
+    final response = await _api.get(
+      '/trips/my-trips',
+      query: <String, String?>{'scope': scope},
+    );
     return _asTrips(response);
   }
 

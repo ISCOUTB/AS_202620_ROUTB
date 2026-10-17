@@ -12,6 +12,7 @@ class DriverState {
   const DriverState({
     required this.status,
     this.trips = const <Trip>[],
+    this.history = const <Trip>[],
     this.selected,
     this.errorMessage,
   });
@@ -21,6 +22,9 @@ class DriverState {
 
   /// Rutas publicadas por el conductor, de la más reciente a la más antigua.
   final List<Trip> trips;
+
+  /// Rutas anteriores: canceladas o con fecha pasada, para el historial.
+  final List<Trip> history;
 
   /// Ruta que se está mostrando en el hero, el mapa y el contador de cupos.
   ///
@@ -34,6 +38,9 @@ class DriverState {
   /// `true` mientras no se ha fijado una ruta seleccionada.
   bool get hasTrips => trips.isNotEmpty;
 
+  /// `true` cuando hay rutas anteriores que mostrar.
+  bool get hasHistory => history.isNotEmpty;
+
   /// `true` si la ruta seleccionada pertenece a la lista.
   bool get selectionIsValid =>
       selected != null && trips.any((trip) => trip.id == selected!.id);
@@ -44,10 +51,8 @@ class DriverState {
       .toList(growable: false);
 
   /// Total de solicitudes sin responder, para el contador de la tarjeta.
-  int get pendingRequestCount => trips.fold<int>(
-        0,
-        (total, trip) => total + trip.requests.pending.length,
-      );
+  int get pendingRequestCount =>
+      trips.fold<int>(0, (total, trip) => total + trip.requests.pending.length);
 
   /// Copia con los campos indicados sustituidos.
   ///
@@ -56,6 +61,7 @@ class DriverState {
   DriverState copyWith({
     DriverStatus? status,
     List<Trip>? trips,
+    List<Trip>? history,
     Trip? selected,
     String? errorMessage,
     bool clearError = false,
@@ -68,6 +74,7 @@ class DriverState {
     return DriverState(
       status: status ?? this.status,
       trips: nextTrips,
+      history: history ?? this.history,
       selected: stillPresent ? requested : null,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );

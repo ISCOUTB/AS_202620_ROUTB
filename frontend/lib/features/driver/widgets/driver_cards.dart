@@ -378,6 +378,85 @@ class _ChevronButton extends StatelessWidget {
   }
 }
 
+/// Fila del historial del conductor: una ruta cancelada o ya pasada.
+///
+/// Es solo informativa —no se cancela ni se selecciona— y resume el trayecto,
+/// su fecha y cuántos pasajeros quedaron confirmados.
+class HistoryRouteTile extends StatelessWidget {
+  const HistoryRouteTile({required this.trip, super.key});
+
+  /// Ruta del historial.
+  final Trip trip;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final phase = trip.phaseAt(DateTime.now());
+
+    final (Color pillBackground, Color pillForeground) = switch (phase) {
+      TripPhase.onCourse => (palette.mintSurface, palette.onMintSurface),
+      TripPhase.cancelled => (palette.roseSurface, palette.onRoseSurface),
+      TripPhase.completed => (palette.surface, palette.muted),
+      TripPhase.scheduled => (palette.amberSurface, palette.onAmberSurface),
+    };
+
+    final confirmed = trip.requests.accepted.fold<int>(
+      0,
+      (total, request) => total + request.seatCount,
+    );
+
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: palette.surface,
+        borderRadius: BorderRadius.circular(RoutbTheme.radiusRoute),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  trip.routeLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: RoutbText.headline(15, color: palette.ink),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${trip.departureDateLabel} · ${trip.departureLabel}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: RoutbText.copy(12, color: palette.muted),
+                ),
+                if (confirmed > 0) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    confirmed == 1
+                        ? '1 pasajero confirmado'
+                        : '$confirmed pasajeros confirmados',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: RoutbText.copy(12, color: palette.muted),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          RoutbStatusPill(
+            label: phase.label,
+            background: pillBackground,
+            foreground: pillForeground,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// `.seats`: los cuatro asientos del hero, con las iniciales de quien ya tiene
 /// cupo confirmado.
 class HeroSeatSlots extends StatelessWidget {

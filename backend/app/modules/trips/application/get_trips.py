@@ -1,5 +1,6 @@
 from datetime import date
 
+from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.timezone import colombia_today
@@ -30,11 +31,22 @@ def get_active_trips(
     return query.order_by(Trip.id.desc()).all()
 
 
-def get_driver_trips(db: Session, driver_id: int) -> list[Trip]:
-    return (
+def get_driver_trips(db: Session, driver_id: int, scope: str = "active") -> list[Trip]:
+    """Rutas del conductor según el alcance.
+
+    - ``active``: solo rutas activas (comportamiento histórico del endpoint).
+    - ``history``: rutas canceladas o cuya fecha ya pasó.
+    - ``all``: todas las rutas del conductor, sin filtro.
+    """
+    query = (
         db.query(Trip)
         .options(joinedload(Trip.driver))
-        .filter(Trip.driver_id == driver_id, Trip.status == "active")
-        .order_by(Trip.id.desc())
-        .all()
+        .filter(Trip.driver_id == driver_id)
     )
+    if scope == "active":
+        query = query.filter(Trip.status == "active")
+    elif scope == "history":
+        query = query.filter(
+            or_(Trip.status == "cancelled", Trip.departure_date < colombia_today())
+        )
+    return query.order_by(Trip.id.desc()).all()

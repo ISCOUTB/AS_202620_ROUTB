@@ -1,8 +1,12 @@
 from datetime import datetime
 from uuid import uuid4
 
+from fastapi.testclient import TestClient
+
 from app.core.database import SessionLocal
 from app.core.timezone import colombia_now
+from app.main import app
+from app.modules.auth.application.tokens import create_access_token
 from app.modules.requests.infrastructure.models import RequestStop, TripRequest
 from app.modules.trips.infrastructure.models import Trip
 from app.modules.users.application.location_consent import revoke_location_consent
@@ -57,3 +61,40 @@ def test_revoke_consent_cancels_pending_and_deletes_saved_stops():
         db.delete(trip)
         db.delete(user)
         db.commit()
+
+
+def test_auth_me_refleja_el_consentimiento_otorgado():
+    """El perfil (`GET /auth/me`) muestra la autorización en cuanto se otorga."""
+    client = TestClient(app)
+    with SessionLocal() as db:
+        user = User(
+            name="Perfil",
+            last_name="Consentimiento",
+            phone=f"300{uuid4().int % 10_000_000:07d}",
+            hashed_password="fake",
+            role="passenger",
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        user_id = user.id
+        token = create_access_token(user.id, user.role)
+
+    headers = {"Authorization": f"Bearer {token}"}
+    try:
+        before = client.get("/auth/me", headers=headers)
+        assert before.status_code == 200
+        assert before.json()["location_consent_at"] is None
+
+        granted = client.post("/users/me/location-consent", headers=headers)
+        assert granted.status_code == 204
+
+        after = client.get("/auth/me", headers=headers)
+        assert after.status_code == 200
+        assert after.json()["location_consent_at"] is not None
+    finally:
+        with SessionLocal() as db:
+            user = db.get(User, user_id)
+            if user:
+                db.delete(user)
+                db.commit()
