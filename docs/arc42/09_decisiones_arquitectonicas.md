@@ -20,5 +20,6 @@ Las decisiones arquitectónicas que impactan significativamente la estructura, l
 | [ADR 0014](../adr/0014-fallback-geocode-cache.md) | Aceptado | Configurar el timeout de routing y no retener fallbacks degradados en la caché de rutas. |
 | [ADR 0015](../adr/0015-dokploy-plataforma-de-despliegue.md) | Aceptado | Desplegar el backend contenedorizado en Dokploy, sobre un servidor propio, con dominio propio y TLS automático. |
 | [ADR 0016](../adr/0016-ventana-de-viajes-hoy-manana.md) | Aceptado | Limitar la publicación y la búsqueda de viajes a hoy y mañana para concentrar la oferta en una comunidad pequeña. |
+| [ADR 0017](../adr/0017-decision-extraccion-modulo-requests.md) | Aceptado | No extraer el módulo requests a microservicio independiente para preservar la consistencia atómica de cupos y la viabilidad operativa a costo cero. |
 
 ---
