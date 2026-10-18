@@ -1,3 +1,5 @@
+from datetime import date
+
 from app.core.timezone import colombia_today
 
 from geoalchemy2 import Geometry

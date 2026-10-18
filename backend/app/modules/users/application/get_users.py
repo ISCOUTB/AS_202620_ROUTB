@@ -21,10 +21,6 @@ class UserCredentials(UserIdentity):
     hashed_password: str
 
 
-def get_users(db: Session) -> list[User]:
-    return db.query(User).all()
-
-
 def get_user_by_phone(db: Session, phone: str) -> UserCredentials | None:
     user = db.query(User).filter(User.phone == phone).first()
     if user is None:

@@ -6,7 +6,7 @@ Aplicación frontend de ROUTB, una plataforma de transporte compartido para estu
 
 - Flutter SDK compatible con Dart `^3.13.1`.
 - Un dispositivo Android/iOS, un emulador o un navegador compatible.
-- Backend de ROUTB desplegado en ""https://as-202620-routb.onrender.com""
+- Backend de ROUTB desplegado en `https://routb.iscoutb.dev`
 
 Verifica la instalación con:
 
@@ -47,10 +47,10 @@ lib/
 
 ## Backend
 
-La dirección del backend se resuelve en un único archivo: [`lib/core/config/api_config.dart`](lib/core/config/api_config.dart). Por defecto apunta a la API desplegada en Render:
+La dirección del backend se resuelve en un único archivo: [`lib/core/config/api_config.dart`](lib/core/config/api_config.dart). Por defecto apunta a la API desplegada en Dokploy:
 
 ```
-https://as-202620-routb.onrender.com
+https://routb.iscoutb.dev
 ```
 
 Los repositorios (`auth_repository.dart` y `trip_repository.dart`) leen siempre de ahí, así que cambiar de plataforma es editar una constante.

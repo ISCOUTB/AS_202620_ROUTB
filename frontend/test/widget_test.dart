@@ -17,7 +17,9 @@ import 'package:frontend/features/passenger/widgets/trip_card.dart';
 /// Monta [child] dentro de un `MaterialApp` con el tema de ROUTB.
 Widget harness(Widget child, {Brightness brightness = Brightness.light}) {
   return MaterialApp(
-    theme: brightness == Brightness.light ? RoutbTheme.light() : RoutbTheme.dark(),
+    theme: brightness == Brightness.light
+        ? RoutbTheme.light()
+        : RoutbTheme.dark(),
     home: Scaffold(body: Center(child: child)),
   );
 }
@@ -26,21 +28,25 @@ void main() {
   group('Paleta', () {
     testWidgets('los dos temas instalan su propia paleta', (tester) async {
       for (final brightness in Brightness.values) {
-        await tester.pumpWidget(harness(const SizedBox.shrink(), brightness: brightness));
+        await tester.pumpWidget(
+          harness(const SizedBox.shrink(), brightness: brightness),
+        );
 
         final context = tester.element(find.byType(Scaffold));
         final palette = RoutbPalette.of(context);
 
-        expect(palette.brand, const Color(0xFF6C5CFF));
-        expect(palette.mint, const Color(0xFF2FD3A0));
-        expect(palette.amber, const Color(0xFFFF9F1C));
-        expect(palette.rose, const Color(0xFFFF5C7A));
+        expect(palette.brand, const Color(0xFF0D59D6));
+        expect(palette.mint, const Color(0xFF10B981));
+        expect(palette.amber, const Color(0xFFF59E0B));
+        expect(palette.rose, const Color(0xFFEF4444));
         // La tarjeta siempre contrasta con el fondo de la página.
         expect(palette.card, isNot(palette.background));
       }
     });
 
-    testWidgets('el tema claro y el oscuro tienen fondos distintos', (tester) async {
+    testWidgets('el tema claro y el oscuro tienen fondos distintos', (
+      tester,
+    ) async {
       await tester.pumpWidget(harness(const SizedBox.shrink()));
       final light = RoutbPalette.of(tester.element(find.byType(Scaffold)));
 
@@ -51,8 +57,8 @@ void main() {
       await tester.pumpAndSettle();
       final dark = RoutbPalette.of(tester.element(find.byType(Scaffold)));
 
-      expect(light.background, const Color(0xFFE9E7FF));
-      expect(dark.background, const Color(0xFF0A0820));
+      expect(light.background, const Color(0xFFF1F5F9));
+      expect(dark.background, const Color(0xFF09101D));
       expect(light.ink, isNot(dark.ink));
     });
 
@@ -62,7 +68,7 @@ void main() {
       );
       final context = tester.element(find.byType(Scaffold));
       expect(context.isDarkMode, isTrue);
-      expect(context.palette.background, const Color(0xFF0A0820));
+      expect(context.palette.background, const Color(0xFF09101D));
     });
   });
 
@@ -80,7 +86,9 @@ void main() {
     });
 
     testWidgets('no hace nada cuando no hay acción', (tester) async {
-      await tester.pumpWidget(harness(const RoutbButton(label: 'Crear cuenta')));
+      await tester.pumpWidget(
+        harness(const RoutbButton(label: 'Crear cuenta')),
+      );
 
       expect(find.text('Crear cuenta'), findsOneWidget);
       await tester.tap(find.text('Crear cuenta'));
@@ -89,10 +97,18 @@ void main() {
       expect(find.text('Crear cuenta'), findsOneWidget);
     });
 
-    testWidgets('muestra el indicador y se bloquea mientras carga', (tester) async {
+    testWidgets('muestra el indicador y se bloquea mientras carga', (
+      tester,
+    ) async {
       var presses = 0;
       await tester.pumpWidget(
-        harness(RoutbButton(label: 'Publicar', busy: true, onPressed: () => presses++)),
+        harness(
+          RoutbButton(
+            label: 'Publicar',
+            busy: true,
+            onPressed: () => presses++,
+          ),
+        ),
       );
 
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
@@ -140,7 +156,9 @@ void main() {
       expect(find.text('+57'), findsOneWidget);
     });
 
-    testWidgets('muestra el texto inicial y avisa de cada cambio', (tester) async {
+    testWidgets('muestra el texto inicial y avisa de cada cambio', (
+      tester,
+    ) async {
       final controller = TextEditingController();
       addTearDown(controller.dispose);
       var lastValue = '';
@@ -183,7 +201,10 @@ void main() {
     testWidgets('muestra el mensaje de error debajo del campo', (tester) async {
       await tester.pumpWidget(
         harness(
-          const RoutbField(hint: 'Teléfono', errorText: 'Ingresa un teléfono válido'),
+          const RoutbField(
+            hint: 'Teléfono',
+            errorText: 'Ingresa un teléfono válido',
+          ),
         ),
       );
 
@@ -213,7 +234,9 @@ void main() {
   });
 
   group('RoutbChip', () {
-    testWidgets('pinta todos los chips y avisa del que se pulsa', (tester) async {
+    testWidgets('pinta todos los chips y avisa del que se pulsa', (
+      tester,
+    ) async {
       var tapped = '';
 
       await tester.pumpWidget(
@@ -243,7 +266,9 @@ void main() {
   });
 
   group('SeatDots', () {
-    testWidgets('dibuja un punto por cupo y anuncia los libres', (tester) async {
+    testWidgets('dibuja un punto por cupo y anuncia los libres', (
+      tester,
+    ) async {
       await tester.pumpWidget(harness(const SeatDots(total: 4, available: 3)));
 
       expect(find.bySemanticsLabel('3 de 4 cupos libres'), findsOneWidget);
@@ -260,7 +285,9 @@ void main() {
   });
 
   group('RoutbCard', () {
-    testWidgets('responde al toque cuando se le pasa una acción', (tester) async {
+    testWidgets('responde al toque cuando se le pasa una acción', (
+      tester,
+    ) async {
       var taps = 0;
       await tester.pumpWidget(
         harness(
@@ -285,8 +312,10 @@ void main() {
             builder: (context) => Center(
               child: RoutbButton(
                 label: 'Avisar',
-                onPressed: () =>
-                    RoutbToast.show(context, 'Ruta publicada. Ya la ven los pasajeros'),
+                onPressed: () => RoutbToast.show(
+                  context,
+                  'Ruta publicada. Ya la ven los pasajeros',
+                ),
               ),
             ),
           ),
@@ -297,16 +326,23 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
 
-      expect(find.text('Ruta publicada. Ya la ven los pasajeros'), findsOneWidget);
+      expect(
+        find.text('Ruta publicada. Ya la ven los pasajeros'),
+        findsOneWidget,
+      );
 
       // Pasa la duración de visibilidad y el aviso desaparece.
       await tester.pump(const Duration(milliseconds: 2400));
       await tester.pumpAndSettle();
-      expect(find.text('Ruta publicada. Ya la ven los pasajeros'), findsNothing);
+      expect(
+        find.text('Ruta publicada. Ya la ven los pasajeros'),
+        findsNothing,
+      );
     });
 
-    testWidgets('avisa aunque el sistema pida reducir el movimiento',
-        (tester) async {
+    testWidgets('avisa aunque el sistema pida reducir el movimiento', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         harness(
           MediaQuery(
@@ -340,12 +376,10 @@ void main() {
   group('RoutbLogo', () {
     testWidgets('cada variante carga su asset', (tester) async {
       for (final variant in RoutbLogoVariant.values) {
-        await tester.pumpWidget(harness(RoutbLogo(variant: variant, width: 80)));
-        expect(
-          find.byType(RoutbLogo),
-          findsOneWidget,
-          reason: variant.name,
+        await tester.pumpWidget(
+          harness(RoutbLogo(variant: variant, width: 80)),
         );
+        expect(find.byType(RoutbLogo), findsOneWidget, reason: variant.name);
       }
     });
 
@@ -362,16 +396,21 @@ void main() {
   group('TripCard', () {
     /// Monta la tarjeta con el ancho de un móvil para que no haya desbordes.
     Widget card(Trip trip, {bool isNew = false}) => harness(
-          SizedBox(
-            width: 360,
-            child: TripCard(trip: trip, isNew: isNew, onReserve: () {}),
-          ),
-        );
+      SizedBox(
+        width: 360,
+        child: TripCard(trip: trip, isNew: isNew, onReserve: () {}),
+      ),
+    );
 
-    testWidgets('el botón cambia de etiqueta según la solicitud', (tester) async {
+    testWidgets('el botón cambia de etiqueta según la solicitud', (
+      tester,
+    ) async {
       final cases = <String, ({String label, String? myStatus})>{
         'sin solicitar': (label: 'Solicitar cupos', myStatus: null),
-        'solicitud en espera': (label: 'Solicitud enviada', myStatus: 'pending'),
+        'solicitud en espera': (
+          label: 'Solicitud enviada',
+          myStatus: 'pending',
+        ),
         'cupo confirmado': (label: 'Cupo confirmado', myStatus: 'accepted'),
       };
 
@@ -410,18 +449,24 @@ void main() {
       expect(find.text('Sin cupos'), findsOneWidget);
     });
 
-    testWidgets('la insignia «Nuevo» solo se pinta cuando la marca el viaje',
-        (tester) async {
+    testWidgets('la insignia «Nuevo» solo se pinta cuando la marca el viaje', (
+      tester,
+    ) async {
+      // Reloj fijo: con la hora real, una salida «en 40 minutos» cruza la
+      // medianoche de noche y la insignia dejaba de pintarse (el cálculo de
+      // minutos es solo de reloj, sin fechas).
+      final reference = DateTime(2026, 10, 16, 7, 0);
+
       final soon = Trip.fromJson(<String, dynamic>{
         'id': 1,
         'origin': 'Centro',
         'destination': 'UTB',
         'total_seats': 4,
         'available_seats': 2,
-        'departure_time': _clockPlus(const Duration(minutes: 40)),
+        'departure_time': '7:40 AM',
       });
 
-      await tester.pumpWidget(card(soon, isNew: soon.isImminent(DateTime.now())));
+      await tester.pumpWidget(card(soon, isNew: soon.isImminent(reference)));
       await tester.pump();
       expect(find.text('Nuevo'), findsOneWidget);
 
@@ -431,21 +476,12 @@ void main() {
         'destination': 'UTB',
         'total_seats': 4,
         'available_seats': 2,
-        'departure_time': _clockPlus(const Duration(hours: 5)),
+        'departure_time': '1:00 PM',
       });
 
-      await tester.pumpWidget(card(far, isNew: far.isImminent(DateTime.now())));
+      await tester.pumpWidget(card(far, isNew: far.isImminent(reference)));
       await tester.pump();
       expect(find.text('Nuevo'), findsNothing);
     });
   });
-}
-
-/// Hora de salida dentro de [offset] desde ahora, en el formato de la API.
-String _clockPlus(Duration offset) {
-  final moment = DateTime.now().add(offset);
-  final hour24 = moment.hour;
-  final hour12 = hour24 % 12 == 0 ? 12 : hour24 % 12;
-  final meridiem = hour24 < 12 ? 'AM' : 'PM';
-  return '$hour12:${moment.minute.toString().padLeft(2, '0')} $meridiem';
 }

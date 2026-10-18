@@ -2,7 +2,9 @@
 
 Si FCM no está configurado (FCM_PROJECT_ID vacío) o la librería no está
 instalada, el servicio opera en modo silencioso y retorna sin error, para que
-la app siga funcionando en desarrollo y tests sin credenciales reales.
+la app siga funcionando en desarrollo y tests sin credenciales reales. La
+omisión se registra a nivel ``warning`` para que sea visible en los logs del
+servidor.
 """
 
 import base64
@@ -69,7 +71,7 @@ def send_push(
 
     app = _get_app()
     if app is None:
-        logger.info(
+        logger.warning(
             "FCM no configurado – notificación omitida: title=%s tokens_count=%s",
             title,
             len(tokens),

@@ -69,34 +69,45 @@ def _cache_put(db: Session, key: str, results: list[dict[str, Any]]) -> None:
     db.commit()
 
 
-def _parse_bbox(bbox_str: str) -> dict[str, str]:
-    """Convierte 'lon_min,lat_min,lon_max,lat_max' en parámetros para Photon."""
-    parts = bbox_str.split(",")
-    if len(parts) == 4:
-        return {
-            "bbox": bbox_str,
-        }
-    return {}
+def _bbox_normalizado() -> str | None:
+    """Devuelve el bbox como 'lon_min,lat_min,lon_max,lat_max', o None si no hay.
+
+    Usa el mismo parser que el resto de la aplicación para aceptar también el
+    formato con corchetes que documenta ``.env.example``: Nominatim responde 400
+    si el ``viewbox`` lleva corchetes, y en Photon los corchetes rompen la
+    conversión a número y el sesgo geográfico se perdía en silencio.
+    """
+    raw = settings.GEOCODE_BBOX
+    if not raw or not raw.strip():
+        return None
+    lon_min, lat_min, lon_max, lat_max = settings.parse_geocode_bbox(raw)
+    return f"{lon_min},{lat_min},{lon_max},{lat_max}"
 
 
 def _call_photon(q: str) -> list[dict[str, Any]] | None:
     """Llama a Photon y devuelve lista de resultados normalizados, o None si falla."""
     base_url = settings.PHOTON_BASE_URL.rstrip("/")
-    params: dict[str, Any] = {"q": q, "limit": 5, "lang": "es"}
+    # Photon solo admite ``default``, ``de``, ``en`` y ``fr`` en ``lang``; con
+    # ``lang=es`` responde 400 y toda búsqueda acababa cayendo al respaldo de
+    # Nominatim. Sin ``lang`` se usan los nombres locales de OpenStreetMap, que
+    # para Cartagena ya vienen en español.
+    params: dict[str, Any] = {"q": q, "limit": 5}
 
     # Sesgo hacia el bounding box de Cartagena
-    try:
-        parts = settings.GEOCODE_BBOX.split(",")
-        if len(parts) == 4:
-            lon_min, lat_min, lon_max, lat_max = (float(p) for p in parts)
-            # Photon acepta location_bias_scale + lon/lat del centro del bbox
-            params["lon"] = (lon_min + lon_max) / 2
-            params["lat"] = (lat_min + lat_max) / 2
-    except (ValueError, AttributeError):
-        pass
+    bbox = _bbox_normalizado()
+    if bbox is not None:
+        lon_min, lat_min, lon_max, lat_max = (float(p) for p in bbox.split(","))
+        # Photon acepta location_bias_scale + lon/lat del centro del bbox
+        params["lon"] = (lon_min + lon_max) / 2
+        params["lat"] = (lat_min + lat_max) / 2
 
     try:
-        with httpx.Client(timeout=settings.ROUTING_TIMEOUT_SECONDS) as client:
+        with httpx.Client(
+            timeout=settings.ROUTING_TIMEOUT_SECONDS,
+            # Photon responde 403 al User-Agent por defecto de httpx, así que
+            # hay que identificarse igual que con Nominatim.
+            headers={"User-Agent": settings.NOMINATIM_USER_AGENT},
+        ) as client:
             resp = client.get(f"{base_url}/api", params=params)
             resp.raise_for_status()
             data = resp.json()
@@ -150,10 +161,9 @@ def _call_nominatim(q: str) -> list[dict[str, Any]] | None:
         "accept-language": "es",
     }
     try:
-        parts = settings.GEOCODE_BBOX.split(",")
-        if len(parts) == 4:
-            params["viewbox"] = settings.GEOCODE_BBOX
-            params["bounded"] = 1
+        bbox = _bbox_normalizado()
+        if bbox is not None:
+            params["viewbox"] = bbox
     except (ValueError, AttributeError):
         pass
 

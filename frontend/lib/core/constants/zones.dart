@@ -66,28 +66,28 @@ abstract final class Zones {
   /// que los muestra el diseño.
   static const List<Zone> neighborhoods = <Zone>[
     Zone(name: 'Centro', minutes: 25, latitude: 10.4236, longitude: -75.5477),
-    Zone(name: 'Manga', minutes: 22, latitude: 10.4383, longitude: -75.5247),
+    Zone(name: 'Manga', minutes: 22, latitude: 10.4130, longitude: -75.5350),
     Zone(
       name: 'Bocagrande',
       minutes: 30,
-      latitude: 10.4697,
-      longitude: -75.5466,
+      latitude: 10.4000,
+      longitude: -75.5530,
     ),
     Zone(
       name: 'Getsemaní',
       minutes: 26,
-      latitude: 10.4510,
-      longitude: -75.5200,
+      latitude: 10.4215,
+      longitude: -75.5450,
     ),
-    Zone(name: 'Crespo', minutes: 28, latitude: 10.4520, longitude: -75.5260),
+    Zone(name: 'Crespo', minutes: 28, latitude: 10.4500, longitude: -75.5180),
     Zone(
       name: 'El Bosque',
       minutes: 18,
-      latitude: 10.4390,
-      longitude: -75.5180,
+      latitude: 10.3950,
+      longitude: -75.5150,
     ),
     Zone(name: 'La Popa', minutes: 24, latitude: 10.4216, longitude: -75.5350),
-    Zone(name: 'Turbaco', minutes: 20, latitude: 10.0900, longitude: -75.4400),
+    Zone(name: 'Turbaco', minutes: 20, latitude: 10.3340, longitude: -75.4160),
   ];
 
   /// Todos los lugares conocidos, con la universidad primero.

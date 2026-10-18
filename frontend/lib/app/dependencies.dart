@@ -4,11 +4,14 @@ import '../core/network/api_client.dart';
 import '../core/storage/session_store.dart';
 import '../core/theme/theme_controller.dart';
 import '../features/auth/data/auth_repository.dart';
+import '../core/widgets/routb_toast.dart';
+import '../features/auth/screens/auth_flow.dart';
 import '../features/matching/data/matching_repository.dart';
 import '../features/notifications/data/notifications_repository.dart';
 import '../features/notifications/push_notification_service.dart';
 import '../features/trips/data/geocode_repository.dart';
 import '../features/trips/data/trip_repository.dart';
+import 'app_routes.dart';
 
 /// Repositorios y sesión que comparten todos los módulos.
 ///
@@ -23,7 +26,11 @@ class RoutbDependencies {
     required this.matching,
     required this.push,
     required this.theme,
-  });
+    GlobalKey<NavigatorState>? navigatorKey,
+  }) : navigatorKey = navigatorKey ?? GlobalKey<NavigatorState>();
+
+  /// Clave global de navegación para redirecciones (ej. sesión expirada).
+  final GlobalKey<NavigatorState> navigatorKey;
 
   /// Sesión persistida en el dispositivo.
   final SessionStore session;
@@ -56,7 +63,30 @@ class RoutbDependencies {
   static Future<RoutbDependencies> live() async {
     final session = SessionStore();
     final theme = await ThemeController.load(session);
-    final api = ApiClient(session);
+    final navKey = GlobalKey<NavigatorState>();
+
+    bool handlingUnauthorized = false;
+    final api = ApiClient(
+      session,
+      onUnauthorized: () async {
+        if (handlingUnauthorized) return;
+        handlingUnauthorized = true;
+        await session.clear();
+        final nav = navKey.currentState;
+        if (nav != null && nav.mounted) {
+          nav.pushAndRemoveUntil(
+            RoutbPageRoute<void>(child: const AuthFlow()),
+            (route) => false,
+          );
+          final ctx = nav.context;
+          if (ctx.mounted) {
+            RoutbToast.show(ctx, 'Tu sesión expiró. Ingresa de nuevo.');
+          }
+        }
+        handlingUnauthorized = false;
+      },
+    );
+
     return RoutbDependencies(
       session: session,
       auth: AuthRepository(api, session),
@@ -65,6 +95,7 @@ class RoutbDependencies {
       matching: MatchingRepository(api),
       push: PushNotificationService(repository: NotificationsRepository(api)),
       theme: theme,
+      navigatorKey: navKey,
     );
   }
 

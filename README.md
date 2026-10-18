@@ -50,7 +50,7 @@ La descripción completa del problema se encuentra en [Problema](docs/problema.m
 | **FastAPI** | Backend y API |
 | **PostgreSQL (Supabase)** | Base de datos relacional administrada |
 | **Docker** | Contenedor del backend (`backend/Dockerfile`) |
-| **Render** | Hosting del backend en la nube |
+| **Dokploy** | Hosting del backend en la nube |
 | **Git / GitHub** | Control de versiones |
 
 ---
@@ -61,6 +61,12 @@ Para iniciar el proyecto, ejecuta el script correspondiente según tu sistema op
 
 - **Windows:** `start.bat`
 - **Linux/Mac:** `start.sh`
+
+Para **compilar la app Android** hace falta además
+`frontend/android/app/google-services.json`, descargado de la consola de Firebase
+del proyecto del equipo. El archivo está excluido de Git (`.gitignore`), así que
+cada persona lo baja por su cuenta: el plugin `com.google.gms.google-services` se
+aplica siempre y sin ese archivo el build de Android falla.
 
 ---
 
@@ -105,27 +111,37 @@ secretos, el paso se omite.
 
 El backend está desplegado y accesible públicamente por HTTPS:
 
-- **URL base:** [https://as-202620-routb.onrender.com](https://as-202620-routb.onrender.com)
-- **Health check:** [https://as-202620-routb.onrender.com/health](https://as-202620-routb.onrender.com/health)
+- **URL base:** [https://routb.iscoutb.dev](https://routb.iscoutb.dev)
+- **Health check:** [https://routb.iscoutb.dev/health](https://routb.iscoutb.dev/health)
 
-**Evidencia:** Al entrar a los links de verificación, se puede observar que el servicio está funcionando correctamente. Si se necesita verificar más a fondo, se puede consultar toda la evidencia en [docs/evidencia/despliegue-externo.md](docs/evidencia/despliegue-externo.md)
+**Evidencia:** Al entrar a los links de verificación, se puede observar que el servicio está funcionando correctamente. Si se necesita verificar más a fondo, se puede consultar toda la evidencia en [docs/evidencia/despliegue-dokploy.md](docs/evidencia/despliegue-dokploy.md)
 
 ### Piezas desplegadas
 
-Ambas plataformas que prestan servicio se usan en su plan gratuito.
+El backend corre en un servidor propio administrado con **Dokploy** y la base de datos se guarda en el plan gratuito de Supabase. Ninguna de las dos piezas genera costo ni requiere tarjeta de crédito para el proyecto.
 
 | Pieza | Dónde se ejecuta | Proveedor | Decisión |
 |---|---|---|---|
-| API Backend | Web Service en contenedor Docker | [Render](https://render.com) | [ADR 0005](docs/adr/0005-render-plataforma-de-despliegue.md) |
+| API Backend | Contenedor Docker en servidor propio | [Dokploy](https://dokploy.com) | [ADR 0015](docs/adr/0015-dokploy-plataforma-de-despliegue.md) |
 | Base de datos | PostgreSQL 15 administrado | [Supabase](https://supabase.com) | [ADR 0006](docs/adr/0006-base-de-datos-supabase.md) |
+
+El manifiesto de referencia del contenedor y de sus variables es [`compose.lab.yaml`](compose.lab.yaml). No se aplica automáticamente: los valores reales de los secretos, el dominio y la política de despliegue se administran desde el panel de Dokploy.
+
+> Se mantiene la restricción **RC-04 (costo recurrente $0.00 USD y cero tarjetas de crédito)**:
+> el uso de Dokploy en este proyecto no genera costo y el servidor donde se ejecuta tampoco
+> genera facturación para el equipo. Ver
+> [Restricciones de arquitectura](docs/arc42/02_restricciones_de_arquitectura.md#25-restricciones-comerciales-y-de-alcance)
+> y [costo mensual](docs/evidencia/costo_mensual.md).
 
 ### Variables de entorno
 
 | Variable | Para qué sirve | De dónde sale el valor | Dónde se configura |
 |---|---|---|---|
-| `DATABASE_URL` | Cadena de conexión con la que la API accede a la base de datos (SSL requerido) | Datos de conexión del proyecto, en el panel de Supabase | Panel de Render (Environment) |
-| `JWT_SECRET_KEY` | Clave secreta con la que la API firma los tokens de autenticación | Se genera una cadena aleatoria (ver paso 4) | Panel de Render (Environment) |
-| `ROUTING_TIMEOUT_SECONDS` | Tiempo máximo de espera por petición a OSRM (segundos) | `3.0` por defecto; ajustable según latencia y disponibilidad del proveedor | `render.yaml` o Panel de Render (Environment) |
+| `DATABASE_URL` | Cadena de conexión con la que la API accede a la base de datos (SSL requerido) | Datos de conexión del proyecto, en el panel de Supabase | Dokploy (Environment del servicio) |
+| `JWT_SECRET_KEY` | Clave secreta con la que la API firma los tokens de autenticación | Se genera una cadena aleatoria (ver paso 4) | Dokploy (Environment del servicio) |
+| `ROUTING_TIMEOUT_SECONDS` | Tiempo máximo de espera por petición a OSRM (segundos) | `1.4` por defecto; ajustable según latencia y disponibilidad del proveedor | Dokploy (Environment del servicio) |
+| `FCM_PROJECT_ID` | Identificador del proyecto de Firebase desde el que se envían las notificaciones push | Consola de Firebase del proyecto del equipo | Dokploy (Environment del servicio) |
+| `FCM_SERVICE_ACCOUNT_B64` | Credencial de la cuenta de servicio de Firebase (el JSON en base64) con la que la API firma cada envío | Consola de Firebase → *Cuentas de servicio* → *Generar nueva clave privada* | Dokploy (Environment del servicio) |
 
 ### Pasos para recrear el entorno desde cero
 

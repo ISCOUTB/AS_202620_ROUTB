@@ -199,3 +199,25 @@ def test_paradas_de_solicitudes_distintas_se_intercalan():
         assert total_stops == 2
     finally:
         _limpiar(pass_b_id, pass_a_id, driver_id)
+
+
+def test_parada_desde_cualquier_ubicacion_es_aceptada():
+    """Una parada con coordenadas fuera del BBOX de Cartagena es aceptada."""
+    driver_id, driver_token = _crear_usuario("3300000014", "driver")
+    passenger_id, passenger_token = _crear_usuario("3300000015", "passenger")
+
+    try:
+        trip_id = _crear_viaje(driver_token, total_seats=4, direction="to_campus")
+        # Coordenadas fuera de Cartagena (ej. Turbaco sur / Arjona / Bogotá)
+        resp = client.post(
+            f"/requests/trips/{trip_id}",
+            headers={"Authorization": f"Bearer {passenger_token}"},
+            json={
+                "seat_count": 1,
+                "stops": [_stop(1, 4.6097, -74.0817)],
+            },
+        )
+        assert resp.status_code == 201
+        assert len(resp.json()["stops"]) == 1
+    finally:
+        _limpiar(passenger_id, driver_id)

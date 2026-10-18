@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../app/dependencies.dart';
@@ -40,8 +42,58 @@ class MyTripScreen extends StatefulWidget {
 }
 
 class _MyTripScreenState extends State<MyTripScreen> {
-  late final MyRequest _request = widget.request;
+  late MyRequest _request = widget.request;
   bool _busy = false;
+  bool _refreshing = false;
+  Timer? _pollTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _startPolling();
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startPolling() {
+    _pollTimer?.cancel();
+    if (!_request.isActive) return;
+    _pollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (mounted && !_busy && !_refreshing) {
+        unawaited(_reloadRequest(silent: true));
+      }
+    });
+  }
+
+  Future<void> _reloadRequest({bool silent = false}) async {
+    if (_refreshing) return;
+    if (!silent) setState(() => _refreshing = true);
+    try {
+      final requests = await RoutbScopeDependencies.of(context).trips
+          .myRequests();
+      if (!mounted) return;
+      final current = requests.firstWhere(
+        (r) => r.id == _request.id,
+        orElse: () => _request,
+      );
+      if (current != _request) {
+        setState(() => _request = current);
+        if (!current.isActive) {
+          _pollTimer?.cancel();
+        }
+      }
+    } catch (_) {
+      // Ignorar errores de sondeo en segundo plano
+    } finally {
+      if (mounted && !silent) {
+        setState(() => _refreshing = false);
+      }
+    }
+  }
 
   Future<void> _withdraw() async {
     if (_busy) return;
@@ -94,204 +146,232 @@ class _MyTripScreenState extends State<MyTripScreen> {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final arrival = _request.estimatedArrival;
 
     return Scaffold(
       backgroundColor: palette.background,
-      appBar: AppBar(title: const Text('Mi viaje')),
+      appBar: AppBar(
+        title: const Text('Mi viaje'),
+        actions: [
+          IconButton(
+            icon: _refreshing
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.refresh_rounded),
+            tooltip: 'Actualizar',
+            onPressed: () => _reloadRequest(silent: false),
+          ),
+        ],
+      ),
       body: SafeArea(
         top: false,
         child: LayoutBuilder(
           builder: (context, constraints) => Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 560),
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(14, 8, 14, 32),
-                children: [
-                  RouteMap(
-                    origin: _request.origin,
-                    destination: _request.destination,
-                    height: 200,
-                    interactive: true,
-                  ),
-                  const SizedBox(height: 12),
-                  Center(child: MyTripStatusPill(request: _request)),
-                  const SizedBox(height: 16),
-
-                  RoutbCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _request.routeLabel,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: RoutbText.headline(20, color: palette.ink),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          '${_request.departureDateLabel} · salida ${_request.departureLabel}',
-                          style: RoutbText.copy(13, color: palette.muted),
-                        ),
-                        const SizedBox(height: 14),
-                        DashedTimeline(
-                          stops: [
-                            TimelineStop(
-                              title: _request.origin,
-                              subtitle: 'Salida ${_request.departureLabel}',
-                            ),
-                            TimelineStop(
-                              title: _request.destination,
-                              subtitle: arrival == null
-                                  ? 'Sin hora de llegada estimada'
-                                  : 'Llegada estimada ${arrival.label}',
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-                        Row(
-                          children: [
-                            // El texto largo cede antes que el contador: en
-                            // pantallas estrechas es lo que evita el desborde.
-                            Flexible(
-                              child: Text(
-                                _request.isConfirmed
-                                    ? 'Tienes ${_request.seatCount} ${_request.seatCount == 1 ? 'cupo confirmado' : 'cupos confirmados'}'
-                                    : '${_request.seatCount} ${_request.seatCount == 1 ? 'cupo en espera' : 'cupos en espera'}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: RoutbText.copy(13, color: palette.ink),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              '${_request.availableSeats} de '
-                              '${_request.totalSeats} libres',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.end,
-                              style: RoutbText.copy(13, color: palette.muted),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          'Encuentro: ${_request.meetingPoint}',
-                          style: RoutbText.copy(13, color: palette.ink),
-                        ),
-                        const SizedBox(height: 4),
-                      ],
+              child: RefreshIndicator(
+                onRefresh: () => _reloadRequest(silent: false),
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(14, 8, 14, 32),
+                  children: [
+                    RouteMap(
+                      origin: _request.origin,
+                      destination: _request.destination,
+                      waypoints: _request.waypoints,
+                      height: 200,
+                      interactive: true,
                     ),
-                  ),
+                    const SizedBox(height: 12),
+                    Center(child: MyTripStatusPill(request: _request)),
+                    const SizedBox(height: 16),
 
-                  const SizedBox(height: 14),
-                  RoutbCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const RoutbCardHeader(title: 'Tu conductor'),
-                        Row(
-                          children: [
-                            InitialsAvatar(
-                              name: _request.driverName ?? '?',
-                              initials: _request.driverInitials,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    _request.hasDriverName
-                                        ? _request.driverName!
-                                        : 'Conductor sin asignar',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: RoutbText.headline(
-                                      15,
-                                      color: palette.ink,
-                                    ),
-                                  ),
-                                  if (_request.hasDriverPhone)
-                                    Text(
-                                      _request.driverPhone!,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: RoutbText.copy(
-                                        12,
-                                        color: palette.muted,
-                                      ),
-                                    )
-                                  else
-                                    Text(
-                                      'Teléfono no disponible',
-                                      style: RoutbText.copy(
-                                        12,
-                                        color: palette.muted,
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                            if (_request.hasDriverPhone)
-                              Icon(
-                                Icons.phone_rounded,
-                                size: 18,
-                                color: palette.muted,
-                              ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  if (_request.isOrphaned) ...[
-                    const SizedBox(height: 14),
                     RoutbCard(
-                      borderColor: palette.rose,
-                      borderWidth: 1,
-                      child: Row(
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(
-                            Icons.info_outline_rounded,
-                            size: 18,
-                            color: palette.rose,
+                          Text(
+                            _request.routeLabel,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: RoutbText.headline(20, color: palette.ink),
                           ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              'El conductor canceló la ruta. Tu solicitud ya no '
-                              'tiene sentido: retírala para buscar otro viaje.',
-                              style: RoutbText.copy(13, color: palette.ink),
-                            ),
+                          const SizedBox(height: 6),
+                          Text(
+                            '${_request.departureDateLabel} · salida ${_request.departureLabel}',
+                            style: RoutbText.copy(13, color: palette.muted),
+                          ),
+                          const SizedBox(height: 14),
+                          DashedTimeline(
+                            stops: [
+                              TimelineStop(
+                                title: _request.origin,
+                                subtitle: 'Salida ${_request.departureLabel}',
+                              ),
+                              for (
+                                var i = 0;
+                                i < _request.waypoints.length;
+                                i++
+                              )
+                                TimelineStop(
+                                  title: _request.waypoints[i],
+                                  subtitle: _request.waypoints.length == 1
+                                      ? 'Parada de recogida'
+                                      : 'Parada de recogida ${i + 1}',
+                                ),
+                              TimelineStop(
+                                title: _request.destination,
+                                subtitle: 'Destino final',
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          Row(
+                            children: [
+                              // El texto largo cede antes que el contador: en
+                              // pantallas estrechas es lo que evita el desborde.
+                              Flexible(
+                                child: Text(
+                                  _request.isConfirmed
+                                      ? 'Tienes ${_request.seatCount} ${_request.seatCount == 1 ? 'cupo confirmado' : 'cupos confirmados'}'
+                                      : '${_request.seatCount} ${_request.seatCount == 1 ? 'cupo en espera' : 'cupos en espera'}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: RoutbText.copy(13, color: palette.ink),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                '${_request.availableSeats} de '
+                                '${_request.totalSeats} libres',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.end,
+                                style: RoutbText.copy(13, color: palette.muted),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            'Encuentro: ${_request.meetingPoint}',
+                            style: RoutbText.copy(13, color: palette.ink),
+                          ),
+                          const SizedBox(height: 4),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 14),
+                    RoutbCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const RoutbCardHeader(title: 'Tu conductor'),
+                          Row(
+                            children: [
+                              InitialsAvatar(
+                                name: _request.driverName ?? '?',
+                                initials: _request.driverInitials,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      _request.hasDriverName
+                                          ? _request.driverName!
+                                          : 'Conductor sin asignar',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: RoutbText.headline(
+                                        15,
+                                        color: palette.ink,
+                                      ),
+                                    ),
+                                    if (_request.hasDriverPhone)
+                                      Text(
+                                        _request.driverPhone!,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: RoutbText.copy(
+                                          12,
+                                          color: palette.muted,
+                                        ),
+                                      )
+                                    else
+                                      Text(
+                                        'Teléfono no disponible',
+                                        style: RoutbText.copy(
+                                          12,
+                                          color: palette.muted,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              if (_request.hasDriverPhone)
+                                Icon(
+                                  Icons.phone_rounded,
+                                  size: 18,
+                                  color: palette.muted,
+                                ),
+                            ],
                           ),
                         ],
                       ),
                     ),
-                  ],
 
-                  const SizedBox(height: 20),
-                  if (_request.canWithdraw)
-                    RoutbButton(
-                      label: 'Cancelar',
-                      icon: Icons.close_rounded,
-                      variant: RoutbButtonVariant.danger,
-                      busy: _busy,
-                      onPressed: _withdraw,
-                    )
-                  else
-                    // `GET /requests/me` existe pero el retiro no: casi siempre es
-                    // un despliegue con el backend sin actualizar.
-                    RoutbButton(
-                      label: 'Cancelar',
-                      variant: RoutbButtonVariant.secondary,
-                      expand: false,
-                      height: 44,
-                      onPressed: null,
-                    ),
-                ],
+                    if (_request.isOrphaned) ...[
+                      const SizedBox(height: 14),
+                      RoutbCard(
+                        borderColor: palette.rose,
+                        borderWidth: 1,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              Icons.info_outline_rounded,
+                              size: 18,
+                              color: palette.rose,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'El conductor canceló la ruta. Tu solicitud ya no '
+                                'tiene sentido: retírala para buscar otro viaje.',
+                                style: RoutbText.copy(13, color: palette.ink),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+
+                    const SizedBox(height: 20),
+                    if (_request.canWithdraw)
+                      RoutbButton(
+                        label: 'Cancelar',
+                        icon: Icons.close_rounded,
+                        variant: RoutbButtonVariant.danger,
+                        busy: _busy,
+                        onPressed: _withdraw,
+                      )
+                    else
+                      // `GET /requests/me` existe pero el retiro no: casi siempre es
+                      // un despliegue con el backend sin actualizar.
+                      RoutbButton(
+                        label: 'Cancelar',
+                        variant: RoutbButtonVariant.secondary,
+                        expand: false,
+                        height: 44,
+                        onPressed: null,
+                      ),
+                  ],
+                ),
               ),
             ),
           ),

@@ -1,5 +1,5 @@
 from datetime import date
-from typing import Annotated
+from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
@@ -12,7 +12,6 @@ from app.modules.trips.application.get_trips import (
     get_driver_trips as get_driver_trips_use_case,
     get_trip as get_trip_use_case,
 )
-from app.modules.trips.application.reserve_seat import reserve_seat as reserve_seat_use_case
 from app.modules.trips.domain.exceptions import TripNotAuthorizedError, TripNotFoundError
 from app.modules.trips.infrastructure import schemas
 from app.modules.users.application import UserIdentity
@@ -80,11 +79,10 @@ def _to_response(trip, current_user_id: int | None = None) -> schemas.TripRespon
 def create_trip(
     trip: schemas.TripCreate,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[UserIdentity | None, Depends(get_optional_current_user)] = None,
+    current_user: Annotated[UserIdentity, Depends(get_current_user)],
 ):
-    driver_id = current_user.id if current_user else None
     try:
-        created = create_trip_use_case(db, trip, driver_id=driver_id)
+        created = create_trip_use_case(db, trip, driver_id=current_user.id)
     except PermissionError as exc:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -120,8 +118,12 @@ def get_active_trips(
 def get_my_trips(
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[UserIdentity, Depends(get_current_user)],
+    scope: Annotated[
+        Literal["active", "history", "all"],
+        Query(description="active: solo rutas activas; history: canceladas o con fecha pasada; all: todas"),
+    ] = "active",
 ):
-    trips = get_driver_trips_use_case(db, driver_id=current_user.id)
+    trips = get_driver_trips_use_case(db, driver_id=current_user.id, scope=scope)
     return [_to_response(t) for t in trips]
 
 
@@ -141,27 +143,13 @@ def get_trip(
 def cancel_trip(
     trip_id: int,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[UserIdentity | None, Depends(get_optional_current_user)] = None,
+    current_user: Annotated[UserIdentity, Depends(get_current_user)],
 ):
-    driver_id = current_user.id if current_user else None
     try:
-        trip = cancel_trip_use_case(db, trip_id, driver_id=driver_id)
+        trip = cancel_trip_use_case(db, trip_id, driver_id=current_user.id)
     except (TripNotFoundError, TripNotAuthorizedError):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Viaje no encontrado o no autorizado",
         )
-    return _to_response(trip, current_user_id=driver_id)
-
-
-@router.post("/{trip_id}/reservations", response_model=schemas.TripResponse)
-def reserve_trip_seat(
-    trip_id: int,
-    db: Annotated[Session, Depends(get_db)],
-):
-    trip = reserve_seat_use_case(db, trip_id)
-    if trip is None:
-        if get_trip_use_case(db, trip_id) is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found")
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="No seats available")
-    return _to_response(trip)
+    return _to_response(trip, current_user_id=current_user.id)

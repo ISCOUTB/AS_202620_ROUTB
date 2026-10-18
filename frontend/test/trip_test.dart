@@ -16,6 +16,7 @@ Map<String, dynamic> tripPayload({
   String status = 'active',
   String? driverName = 'Enzo Fernández',
   String? myRequestStatus,
+  String? departureDate,
   List<Map<String, dynamic>> requests = const <Map<String, dynamic>>[],
 }) => <String, dynamic>{
   'id': id,
@@ -24,6 +25,7 @@ Map<String, dynamic> tripPayload({
   'total_seats': totalSeats,
   'available_seats': availableSeats,
   'departure_time': departure,
+  'departure_date': ?departureDate,
   'status': status,
   'driver_id': 9,
   'driver_name': driverName,
@@ -142,6 +144,31 @@ void main() {
     test('una hora ilegible deja el viaje programado', () {
       final raro = Trip.fromJson(tripPayload(departure: 'mañana'));
       expect(raro.phaseAt(DateTime(2026, 10, 1, 7, 10)), TripPhase.scheduled);
+    });
+  });
+
+  group('Trip: fecha pasada', () {
+    final now = DateTime(2026, 10, 16, 8);
+
+    test('marca como pasada solo la fecha anterior', () {
+      // El día manda sobre la hora: las rutas del día siguen vigentes aunque
+      // ya hayan salido, y pasan al historial al día siguiente.
+      expect(
+        Trip.fromJson(tripPayload(departureDate: '2026-10-15')).isPastDate(now),
+        isTrue,
+      );
+      expect(
+        Trip.fromJson(tripPayload(departureDate: '2026-10-16')).isPastDate(now),
+        isFalse,
+      );
+      expect(
+        Trip.fromJson(tripPayload(departureDate: '2026-10-17')).isPastDate(now),
+        isFalse,
+      );
+    });
+
+    test('sin fecha programada no se considera pasada', () {
+      expect(Trip.fromJson(tripPayload()).isPastDate(now), isFalse);
     });
   });
 
@@ -353,5 +380,57 @@ void main() {
       expect(UserRole.passenger.registrationLabel, 'Registro como pasajero');
       expect(UserRole.passenger.title, 'Soy pasajero');
     });
+  });
+
+  group('Trip: desvíos y paradas aceptadas', () {
+    test('sin solicitudes no hay desvío aceptado', () {
+      final trip = Trip.fromJson(tripPayload());
+      expect(trip.acceptedWaypoint, isNull);
+      expect(trip.acceptedWaypoints, isEmpty);
+      expect(trip.hasAcceptedDetour, isFalse);
+    });
+
+    test('solicitudes pendientes no activan el desvío como ruta default', () {
+      final trip = Trip.fromJson(
+        tripPayload(
+          requests: [
+            {
+              'id': 10,
+              'status': 'pending',
+              'passenger_name': 'Carlos M',
+              'stops': [
+                {'address_text': 'Calle 12 ## 121-3, El Rodeo', 'seats': 1},
+              ],
+            },
+          ],
+        ),
+      );
+      expect(trip.acceptedWaypoint, isNull);
+      expect(trip.acceptedWaypoints, isEmpty);
+      expect(trip.hasAcceptedDetour, isFalse);
+    });
+
+    test(
+      'solicitud aceptada con parada se convierte en el desvío por defecto',
+      () {
+        final trip = Trip.fromJson(
+          tripPayload(
+            requests: [
+              {
+                'id': 11,
+                'status': 'accepted',
+                'passenger_name': 'Laura V',
+                'stops': [
+                  {'address_text': 'Calle 12 ## 121-3, El Rodeo', 'seats': 1},
+                ],
+              },
+            ],
+          ),
+        );
+        expect(trip.acceptedWaypoint, 'Calle 12 ## 121-3, El Rodeo');
+        expect(trip.acceptedWaypoints, ['Calle 12 ## 121-3, El Rodeo']);
+        expect(trip.hasAcceptedDetour, isTrue);
+      },
+    );
   });
 }

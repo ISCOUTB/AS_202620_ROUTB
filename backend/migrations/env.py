@@ -9,6 +9,7 @@ from app.core.database import Base
 from app.modules.requests.infrastructure import models as requests_models
 from app.modules.trips.infrastructure import models as trips_models
 from app.modules.users.infrastructure import models as users_models
+from app.modules.notifications.infrastructure import models as notifications_models
 
 config = context.config
 load_dotenv()

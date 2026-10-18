@@ -41,4 +41,7 @@ def current_user(
         "last_name": user.last_name,
         "phone": user.phone,
         "role": user.role,
+        "location_consent_at": user.location_consent_at.isoformat()
+        if user.location_consent_at
+        else None,
     }

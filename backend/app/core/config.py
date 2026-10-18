@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 ENV_PATH = Path(__file__).resolve().parents[2] / ".env"
 load_dotenv(dotenv_path=ENV_PATH)
 
-DEFAULT_GEOCODE_BBOX = (-75.6, 10.35, -75.45, 10.5)
+DEFAULT_GEOCODE_BBOX = (-75.6, 10.25, -75.45, 10.5)
 
 
 class Settings:
@@ -20,11 +20,11 @@ class Settings:
     # Parámetros espaciales y de matching
     UTB_CAMPUS_LAT: float = float(os.getenv("UTB_CAMPUS_LAT", "10.371078").strip())
     UTB_CAMPUS_LNG: float = float(os.getenv("UTB_CAMPUS_LNG", "-75.466261").strip())
-    GEOCODE_BBOX: str = os.getenv("GEOCODE_BBOX", "-75.6,10.35,-75.45,10.5")
+    GEOCODE_BBOX: str = os.getenv("GEOCODE_BBOX", "-75.6,10.25,-75.45,10.5")
 
     @staticmethod
     def parse_geocode_bbox(raw_bbox: str | None) -> tuple[float, float, float, float]:
-        """Acepta ambos formatos: '-75.6,10.35,-75.45,10.5' y '[-75.6,10.35,-75.45,10.5]'."""
+        """Acepta ambos formatos: '-75.6,10.25,-75.45,10.5' y '[-75.6,10.25,-75.45,10.5]'."""
         value = (raw_bbox or "").strip()
         if value.startswith("[") and value.endswith("]"):
             value = value[1:-1].strip()
@@ -37,6 +37,8 @@ class Settings:
     # Geocodificación (Fase 1)
     PHOTON_BASE_URL: str = os.getenv("PHOTON_BASE_URL", "https://photon.komoot.io")
     NOMINATIM_BASE_URL: str = os.getenv("NOMINATIM_BASE_URL", "https://nominatim.openstreetmap.org")
+    # Identifica al cliente ante los servicios de OpenStreetMap: Nominatim la
+    # exige por política y Photon responde 403 sin ella.
     NOMINATIM_USER_AGENT: str = os.getenv("NOMINATIM_USER_AGENT", "ROUTB/1.0 (contacto@utb.edu.co)")
 
     # Routing (Fase 1). ADR 0014: timeout único de proveedores externos;

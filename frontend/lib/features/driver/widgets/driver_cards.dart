@@ -2,9 +2,11 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../core/map/place_locator.dart';
 import '../../../core/models/trip.dart';
 import '../../../core/models/trip_request.dart';
 import '../../../core/models/trip_status.dart';
+import '../../../core/network/google_maps_service.dart';
 import '../../../core/theme/routb_palette.dart';
 import '../../../core/theme/routb_text.dart';
 import '../../../core/theme/routb_theme.dart';
@@ -16,8 +18,8 @@ import '../../../core/widgets/routb_seats.dart';
 
 /// `.rq`: fila de solicitud de cupo.
 ///
-/// Muestra el avatar, el nombre, el telÃ©fono y el trayecto de la ruta, con los
-/// dos botones de aceptar y rechazar.
+/// Muestra el avatar, el nombre, el teléfono y el trayecto de la ruta, con los
+/// dos botones de aceptar y rechazar, y el cálculo del desvío si hay paradas.
 class RequestTile extends StatelessWidget {
   const RequestTile({
     required this.request,
@@ -25,6 +27,7 @@ class RequestTile extends StatelessWidget {
     required this.onAccept,
     required this.onReject,
     required this.busy,
+    this.onTapPreview,
     super.key,
   });
 
@@ -34,13 +37,16 @@ class RequestTile extends StatelessWidget {
   /// Viaje al que se refiere, para el trayecto y la hora.
   final Trip trip;
 
-  /// AcciÃ³n de aceptar.
+  /// Acción de aceptar.
   final VoidCallback onAccept;
 
-  /// AcciÃ³n de rechazar.
+  /// Acción de rechazar.
   final VoidCallback onReject;
 
-  /// `true` mientras la solicitud se estÃ¡ procesando.
+  /// Vista previa opcional del desvío en el mapa.
+  final VoidCallback? onTapPreview;
+
+  /// `true` mientras la solicitud se está procesando.
   final bool busy;
 
   @override
@@ -93,12 +99,52 @@ class RequestTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: RoutbText.copy(12, color: palette.muted),
                 ),
-                for (final stop in request.stops)
+                for (final stop in request.stops) ...[
+                  const SizedBox(height: 2),
                   Text(
                     '${stop.addressText} · ${stop.seats} ${stop.seats == 1 ? 'persona' : 'personas'}',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: RoutbText.copy(12, color: palette.ink),
+                  ),
+                  DetourBadge(trip: trip, stopAddress: stop.addressText),
+                ],
+                if (onTapPreview != null && request.stops.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: InkWell(
+                      onTap: onTapPreview,
+                      borderRadius: BorderRadius.circular(6),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 2,
+                          horizontal: 4,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.map_outlined,
+                              size: 13,
+                              color: palette.brand,
+                            ),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                'Ver ruta en el mapa',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: RoutbText.copy(
+                                  11,
+                                  color: palette.brand,
+                                  weight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
               ],
             ),
@@ -211,7 +257,6 @@ class RouteCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
     final phase = trip.phaseAt(DateTime.now());
-    final arrival = trip.estimatedArrival;
 
     final (Color pillBackground, Color pillForeground) = switch (phase) {
       TripPhase.onCourse => (palette.mintSurface, palette.onMintSurface),
@@ -254,6 +299,75 @@ class RouteCard extends StatelessWidget {
                       background: pillBackground,
                       foreground: pillForeground,
                     ),
+                    if (trip.hasAcceptedDetour) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0x1AE67E22),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: const Color(0xFFE67E22),
+                            width: 0.8,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.alt_route_rounded,
+                              size: 11,
+                              color: Color(0xFFE67E22),
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              'Desvío',
+                              style: RoutbText.copy(
+                                10,
+                                color: const Color(0xFFE67E22),
+                                weight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    if (trip.requests.pending.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: palette.amberSurface,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: palette.amber, width: 1),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.notifications_active_rounded,
+                              size: 13,
+                              color: palette.onAmberSurface,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${trip.requests.pending.length} ${trip.requests.pending.length == 1 ? 'solicitud' : 'solicitudes'}',
+                              style: RoutbText.copy(
+                                11,
+                                color: palette.onAmberSurface,
+                                weight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     const SizedBox(width: 8),
                     _ChevronButton(
                       onTap: onOpenDetail,
@@ -270,11 +384,15 @@ class RouteCard extends StatelessWidget {
                           '${trip.departureDateLabel} · salida ${trip.departureLabel}',
                       reached: phase == TripPhase.onCourse,
                     ),
+                    for (final waypoint in trip.acceptedWaypoints)
+                      TimelineStop(
+                        title: waypoint,
+                        subtitle: 'Parada confirmada de pasajero',
+                        reached: false,
+                      ),
                     TimelineStop(
                       title: trip.destination,
-                      subtitle: arrival == null
-                          ? 'Llegada sin estimar'
-                          : 'Llegada estimada ${arrival.label}',
+                      subtitle: 'Destino final',
                       reached: false,
                     ),
                   ],
@@ -348,6 +466,85 @@ class _ChevronButton extends StatelessWidget {
   }
 }
 
+/// Fila del historial del conductor: una ruta cancelada o ya pasada.
+///
+/// Es solo informativa —no se cancela ni se selecciona— y resume el trayecto,
+/// su fecha y cuántos pasajeros quedaron confirmados.
+class HistoryRouteTile extends StatelessWidget {
+  const HistoryRouteTile({required this.trip, super.key});
+
+  /// Ruta del historial.
+  final Trip trip;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final phase = trip.phaseAt(DateTime.now());
+
+    final (Color pillBackground, Color pillForeground) = switch (phase) {
+      TripPhase.onCourse => (palette.mintSurface, palette.onMintSurface),
+      TripPhase.cancelled => (palette.roseSurface, palette.onRoseSurface),
+      TripPhase.completed => (palette.surface, palette.muted),
+      TripPhase.scheduled => (palette.amberSurface, palette.onAmberSurface),
+    };
+
+    final confirmed = trip.requests.accepted.fold<int>(
+      0,
+      (total, request) => total + request.seatCount,
+    );
+
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: palette.surface,
+        borderRadius: BorderRadius.circular(RoutbTheme.radiusRoute),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  trip.routeLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: RoutbText.headline(15, color: palette.ink),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${trip.departureDateLabel} · ${trip.departureLabel}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: RoutbText.copy(12, color: palette.muted),
+                ),
+                if (confirmed > 0) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    confirmed == 1
+                        ? '1 pasajero confirmado'
+                        : '$confirmed pasajeros confirmados',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: RoutbText.copy(12, color: palette.muted),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          RoutbStatusPill(
+            label: phase.label,
+            background: pillBackground,
+            foreground: pillForeground,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// `.seats`: los cuatro asientos del hero, con las iniciales de quien ya tiene
 /// cupo confirmado.
 class HeroSeatSlots extends StatelessWidget {
@@ -355,29 +552,26 @@ class HeroSeatSlots extends StatelessWidget {
 
   final Trip trip;
 
-  static const int _slots = 4;
-
   @override
   Widget build(BuildContext context) {
     final confirmed = _confirmedSeatInitials(trip);
     final occupied = trip.takenSeats;
+    final slots = trip.totalSeats.clamp(1, 4);
 
-    // El lado de cada pip sale del ancho disponible: cuatro pips de 32 px mÃ¡s
-    // sus separadores no entran en el hero de un telÃ©fono estrecho, y una fila
-    // de ancho fijo desborda en lugar de encogerse.
+    // El lado de cada pip sale del ancho disponible según los cupos reales del viaje.
     return LayoutBuilder(
       builder: (context, constraints) {
         const gap = 6.0;
         final size = math.min(
           32.0,
-          math.max(0.0, (constraints.maxWidth - gap * (_slots - 1)) / _slots),
+          math.max(0.0, (constraints.maxWidth - gap * (slots - 1)) / slots),
         );
 
         return Row(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.end,
           children: <Widget>[
-            for (var seat = 0; seat < _slots; seat++)
+            for (var seat = 0; seat < slots; seat++)
               Padding(
                 padding: EdgeInsets.only(left: seat == 0 ? 0 : gap),
                 child: _SeatPip(
@@ -385,7 +579,7 @@ class HeroSeatSlots extends StatelessWidget {
                   initials: seat < confirmed.length
                       ? confirmed[seat]
                       : seat < occupied
-                      ? 'â€“'
+                      ? '–'
                       : null,
                 ),
               ),
@@ -477,6 +671,7 @@ class OccupiedSeatsCard extends StatelessWidget {
 
     return SeatSlots(
       selected: trip.totalSeats,
+      maxSeats: trip.totalSeats.clamp(1, 4),
       onChanged: null,
       locked: true,
       occupiedBy: names,
@@ -490,3 +685,132 @@ List<String> _confirmedSeatInitials(Trip trip) => [
   for (final request in trip.requests.accepted)
     for (var seat = 0; seat < request.seatCount; seat++) request.initials,
 ];
+
+/// Indicador visual del tiempo y distancia extra que representa el desvío.
+class DetourBadge extends StatefulWidget {
+  const DetourBadge({required this.trip, required this.stopAddress, super.key});
+
+  final Trip trip;
+  final String stopAddress;
+
+  @override
+  State<DetourBadge> createState() => _DetourBadgeState();
+}
+
+class _DetourBadgeState extends State<DetourBadge> {
+  RouteDetourResult? _result;
+  bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _calculate();
+  }
+
+  @override
+  void didUpdateWidget(DetourBadge oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.stopAddress != widget.stopAddress ||
+        oldWidget.trip.origin != widget.trip.origin ||
+        oldWidget.trip.destination != widget.trip.destination) {
+      _calculate();
+    }
+  }
+
+  Future<void> _calculate() async {
+    final clean = widget.stopAddress.trim();
+    if (clean.isEmpty) return;
+    if (mounted) setState(() => _loading = true);
+
+    try {
+      final locator = PlaceLocator.instance;
+      final points = await Future.wait([
+        locator.locate(widget.trip.origin),
+        locator.locate(widget.trip.destination),
+        locator.locate(clean),
+      ]);
+
+      final origin = points[0];
+      final destination = points[1];
+      final stop = points[2];
+
+      if (origin != null && destination != null && stop != null) {
+        final detour = await GoogleMapsService.instance.computeDetour(
+          origin: origin,
+          destination: destination,
+          waypoint: stop,
+        );
+        if (mounted) setState(() => _result = detour);
+      }
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    if (_loading && _result == null) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 10,
+              height: 10,
+              child: CircularProgressIndicator(
+                strokeWidth: 1.5,
+                color: palette.brand,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                'Calculando desvío...',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: RoutbText.copy(10, color: palette.muted),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_result == null) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(top: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: palette.brandSurface,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.alt_route_rounded, size: 12, color: palette.brand),
+          const SizedBox(width: 4),
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Desvío: ${_result!.summaryLabel}',
+                maxLines: 1,
+                style: RoutbText.copy(
+                  11,
+                  color: palette.brand,
+                  weight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

@@ -12,26 +12,29 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/theme/routb_palette.dart';
 import '../../../core/theme/routb_text.dart';
 import '../../../core/theme/routb_theme.dart';
+import '../../../core/widgets/date_quick_picker.dart';
 import '../../../core/widgets/route_map.dart';
 import '../../../core/widgets/routb_anim.dart';
 import '../../../core/widgets/routb_button.dart';
 import '../../../core/widgets/routb_hero.dart';
+import '../../../core/widgets/routb_nav_bar.dart';
 import '../../../core/widgets/routb_seats.dart';
 import '../../../core/widgets/routb_sheet.dart';
 import '../../../core/widgets/routb_toast.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../auth/screens/auth_flow.dart';
-import '../../auth/screens/location_privacy_screen.dart';
+import '../../profile/screens/profile_screen.dart';
 import '../../trips/data/trip_repository.dart';
 import '../../matching/presentation/suggestions_screen.dart';
 import '../widgets/my_trip_card.dart';
+import '../widgets/reserve_seats_sheet.dart';
 import '../widgets/trip_card.dart';
 import 'my_trip_screen.dart';
 
 /// Estado de la lista de viajes del pasajero.
 enum PassengerStatus { loading, ready, failed }
 
-enum _PassengerTab { search, myTrips }
+enum _PassengerTab { search, myTrips, profile }
 
 /// Modo pasajero: busca viajes, compara horarios y solicita cupos.
 ///
@@ -212,20 +215,11 @@ class _PassengerScreenState extends State<PassengerScreen> {
     });
   }
 
-  Future<void> _chooseDate() async {
-    final today = TripSchedule.dateOnly(DateTime.now());
-    final selected = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate.isBefore(today) ? today : _selectedDate,
-      firstDate: today,
-      lastDate: today.add(const Duration(days: 30)),
-      helpText: '¿Qué día viajas?',
-      cancelText: 'Cancelar',
-      confirmText: 'Elegir día',
-    );
-    if (selected == null || !mounted) return;
+  Future<void> _setDate(DateTime date) async {
+    final selected = TripSchedule.clampToTripWindow(date);
+    if (selected == _selectedDate) return;
     setState(() {
-      _selectedDate = TripSchedule.dateOnly(selected);
+      _selectedDate = selected;
       _filtering = true;
     });
     await _load();
@@ -247,54 +241,67 @@ class _PassengerScreenState extends State<PassengerScreen> {
     await _load();
   }
 
+  /// Abre la mini pantalla de solicitud y envía lo que se pidió en ella.
+  ///
+  /// Antes los viajes con `direction` se desviaban a [SuggestionsScreen], que
+  /// empieza una búsqueda nueva y descarta el viaje ya elegido: se perdía el
+  /// cupo que se estaba pidiendo. La parada que exige el backend para esos
+  /// viajes se pide ahora dentro de la propia mini pantalla.
   Future<void> _reserve(Trip trip) async {
     if (_busyTripId != null) return;
-    if (trip.direction != null) {
-      await Navigator.of(context).push(
-        RoutbPageRoute<void>(
-          child: SuggestionsScreen(
-            initialDirection: trip.direction,
-            initialDate: trip.departureDate ?? _selectedDate,
-          ),
-        ),
-      );
-      return;
-    }
-    final maximum = trip.availableSeats.clamp(1, 4).toInt();
-    final seatCount = await showDialog<int>(
-      context: context,
-      builder: (context) => SimpleDialog(
-        title: const Text('¿Para cuántas personas?'),
-        children: [
-          for (final count in List<int>.generate(maximum, (index) => index + 1))
-            SimpleDialogOption(
-              onPressed: () => Navigator.of(context).pop(count),
-              child: Text(
-                '$count ${count == 1 ? 'cupo (solo tú)' : 'cupos (tú y ${count - 1} más)'}',
-              ),
-            ),
-        ],
-      ),
-    );
-    if (seatCount == null || !mounted) return;
+    final choice = await showReserveSeatsSheet(context: context, trip: trip);
+    if (choice == null || !mounted) return;
     setState(() => _busyTripId = trip.id);
 
     try {
-      final request = await _repository.requestSeat(
-        trip.id,
-        seatCount: seatCount,
-      );
+      final request =
+          choice.request ??
+          await _repository.requestSeat(
+            trip.id,
+            seatCount: choice.seatCount,
+            stops: choice.stops,
+          );
       if (!mounted) return;
       // El backend descuenta los cupos al aceptar el conductor, no al solicitar,
       // así que aquí solo se marca la solicitud en curso.
       _replaceTrip(trip.copyWith(myRequestStatus: request.status));
       // Y con ella aparece la solicitud en «Mis viajes» sin esperar al
       // siguiente refresco.
-      unawaited(_loadMyRequests());
+      await _loadMyRequests();
+      if (!mounted) return;
+      final seats = choice.seatCount;
       RoutbToast.show(
         context,
-        'Solicitud de $seatCount ${seatCount == 1 ? 'cupo' : 'cupos'} enviada a ${trip.hasDriverName ? trip.driverName!.split(' ').first : 'el conductor'}',
+        'Solicitud de $seats ${seats == 1 ? 'cupo' : 'cupos'} enviada a ${trip.hasDriverName ? trip.driverName!.split(' ').first : 'el conductor'}',
       );
+
+      // B-2: La pantalla de búsqueda se convierte en seguimiento de ruta al solicitar/confirmar el viaje.
+      // Al finalizar o cancelarse regresa limpiamente al buscador.
+      final activeReq =
+          _myRequests.cast<MyRequest?>().firstWhere(
+            (r) => r != null && (r.tripId == trip.id || r.id == request.id),
+            orElse: () => null,
+          ) ??
+          MyRequest(
+            id: request.id,
+            tripId: trip.id,
+            seatCount: choice.seatCount,
+            status: request.status,
+            origin: trip.origin,
+            destination: trip.destination,
+            rawDeparture: trip.rawDeparture,
+            departure: trip.departure,
+            departureDate: trip.departureDate,
+            meetingPoint: trip.meetingPoint,
+            totalSeats: trip.totalSeats,
+            availableSeats: trip.availableSeats,
+            tripStatus: trip.status,
+            createdAt: request.createdAt,
+            driverName: trip.driverName,
+            driverPhone: null,
+          );
+
+      await _openMyTrip(activeReq);
     } on ApiException catch (error) {
       if (!mounted) return;
       RoutbToast.show(context, error.message);
@@ -326,13 +333,9 @@ class _PassengerScreenState extends State<PassengerScreen> {
     RoutbToast.show(context, 'Cerraste sesión');
   }
 
-  Future<void> _openLocationPrivacy() => Navigator.of(context).push(
-    RoutbPageRoute<void>(child: const LocationPrivacyScreen()),
-  );
-
-  Future<void> _openSuggestions() => Navigator.of(context).push(
-    RoutbPageRoute<void>(child: const SuggestionsScreen()),
-  );
+  Future<void> _openSuggestions() =>
+      Navigator.of(context)
+          .push(RoutbPageRoute<void>(child: const SuggestionsScreen()));
 
   @override
   Widget build(BuildContext context) {
@@ -347,108 +350,127 @@ class _PassengerScreenState extends State<PassengerScreen> {
             constraints: const BoxConstraints(
               maxWidth: RoutbTheme.contentMaxWidth,
             ),
-            child: _selectedTab == _PassengerTab.search
-                ? Column(
-                    children: [
-                      _PassengerHero(
-                        userName: widget.account.name,
-                        origin: _origin,
-                        destination: _destination,
-                        selectedDate: _selectedDate,
-                        onOriginChanged: _onQueryChanged,
-                        onDestinationChanged: _onQueryChanged,
-                        onDateTap: _chooseDate,
-                        onLogout: _logout,
-                        onLocationPrivacy: _openLocationPrivacy,
-                        onOpenMap: _openFullMap,
-                        onOpenSuggestions: _openSuggestions,
-                      ),
-                      Expanded(
-                        child: switch (_status) {
-                          PassengerStatus.loading => const _TripsLoading(),
-                          PassengerStatus.failed => _TripsFailed(
-                            message: _errorMessage,
-                            onRetry: _load,
-                          ),
-                          PassengerStatus.ready => _TripsList(
-                            trips: _trips,
-                            myRequest: _currentRequest,
-                            busyTripId: _busyTripId,
-                            filtering: _filtering,
-                            origin: _origin.text.trim(),
-                            destination: _destination.text.trim(),
-                            selectedDate: _selectedDate,
-                            onReserve: _reserve,
-                            onOpenMyTrip: _openMyTrip,
-                            onRefresh: _load,
-                            onClearFilters: _clearFilters,
-                          ),
-                        },
-                      ),
-                    ],
-                  )
-                : _MyTripsTab(
+            child: switch (_selectedTab) {
+              _PassengerTab.search => Column(
+                children: [
+                  _PassengerHero(
                     userName: widget.account.name,
-                    requests: _myRequests,
-                    loading: _myRequestsLoading,
-                    failed: _myRequestsFailed,
+                    origin: _origin,
+                    destination: _destination,
+                    selectedDate: _selectedDate,
+                    onOriginChanged: _onQueryChanged,
+                    onDestinationChanged: _onQueryChanged,
+                    onDateChanged: _setDate,
                     onLogout: _logout,
-                    onLocationPrivacy: _openLocationPrivacy,
-                    onRefresh: _loadMyRequests,
-                    onRetry: _loadMyRequests,
-                    onOpen: _openMyTrip,
+                    onOpenMap: _openFullMap,
+                    onOpenSuggestions: _openSuggestions,
                   ),
+                  Expanded(
+                    child: switch (_status) {
+                      PassengerStatus.loading => const _TripsLoading(),
+                      PassengerStatus.failed => _TripsFailed(
+                        message: _errorMessage,
+                        onRetry: _load,
+                      ),
+                      PassengerStatus.ready => _TripsList(
+                        trips: () {
+                          final confirmedTripIds = _myRequests
+                              .where((r) => r.isConfirmed)
+                              .map((r) => r.tripId)
+                              .toSet();
+                          return confirmedTripIds.isEmpty
+                              ? _trips
+                              : _trips
+                                    .where(
+                                      (t) => !confirmedTripIds.contains(t.id),
+                                    )
+                                    .toList(growable: false);
+                        }(),
+                        myRequest: _currentRequest,
+                        busyTripId: _busyTripId,
+                        filtering: _filtering,
+                        origin: _origin.text.trim(),
+                        destination: _destination.text.trim(),
+                        selectedDate: _selectedDate,
+                        onReserve: _reserve,
+                        onOpenMyTrip: _openMyTrip,
+                        onRefresh: _load,
+                        onClearFilters: _clearFilters,
+                      ),
+                    },
+                  ),
+                ],
+              ),
+              _PassengerTab.myTrips => _MyTripsTab(
+                userName: widget.account.name,
+                requests: _myRequests,
+                loading: _myRequestsLoading,
+                failed: _myRequestsFailed,
+                onLogout: _logout,
+                onRefresh: _loadMyRequests,
+                onRetry: _loadMyRequests,
+                onOpen: _openMyTrip,
+              ),
+              _PassengerTab.profile => ProfileScreen(account: widget.account),
+            },
           ),
         ),
       ),
-      bottomNavigationBar: _PassengerNavigationBar(
-        selected: _selectedTab,
-        activeTrips: _myRequests.where((request) => request.isActive).length,
-        onSelected: _selectTab,
+      bottomNavigationBar: RoutbNavBar(
+        items: [
+          const RoutbNavItem(label: 'Buscar', icon: Icons.search_rounded),
+          RoutbNavItem(
+            label: 'Mis viajes',
+            icon: Icons.luggage_outlined,
+            badge: _myRequests.where((request) => request.isActive).length,
+          ),
+          const RoutbNavItem(
+            label: 'Perfil',
+            icon: Icons.person_outline_rounded,
+          ),
+        ],
+        selectedIndex: _selectedTab.index,
+        onSelected: (index) => _selectTab(_PassengerTab.values[index]),
       ),
     );
   }
 }
 
-/// Hero del modo pasajero: saludo y buscador.
+/// Hero del modo pasajero: saludo, mapa y acceso a búsqueda.
 class _PassengerHero extends StatelessWidget {
   const _PassengerHero({
     required this.userName,
-    required this.origin,
-    required this.destination,
     required this.selectedDate,
-    required this.onOriginChanged,
-    required this.onDestinationChanged,
-    required this.onDateTap,
+    required this.onDateChanged,
     required this.onLogout,
-    required this.onLocationPrivacy,
     required this.onOpenMap,
     required this.onOpenSuggestions,
+    this.origin,
+    this.destination,
+    this.onOriginChanged,
+    this.onDestinationChanged,
   });
 
   final String userName;
-  final TextEditingController origin;
-  final TextEditingController destination;
+  final TextEditingController? origin;
+  final TextEditingController? destination;
   final DateTime selectedDate;
-  final ValueChanged<String> onOriginChanged;
-  final ValueChanged<String> onDestinationChanged;
-  final VoidCallback onDateTap;
+  final ValueChanged<String>? onOriginChanged;
+  final ValueChanged<String>? onDestinationChanged;
+  final ValueChanged<DateTime> onDateChanged;
   final VoidCallback onLogout;
-  final VoidCallback onLocationPrivacy;
   final VoidCallback onOpenMap;
   final VoidCallback onOpenSuggestions;
 
   @override
   Widget build(BuildContext context) {
-    // Mapa compacto dentro del buscador, y hoja a pantalla casi completa para
-    // moverlo. Aquí no hay viaje guardado todavía, solo lo que se está
-    // escribiendo, así que el mapa se redibuja con cada búsqueda.
-    final originText = origin.text.trim();
-    final destinationText = destination.text.trim();
+    final originText = origin?.text.trim() ?? '';
+    final destinationText = destination?.text.trim() ?? '';
+    final palette = context.palette;
 
     return Container(
       decoration: BoxDecoration(
-        gradient: context.palette.heroGradient,
+        gradient: palette.heroGradient,
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(34)),
       ),
       padding: const EdgeInsets.fromLTRB(18, 12, 18, 20),
@@ -459,7 +481,6 @@ class _PassengerHero extends StatelessWidget {
             role: UserRole.passenger,
             userName: userName,
             onLogout: onLogout,
-            onLocationPrivacy: onLocationPrivacy,
             isDarkBackground: true,
             wave: true,
           ),
@@ -475,7 +496,7 @@ class _PassengerHero extends StatelessWidget {
                 right: 6,
                 top: 6,
                 child: Material(
-                  color: context.palette.card,
+                  color: palette.card,
                   borderRadius: BorderRadius.circular(RoutbTheme.radiusPill),
                   child: InkWell(
                     onTap: onOpenMap,
@@ -488,14 +509,14 @@ class _PassengerHero extends StatelessWidget {
                           Icon(
                             Icons.fullscreen_rounded,
                             size: 13,
-                            color: context.palette.ink,
+                            color: palette.ink,
                           ),
                           const SizedBox(width: 4),
                           Text(
                             'Abrir mapa',
                             style: RoutbText.copy(
                               11,
-                              color: context.palette.ink,
+                              color: palette.ink,
                               weight: FontWeight.w700,
                             ),
                           ),
@@ -508,21 +529,59 @@ class _PassengerHero extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          SearchCard(
-            origin: origin,
-            destination: destination,
-            onOriginChanged: onOriginChanged,
-            onDestinationChanged: onDestinationChanged,
-            selectedDate: selectedDate,
-            onDateTap: onDateTap,
-          ),
-          const SizedBox(height: 10),
-          RoutbButton(
-            label: 'Buscar sugerencias puerta a puerta',
-            icon: Icons.route_outlined,
-            variant: RoutbButtonVariant.secondary,
-            onPressed: onOpenSuggestions,
-            height: 42,
+          Container(
+            decoration: BoxDecoration(
+              color: palette.card,
+              borderRadius: BorderRadius.circular(22),
+              boxShadow: palette.searchShadow,
+            ),
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DateQuickPicker(value: selectedDate, onChanged: onDateChanged),
+                const SizedBox(height: 10),
+                Material(
+                  color: palette.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  child: InkWell(
+                    onTap: onOpenSuggestions,
+                    borderRadius: BorderRadius.circular(16),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.search_rounded,
+                            size: 20,
+                            color: palette.brand,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              '¿A dónde vas? Buscar ruta y paradas',
+                              style: RoutbText.copy(
+                                13,
+                                color: palette.ink,
+                                weight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          Icon(
+                            Icons.arrow_forward_ios_rounded,
+                            size: 13,
+                            color: palette.muted,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -659,10 +718,7 @@ class _TripsList extends StatelessWidget {
             if (myRequest != null)
               SliverToBoxAdapter(child: emptyState)
             else
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: emptyState,
-              )
+              SliverFillRemaining(hasScrollBody: false, child: emptyState)
           else
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(14, 0, 14, 28),
@@ -746,7 +802,6 @@ class _MyTripsTab extends StatelessWidget {
     required this.loading,
     required this.failed,
     required this.onLogout,
-    required this.onLocationPrivacy,
     required this.onRefresh,
     required this.onRetry,
     required this.onOpen,
@@ -757,7 +812,6 @@ class _MyTripsTab extends StatelessWidget {
   final bool loading;
   final bool failed;
   final VoidCallback onLogout;
-  final VoidCallback onLocationPrivacy;
   final Future<void> Function() onRefresh;
   final Future<void> Function() onRetry;
   final ValueChanged<MyRequest> onOpen;
@@ -783,7 +837,6 @@ class _MyTripsTab extends StatelessWidget {
                 role: UserRole.passenger,
                 userName: userName,
                 onLogout: onLogout,
-                onLocationPrivacy: onLocationPrivacy,
                 isDarkBackground: true,
                 wave: true,
               ),
@@ -832,137 +885,6 @@ class _MyTripsTab extends StatelessWidget {
                 ),
         ),
       ],
-    );
-  }
-}
-
-/// Barra compacta que conserva la paleta y las superficies de ROUTB.
-class _PassengerNavigationBar extends StatelessWidget {
-  const _PassengerNavigationBar({
-    required this.selected,
-    required this.activeTrips,
-    required this.onSelected,
-  });
-
-  final _PassengerTab selected;
-  final int activeTrips;
-  final ValueChanged<_PassengerTab> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-    return Container(
-      decoration: BoxDecoration(
-        color: palette.card,
-        border: Border(top: BorderSide(color: palette.line)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: 64,
-          child: Row(
-            children: [
-              _PassengerNavItem(
-                label: 'Buscar',
-                icon: Icons.search_rounded,
-                selected: selected == _PassengerTab.search,
-                onTap: () => onSelected(_PassengerTab.search),
-              ),
-              _PassengerNavItem(
-                label: 'Mis viajes',
-                icon: Icons.luggage_outlined,
-                selected: selected == _PassengerTab.myTrips,
-                badge: activeTrips,
-                onTap: () => onSelected(_PassengerTab.myTrips),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PassengerNavItem extends StatelessWidget {
-  const _PassengerNavItem({
-    required this.label,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-    this.badge = 0,
-  });
-
-  final String label;
-  final IconData icon;
-  final bool selected;
-  final int badge;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-    final color = selected ? palette.brand : palette.muted;
-    return Expanded(
-      child: Semantics(
-        button: true,
-        selected: selected,
-        label: badge > 0 ? '$label, $badge activos' : label,
-        child: InkWell(
-          onTap: onTap,
-          child: Center(
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 160),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-              decoration: BoxDecoration(
-                color: selected ? palette.brandSurface : Colors.transparent,
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Icon(icon, size: 20, color: color),
-                      if (badge > 0)
-                        Positioned(
-                          right: -8,
-                          top: -5,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            decoration: BoxDecoration(
-                              color: palette.mint,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            constraints: const BoxConstraints(minWidth: 15),
-                            child: Text(
-                              badge > 9 ? '9+' : '$badge',
-                              textAlign: TextAlign.center,
-                              style: RoutbText.copy(9, color: palette.onMint),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(width: 7),
-                  Flexible(
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: RoutbText.copy(
-                        12,
-                        color: color,
-                        weight: selected ? FontWeight.w700 : FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

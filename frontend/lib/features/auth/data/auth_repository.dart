@@ -1,3 +1,4 @@
+import '../../../core/models/user_profile.dart';
 import '../../../core/models/user_role.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
@@ -91,18 +92,55 @@ class AuthRepository {
     await _api.post('/users/me/location-consent');
   }
 
+  /// `GET /auth/me`
+  ///
+  /// Perfil de solo lectura para la pantalla de Perfil: nombre completo,
+  /// teléfono, rol y estado del consentimiento de ubicación. Es la misma
+  /// información que devuelve el ingreso, pero siempre fresca.
+  Future<UserProfile> fetchProfile() async {
+    final response = await _api.get('/auth/me');
+    if (response is! Map<String, dynamic>) {
+      throw const ApiException('El servidor no devolvió el perfil.');
+    }
+    return UserProfile.fromJson(response);
+  }
+
   /// Revoca el consentimiento y hace que el backend elimine las paradas de
   /// solicitudes pendientes.
   Future<void> revokeLocationConsent() async {
     await _api.delete('/users/me/location-consent');
   }
 
-  /// Devuelve la cuenta guardada en el dispositivo, o `null` si no hay.
+  /// Devuelve la cuenta guardada en el dispositivo si sigue siendo válida en
+  /// el backend, o `null` si no hay o si el token ya expiró.
   Future<Account?> restore() async {
     final token = await _session.readToken();
     final name = await _session.readName();
     final role = await _session.readRole();
     if (token == null || name == null || role == null) return null;
+
+    try {
+      final user = await _api.get('/auth/me');
+      if (user is Map<String, dynamic>) {
+        final serverName = (user['name'] as String?)?.trim();
+        final serverRole = UserRole.fromWire(user['role'] as String?);
+        return Account(
+          name: serverName != null && serverName.isNotEmpty ? serverName : name,
+          role: serverRole,
+          token: token,
+        );
+      }
+    } on ApiException catch (e) {
+      if (e.isUnauthorized) {
+        // El token expiró o ya no es válido en el servidor: limpiamos sesión.
+        await _session.clear();
+        return null;
+      }
+      // Si fue error de red temporal (sin conexión), permitimos pasar con la sesión en caché.
+    } catch (_) {
+      // Si fue error de red u otro, permitimos restaurar la sesión local.
+    }
+
     return Account(name: name, role: role, token: token);
   }
 

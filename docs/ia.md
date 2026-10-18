@@ -143,6 +143,17 @@ Justificación: Las herramientas fueron utilizadas con propósitos diferentes. C
 - **Justificación:** Cada cambio se verificó ejecutando la prueba afectada; la decisión de timeout quedó registrada en el ADR 0014 sin estado provisional.
 - **Fecha:** 2026-10-13
 
+### Semana 11
+
+- **Actividad realizada:** Identificación de línea base de integración y mitigaciones en código; construcción de tabla de modos de fallo (no responde, responde tarde, petición duplicada); análisis de idempotencia y patrón Saga en el flujo de solicitudes de cupos; elaboración del ADR 0017 de evaluación de extracción a microservicios; actualización de riesgos y deuda técnica en la sección 11 de arc42; e incorporación del Aspecto 10 en `docs/aspectos.md`.
+- **Herramienta utilizada:** Antigravity.
+- **Contexto proporcionado:** Rúbrica de 9 criterios de la actividad de integración, resiliencia y modos de fallo; repositorio ROUTB (Flutter, FastAPI, backend desplegado en Dokploy y PostgreSQL en Supabase); directrices de AGENTS.md y decisiones previas (ADR 0001 a 0016).
+- **Respuesta que se obtuvo:** Localización técnica de la integración síncrona cliente-servidor mediante greps en código; tabla detallada de modos de fallo con mitigaciones implementadas y pendientes; análisis de transacciones ACID locales y diseño de Saga compensatoria hipotética; redacción formal del ADR 0017 argumentando la decisión de "no extraer" el módulo `requests` con criterios reales de equipo, datos, frecuencia de cambio y costo operativo; actualización de arc42 sección 11 (modos de fallo como riesgos del sistema y mitigaciones pendientes como deuda técnica); actualización de la matriz de aspectos (Aspecto 10); y documento consolidado de evidencia en `docs/evidencia/resiliencia-y-modos-de-fallo.md`.
+- **Qué se aceptó:** Se aceptó la delimitación de la integración cliente-servidor sobre solicitudes de cupos como objeto de análisis; las mitigaciones concretas basadas en el código existente (`timeout = 35s`, `onRetry`, verificación de unicidad en BD); la decisión de no extraer `requests` a microservicio; y la formalización de las mitigaciones pendientes (Idempotency-Key, backoff/jitter, Circuit Breaker) como deuda técnica con cronograma para Q1-Q2 2027.
+- **Qué se rechazó:** Se descartó una justificación superficial para el ADR de extracción basada en "falta de tiempo", exigiendo criterios objetivos de arquitectura (equipo de 4 personas, costo $0 USD, acoplamiento transaccional de cupos y frecuencia de despliegue). También se rechazó dar por ejecutado o aprobado `pytest` sin constatar la conectividad real con la base de datos de pruebas.
+- **Justificación:** El análisis garantiza la coherencia arquitectónica entre el código implementado, los riesgos operativos del despliegue en la nube y las decisiones de diseño del equipo, cumpliendo la totalidad de los criterios de evaluación sin introducir regresiones ni acoplamientos innecesarios.
+- **Fecha:** 2026-10-17
+
 ## Observaciones
 
 La Inteligencia Artificial se utiliza como una herramienta de apoyo durante el desarrollo y la documentación del proyecto. Las respuestas generadas no se incorporan automáticamente: son revisadas, contrastadas con el contexto y los requisitos del proyecto y, cuando corresponde, modificadas o rechazadas por el equipo.

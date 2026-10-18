@@ -1,0 +1,28 @@
+# Despliegue de ROUTB en Dokploy.
+# Las variables se definen en la pestaña "Environment" del servicio en el panel.
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: "${DATABASE_URL}"
+      JWT_SECRET_KEY: "${JWT_SECRET_KEY}"
+      JWT_ALGORITHM: "${JWT_ALGORITHM:-HS256}"
+      JWT_EXPIRE_MINUTES: "${JWT_EXPIRE_MINUTES:-60}"
+      FCM_PROJECT_ID: "${FCM_PROJECT_ID:-}"
+      FCM_SERVICE_ACCOUNT_B64: "${FCM_SERVICE_ACCOUNT_B64:-}"
+      PHOTON_BASE_URL: "${PHOTON_BASE_URL:-https://photon.komoot.io}"
+      ROUTING_BASE_URL: "${ROUTING_BASE_URL:-https://router.project-osrm.org}"
+      ROUTING_TIMEOUT_SECONDS: "${ROUTING_TIMEOUT_SECONDS:-1.4}"
+      UTB_CAMPUS_LAT: "${UTB_CAMPUS_LAT:-}"
+      UTB_CAMPUS_LNG: "${UTB_CAMPUS_LNG:-}"
+      GEOCODE_BBOX: "${GEOCODE_BBOX:-}"
+      RETENTION_TRIP_DAYS: "${RETENTION_TRIP_DAYS:-}"
+      RETENTION_CACHE_DAYS: "${RETENTION_CACHE_DAYS:-}"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/docs')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

@@ -16,20 +16,35 @@ introdujo o modificó.
 | 0.4.0   | Cambios locales sin commit | `Changes` | Añade fecha de salida y punto de encuentro a los viajes; permite filtrar por día y devuelve esos datos en las solicitudes del pasajero. |
 | 0.5.0   | Cambios locales sin commit | `Changes` | Añade endpoint de matching (`GET /matching/suggestions`) con sugerencias ordenadas por score de compatibilidad (Fase 2). |
 | 0.6.0   | Cambios locales sin commit | `Changes` | Amplía solicitudes con fecha y paradas; agrega estados `cancelled`/`expired`, vencimiento, exclusividad por día y sentido, y registro de tokens y push FCM. |
+| 0.7.0   | Cambios locales sin commit | `Changes` | Endurece la identidad de endpoints del Aspecto 3: retira `GET /users/` y `POST /trips/{trip_id}/reservations`, y exige token y propiedad en `POST /trips/` y `PATCH /trips/{trip_id}/cancel`. |
+| 0.8.0   | Cambios locales sin commit | `Changes` | Añade el historial del conductor (parámetro `scope` en `GET /trips/my-trips`) y expone `location_consent_at` en `GET /auth/me` para el perfil de solo lectura. Cambios aditivos. |
+
+## Endurecimiento de endpoints (Aspecto 3)
+
+- Se retira `GET /users/`, que respondía sin autenticación y sin `response_model`
+  devolviendo la tabla de usuarios (incluido `hashed_password`). El registro sigue
+  en `POST /users/`.
+- Se retira `POST /trips/{trip_id}/reservations`, reserva anónima legada
+  sustituida por `POST /requests/trips/{trip_id}` con aceptación del conductor.
+  La primitiva atómica `reserve_seat` se conserva para la prueba de concurrencia.
+- `POST /trips/` exige token; ya no se crean viajes sin dueño (`driver_id` nulo).
+- `PATCH /trips/{trip_id}/cancel` exige token y propiedad; se elimina el caso en
+  que un llamador anónimo cancelaba cualquier viaje.
+- CORS pasa a `allow_credentials=False` (la autenticación es Bearer, no cookies).
 
 ## Ajustes de matching y sugerencias (Fase 2)
 
-- `GET /matching/suggestions` sugiere viajes compatibles a partir de sentido, puntos de parada, fecha, hora y cupos solicitados.
+- `GET /matching/suggestions` sugiere viajes compatibles a partir de sentido, puntos de parada, fecha, hora y cupos solicitados; la fecha debe ser hoy o mañana (`422` fuera de la ventana, ADR 0016).
 - Exige autenticación y consentimiento previo de ubicación (`403 location_consent_required`).
 - Filtra por cercanía de ruta en PostGIS (`ST_DWithin` geográfico), calcula desvío y ETA con OSRM (con caché y respaldo), y ordena por score ponderado normalizado.
-- `POST /requests/trips/{trip_id}` acepta `requested_at` y hasta cuatro `stops`, con coordenadas, dirección, tipo de lugar y cantidad de personas; valida consentimiento, área, cupos y reglas del sentido.
+- `POST /requests/trips/{trip_id}` acepta `requested_at` y hasta cuatro `stops`, con coordenadas, dirección, tipo de lugar y cantidad de personas; valida consentimiento, rangos geográficos de coordenadas (`-90..90`, `-180..180`), cupos y reglas del sentido.
 - `GET /requests/trips/{trip_id}` queda restringido al conductor y devuelve direcciones de paradas sin coordenadas; `GET /requests/me` aplica vencimiento y devuelve los estados de cada solicitud.
 - `PATCH /requests/{id}/accept` serializa aceptaciones del pasajero, reserva cupos atómicamente, cancela sus alternativas del mismo día y sentido y ordena las paradas aceptadas en la ruta.
 - `PUT` y `DELETE /notifications/device-token` gestionan tokens Android. Las pushes informan al conductor de nuevas solicitudes y al pasajero de aceptación/rechazo; la API REST conserva la verdad del estado.
 
 ## Ajustes de geocodificación y privacidad (Fase 1)
 
-- `POST /trips/` acepta `direction` (`to_campus` | `from_campus`) y `driver_point` opcionales; con coordenadas exige consentimiento (`403 location_consent_required`) y valida `GEOCODE_BBOX` (`422`); al publicar calcula y guarda la ruta (`route_geom`, `route_distance_m`, `route_duration_s`, `route_source`, con respaldo `fallback`).
+- `POST /trips/` acepta `direction` (`to_campus` | `from_campus`) y `driver_point` opcionales; con coordenadas exige consentimiento (`403 location_consent_required`) y valida rangos de lat/lng (`422`); solo admite fechas de hoy o mañana (`422` fuera de la ventana, ADR 0016); al publicar calcula y guarda la ruta (`route_geom`, `route_distance_m`, `route_duration_s`, `route_source`, con respaldo `fallback`).
 - `GET /geocode/search` exige consentimiento (`403 location_consent_required`);
 - Si Photon y Nominatim están indisponibles responde `503 geocode_unavailable`; una búsqueda válida sin coincidencias conserva `200 []`.
 - `DELETE /users/me/location-consent` cancela solicitudes pendientes y elimina sus paradas geográficas.
@@ -41,6 +56,18 @@ introdujo o modificó.
   mismo timeout a Photon y Nominatim; se corrige la expresión PostgreSQL del
   TTL de `route_cache` y se evita guardar rutas `degraded`. No cambia el
   contrato HTTP/OpenAPI; decisión en [ADR 0014](../adr/0014-fallback-geocode-cache.md).
+
+## Historial del conductor y perfil (cambio actual)
+
+- `GET /trips/my-trips` acepta el parámetro de consulta `scope` con tres
+  valores: `active` (por defecto, mismo comportamiento de antes: solo rutas
+  activas), `history` (canceladas o con fecha pasada) y `all` (todas). Un
+  valor fuera del conjunto responde `422`. El cambio es aditivo y no altera
+  las respuestas existentes.
+- `GET /auth/me` incorpora `location_consent_at` (o `null`) a su respuesta
+  para el perfil de solo lectura. Esta operación no declara esquema de
+  respuesta en el contrato OpenAPI, así que el campo no aparece en
+  `docs/openapi.json`.
 
 ## Salida de `git log`
 

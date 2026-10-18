@@ -68,7 +68,6 @@ class MyTripCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final arrival = request.estimatedArrival;
 
     return RoutbCard(
       onTap: onTap,
@@ -107,10 +106,7 @@ class MyTripCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  [
-                    '${request.departureDateLabel} · ${request.departureLabel}',
-                    if (arrival != null) 'llega ${arrival.label}',
-                  ].join(' · '),
+                  '${request.departureDateLabel} · ${request.departureLabel}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,

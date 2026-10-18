@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/dependencies.dart';
+import '../../../core/models/trip_schedule.dart';
 import '../../../core/models/trip_suggestion.dart';
 import '../../../core/theme/routb_palette.dart';
 import '../../../core/theme/routb_text.dart';
 import '../../../core/widgets/address_search_field.dart';
+import '../../../core/widgets/date_quick_picker.dart';
 import '../../../core/widgets/routb_button.dart';
 import '../../../core/widgets/routb_toast.dart';
 import '../../trips/data/trip_repository.dart';
@@ -28,7 +30,9 @@ class _StopDraft {
 class _SuggestionsScreenState extends State<SuggestionsScreen> {
   final List<_StopDraft> _stops = <_StopDraft>[_StopDraft()];
   late String _direction = widget.initialDirection ?? 'to_campus';
-  late DateTime _date = DateUtils.dateOnly(widget.initialDate ?? DateTime.now());
+  late DateTime _date = TripSchedule.clampToTripWindow(
+    widget.initialDate ?? DateTime.now(),
+  );
   TimeOfDay _time = const TimeOfDay(hour: 7, minute: 0);
   int _seatCount = 1;
   bool _loading = false;
@@ -47,7 +51,10 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> {
         child: ListView(
           padding: const EdgeInsets.all(18),
           children: <Widget>[
-            Text('¿Hacia dónde viajas?', style: RoutbText.headline(20, color: palette.ink)),
+            Text(
+              '¿Hacia dónde viajas?',
+              style: RoutbText.headline(20, color: palette.ink),
+            ),
             const SizedBox(height: 12),
             SegmentedButton<String>(
               segments: const <ButtonSegment<String>>[
@@ -63,59 +70,89 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> {
               }),
             ),
             const SizedBox(height: 14),
-            Row(children: <Widget>[
-              Expanded(child: OutlinedButton.icon(
-                onPressed: _pickDate,
-                icon: const Icon(Icons.calendar_today),
-                label: Text('${_date.day}/${_date.month}/${_date.year}'),
-              )),
-              const SizedBox(width: 8),
-              Expanded(child: OutlinedButton.icon(
-                onPressed: _pickTime,
-                icon: const Icon(Icons.schedule),
-                label: Text(_time.format(context)),
-              )),
-            ]),
+            Row(
+              children: <Widget>[
+                DateQuickPicker(
+                  value: _date,
+                  onChanged: (value) => setState(() => _date = value),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _pickTime,
+                    icon: const Icon(Icons.schedule),
+                    label: Text(_time.format(context)),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 12),
             DropdownButtonFormField<int>(
               initialValue: _seatCount,
-              decoration: const InputDecoration(labelText: 'Personas del grupo'),
+              decoration: const InputDecoration(
+                labelText: 'Personas del grupo',
+              ),
               items: List<DropdownMenuItem<int>>.generate(
                 4,
-                (index) => DropdownMenuItem(value: index + 1, child: Text('${index + 1}')),
+                (index) => DropdownMenuItem(
+                  value: index + 1,
+                  child: Text('${index + 1}'),
+                ),
               ),
               onChanged: (value) => setState(() => _seatCount = value ?? 1),
             ),
             const SizedBox(height: 16),
             for (var index = 0; index < _stops.length; index++) ...[
               Text(
-                _direction == 'to_campus' ? 'Punto de recogida' : 'Parada ${index + 1}',
-                style: RoutbText.copy(14, color: palette.ink, weight: FontWeight.w700),
+                _direction == 'to_campus'
+                    ? 'Punto de recogida'
+                    : 'Parada ${index + 1}',
+                style: RoutbText.copy(
+                  14,
+                  color: palette.ink,
+                  weight: FontWeight.w700,
+                ),
               ),
               AddressSearchField(
                 key: ValueKey<int>(index),
                 geocodeRepository: _dependencies.geocode,
-                label: 'Dirección o punto de encuentro',
-                onLocationSelected: (location) => setState(() => _stops[index].location = location),
+                toCampus: _direction == 'to_campus',
+                label: _direction == 'to_campus'
+                    ? 'Escribe dirección o barrio de recogida'
+                    : 'Escribe dirección o barrio de bajada',
+                onLocationSelected: (location) =>
+                    setState(() => _stops[index].location = location),
+                onLocationCleared: () =>
+                    setState(() => _stops[index].location = null),
               ),
               if (_direction == 'from_campus')
                 DropdownButtonFormField<int>(
                   initialValue: _stops[index].seats,
-                  decoration: const InputDecoration(labelText: 'Personas que bajan aquí'),
+                  decoration: const InputDecoration(
+                    labelText: 'Personas que bajan aquí',
+                  ),
                   items: List<DropdownMenuItem<int>>.generate(
                     _seatCount,
-                    (seatIndex) => DropdownMenuItem(value: seatIndex + 1, child: Text('${seatIndex + 1}')),
+                    (seatIndex) => DropdownMenuItem(
+                      value: seatIndex + 1,
+                      child: Text('${seatIndex + 1}'),
+                    ),
                   ),
-                  onChanged: (value) => setState(() => _stops[index].seats = value ?? 1),
+                  onChanged: (value) =>
+                      setState(() => _stops[index].seats = value ?? 1),
                 ),
               DropdownButtonFormField<String>(
                 initialValue: _stops[index].placeType,
                 decoration: const InputDecoration(labelText: 'Tipo de punto'),
                 items: const <DropdownMenuItem<String>>[
                   DropdownMenuItem(value: 'door', child: Text('En la puerta')),
-                  DropdownMenuItem(value: 'meeting_point', child: Text('Punto de encuentro')),
+                  DropdownMenuItem(
+                    value: 'meeting_point',
+                    child: Text('Punto de encuentro'),
+                  ),
                 ],
-                onChanged: (value) => setState(() => _stops[index].placeType = value ?? 'door'),
+                onChanged: (value) =>
+                    setState(() => _stops[index].placeType = value ?? 'door'),
               ),
               if (_direction == 'from_campus' && _stops.length > 1)
                 Align(
@@ -152,12 +189,18 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> {
             if (_suggestions.isEmpty && !_loading && !_relaxed)
               Padding(
                 padding: const EdgeInsets.only(top: 10),
-                child: Text('Datos © OpenStreetMap', style: RoutbText.copy(11, color: palette.muted)),
+                child: Text(
+                  'Datos © OpenStreetMap',
+                  style: RoutbText.copy(11, color: palette.muted),
+                ),
               ),
             const SizedBox(height: 16),
             for (final suggestion in _suggestions) _suggestionCard(suggestion),
             if (_suggestions.isNotEmpty)
-              Text('Datos © OpenStreetMap', style: RoutbText.copy(11, color: palette.muted)),
+              Text(
+                'Datos © OpenStreetMap',
+                style: RoutbText.copy(11, color: palette.muted),
+              ),
           ],
         ),
       ),
@@ -173,7 +216,9 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> {
       color: palette.card,
       child: ListTile(
         title: Text('${item.origin} → ${item.destination}'),
-        subtitle: Text('${item.driverName} · Recogida estimada $eta · Desvío ${item.detourMinutes} min'),
+        subtitle: Text(
+          '${item.driverName} · Recogida estimada $eta · Desvío ${item.detourMinutes} min',
+        ),
         trailing: Icon(Icons.chevron_right, color: palette.brand),
         onTap: () => _request(item),
       ),
@@ -185,14 +230,25 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> {
       RoutbToast.show(context, 'Completa la dirección de cada parada.');
       return;
     }
-    if (_direction == 'from_campus' && _stops.fold<int>(0, (sum, stop) => sum + stop.seats) != _seatCount) {
-      RoutbToast.show(context, 'La suma de personas por parada debe ser $_seatCount.');
+    if (_direction == 'from_campus' &&
+        _stops.fold<int>(0, (sum, stop) => sum + stop.seats) != _seatCount) {
+      RoutbToast.show(
+        context,
+        'La suma de personas por parada debe ser $_seatCount.',
+      );
       return;
     }
-    setState(() { _loading = true; _relaxed = relaxed; _suggestions = const <TripSuggestion>[]; });
+    setState(() {
+      _loading = true;
+      _relaxed = relaxed;
+      _suggestions = const <TripSuggestion>[];
+    });
     try {
-      final time = '${_time.hourOfPeriod == 0 ? 12 : _time.hourOfPeriod}:${_time.minute.toString().padLeft(2, '0')} ${_time.period.name.toUpperCase()}';
-      final points = _stops.map((stop) => (lat: stop.location!.lat, lng: stop.location!.lng)).toList();
+      final time =
+          '${_time.hourOfPeriod == 0 ? 12 : _time.hourOfPeriod}:${_time.minute.toString().padLeft(2, '0')} ${_time.period.name.toUpperCase()}';
+      final points = _stops
+          .map((stop) => (lat: stop.location!.lat, lng: stop.location!.lng))
+          .toList();
       final result = await _dependencies.matching.suggestions(
         direction: _direction,
         points: points,
@@ -202,7 +258,10 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> {
         relaxed: relaxed,
       );
       if (!mounted) return;
-      setState(() { _suggestions = result; _relaxed = !relaxed && result.isEmpty; });
+      setState(() {
+        _suggestions = result;
+        _relaxed = !relaxed && result.isEmpty;
+      });
     } on Exception catch (error) {
       if (mounted) RoutbToast.show(context, error.toString());
     } finally {
@@ -211,7 +270,13 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> {
   }
 
   Future<void> _request(TripSuggestion suggestion) async {
-    final requestedAt = DateTime(_date.year, _date.month, _date.day, _time.hour, _time.minute);
+    final requestedAt = DateTime(
+      _date.year,
+      _date.month,
+      _date.day,
+      _time.hour,
+      _time.minute,
+    );
     final stops = <RequestStopInput>[
       for (final stop in _stops)
         RequestStopInput(
@@ -227,20 +292,15 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> {
         requestedAt: requestedAt,
         stops: stops,
       );
-      if (mounted) RoutbToast.show(context, 'Solicitud enviada a ${suggestion.driverName}.');
+      if (mounted) {
+        RoutbToast.show(
+          context,
+          'Solicitud enviada a ${suggestion.driverName}.',
+        );
+      }
     } on Exception catch (error) {
       if (mounted) RoutbToast.show(context, error.toString());
     }
-  }
-
-  Future<void> _pickDate() async {
-    final value = await showDatePicker(
-      context: context,
-      initialDate: _date,
-      firstDate: DateUtils.dateOnly(DateTime.now()),
-      lastDate: DateTime.now().add(const Duration(days: 30)),
-    );
-    if (value != null && mounted) setState(() => _date = DateUtils.dateOnly(value));
   }
 
   Future<void> _pickTime() async {

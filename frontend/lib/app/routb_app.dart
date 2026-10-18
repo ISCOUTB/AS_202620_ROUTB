@@ -37,6 +37,7 @@ class RoutbApp extends StatelessWidget {
           return RoutbScopeDependencies(
             dependencies: dependencies,
             child: MaterialApp(
+              navigatorKey: dependencies.navigatorKey,
               title: 'ROUTB',
               debugShowCheckedModeBanner: false,
               theme: RoutbTheme.light(),

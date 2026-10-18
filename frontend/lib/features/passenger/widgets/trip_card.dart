@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/models/trip.dart';
-import '../../../core/models/trip_schedule.dart';
 import '../../../core/theme/routb_palette.dart';
 import '../../../core/theme/routb_text.dart';
+import '../../../core/widgets/date_quick_picker.dart';
 import '../../../core/widgets/routb_card.dart';
 import '../../../core/widgets/routb_route.dart';
 import '../../../core/widgets/routb_seats.dart';
@@ -42,7 +42,6 @@ class TripCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
     final state = trip.bookingState;
-    final arrival = trip.estimatedArrival;
     final driverName = trip.hasDriverName
         ? trip.driverName!
         : 'Conductor ROUTB';
@@ -84,7 +83,7 @@ class TripCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${trip.departureDateLabel} · ${arrival == null ? 'llegada sin estimar' : 'llega ${arrival.label}'}',
+                      trip.departureDateLabel,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: RoutbText.copy(12, color: palette.muted),
@@ -262,7 +261,7 @@ class SearchCard extends StatelessWidget {
     required this.onOriginChanged,
     required this.onDestinationChanged,
     required this.selectedDate,
-    required this.onDateTap,
+    required this.onDateChanged,
     super.key,
   });
 
@@ -271,7 +270,7 @@ class SearchCard extends StatelessWidget {
   final ValueChanged<String> onOriginChanged;
   final ValueChanged<String> onDestinationChanged;
   final DateTime selectedDate;
-  final VoidCallback onDateTap;
+  final ValueChanged<DateTime> onDateChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -310,13 +309,11 @@ class SearchCard extends StatelessWidget {
                 const Divider(height: 1),
                 Align(
                   alignment: Alignment.centerLeft,
-                  child: TextButton.icon(
-                    onPressed: onDateTap,
-                    icon: const Icon(Icons.calendar_today_rounded, size: 16),
-                    label: Text(TripSchedule.dateLabel(selectedDate)),
-                    style: TextButton.styleFrom(
-                      foregroundColor: palette.brand,
-                      padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: DateQuickPicker(
+                      value: selectedDate,
+                      onChanged: onDateChanged,
                     ),
                   ),
                 ),

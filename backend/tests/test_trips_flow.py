@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from fastapi.testclient import TestClient
 from unittest.mock import patch
 
@@ -309,3 +311,137 @@ def test_viaje_legado_sin_coordenadas_sigue_funcionando():
         if u:
             db.delete(u)
         db.commit()
+
+
+def test_crear_viaje_rechaza_fecha_fuera_de_hoy_manana():
+    """La publicación solo admite hoy o mañana; una fecha lejana responde 422."""
+    with SessionLocal() as db:
+        driver, token = _create_driver_with_consent(db, "3110001999")
+        driver_id = driver.id
+
+    try:
+        payload = {
+            "origin": "Centro",
+            "destination": "UTB",
+            "total_seats": 2,
+            "departure_time": "11:59 PM",
+        }
+
+        payload["departure_date"] = str(colombia_today() + timedelta(days=2))
+        rejected = client.post(
+            "/trips/",
+            headers={"Authorization": f"Bearer {token}"},
+            json=payload,
+        )
+        assert rejected.status_code == 422
+        assert "hoy o mañana" in rejected.json()["detail"]
+
+        payload["departure_date"] = str(colombia_today() + timedelta(days=1))
+        accepted = client.post(
+            "/trips/",
+            headers={"Authorization": f"Bearer {token}"},
+            json=payload,
+        )
+        assert accepted.status_code == 201
+    finally:
+        from app.modules.trips.infrastructure.models import Trip
+
+        with SessionLocal() as db:
+            for trip in db.query(Trip).filter(Trip.driver_id == driver_id).all():
+                db.delete(trip)
+            user = db.get(User, driver_id)
+            if user:
+                db.delete(user)
+            db.commit()
+
+
+def test_my_trips_scope_filtra_activas_historial_y_todas():
+    """`my-trips` con `scope`: activas por defecto, historial (canceladas o pasadas) y todas."""
+    from app.modules.trips.infrastructure.models import Trip
+
+    with SessionLocal() as db:
+        driver, token = _create_driver_with_consent(db, "3110002001")
+        driver_id = driver.id
+
+    headers = {"Authorization": f"Bearer {token}"}
+
+    active_resp = client.post(
+        "/trips/",
+        headers=headers,
+        json={
+            "origin": "Manga",
+            "destination": "UTB",
+            "total_seats": 2,
+            "departure_time": "11:59 PM",
+        },
+    )
+    assert active_resp.status_code == 201
+    active_id = active_resp.json()["id"]
+
+    cancelled_resp = client.post(
+        "/trips/",
+        headers=headers,
+        json={
+            "origin": "Centro",
+            "destination": "UTB",
+            "total_seats": 2,
+            "departure_time": "11:59 PM",
+        },
+    )
+    assert cancelled_resp.status_code == 201
+    cancelled_id = cancelled_resp.json()["id"]
+    assert client.patch(f"/trips/{cancelled_id}/cancel", headers=headers).status_code == 200
+
+    # Ruta pasada que no se puede publicar por API (solo admite hoy o mañana).
+    with SessionLocal() as db:
+        past = Trip(
+            origin="Bocagrande",
+            destination="UTB",
+            total_seats=2,
+            available_seats=2,
+            driver_id=driver_id,
+            departure_time="7:00 AM",
+            departure_date=colombia_today() - timedelta(days=1),
+        )
+        db.add(past)
+        db.commit()
+        db.refresh(past)
+        past_id = past.id
+
+    try:
+        default_ids = {
+            t["id"] for t in client.get("/trips/my-trips", headers=headers).json()
+        }
+        assert active_id in default_ids
+        assert cancelled_id not in default_ids
+
+        history_ids = {
+            t["id"]
+            for t in client.get(
+                "/trips/my-trips", headers=headers, params={"scope": "history"}
+            ).json()
+        }
+        assert cancelled_id in history_ids
+        assert past_id in history_ids
+        assert active_id not in history_ids
+
+        all_ids = {
+            t["id"]
+            for t in client.get(
+                "/trips/my-trips", headers=headers, params={"scope": "all"}
+            ).json()
+        }
+        assert {active_id, cancelled_id, past_id} <= all_ids
+
+        invalid = client.get(
+            "/trips/my-trips", headers=headers, params={"scope": "otro"}
+        )
+        assert invalid.status_code == 422
+    finally:
+        with SessionLocal() as db:
+            for trip in db.query(Trip).filter(Trip.driver_id == driver_id).all():
+                db.delete(trip)
+            user = db.get(User, driver_id)
+            if user:
+                db.delete(user)
+            db.commit()

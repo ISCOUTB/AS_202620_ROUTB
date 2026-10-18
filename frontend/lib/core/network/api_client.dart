@@ -14,15 +14,20 @@ import 'api_exception.dart';
 /// de espera y la traducción de fallos a [ApiException]. Los repositorios de
 /// cada módulo solo llaman a [get], [post] y [patch].
 class ApiClient {
-  ApiClient(this._session, {http.Client? client})
+  ApiClient(this._session, {http.Client? client, this.onUnauthorized})
       : _client = client ?? http.Client();
 
-  /// El plan gratuito de Render puede tardar 30-50 s en la primera petición
-  /// tras 15 min de inactividad, así que el margen es holgado.
+  /// Margen holgado para redes móviles lentas.
+  ///
+  /// Se fijó en 35 s cuando el backend corría en Render, cuyo plan gratuito
+  /// podía tardar 30-50 s en la primera petición tras 15 min de inactividad
+  /// (ADR 0005). Dokploy no suspende el contenedor por inactividad, así que
+  /// ese arranque en frío no aplica; el margen se conserva (ADR 0015).
   static const Duration timeout = Duration(seconds: 35);
 
   final SessionStore _session;
   final http.Client _client;
+  final Future<void> Function()? onUnauthorized;
 
   bool _closed = false;
 
@@ -150,6 +155,10 @@ class ApiClient {
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return decoded;
+    }
+
+    if (response.statusCode == 401 && onUnauthorized != null) {
+      unawaited(onUnauthorized!());
     }
 
     final failure = ApiException.fromResponse(response.statusCode, decoded);

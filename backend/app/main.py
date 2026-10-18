@@ -26,7 +26,7 @@ logger.propagate = False
 app = FastAPI(
     title="ROUTB API",
     description="ROUTB",
-    version="0.6.0",
+    version="0.8.0",
 )
 
 @app.middleware("http")
@@ -49,7 +49,7 @@ async def structured_logging_middleware(request: Request, call_next):
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

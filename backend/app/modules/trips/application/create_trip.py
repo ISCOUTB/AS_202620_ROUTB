@@ -4,9 +4,9 @@ from __future__ import annotations
  
 import json
 import logging
-from datetime import datetime
+from datetime import date, datetime, timedelta
 import re
-from app.core.timezone import get_colombia_tz
+from app.core.timezone import colombia_today, get_colombia_tz
  
 from geoalchemy2.functions import ST_GeomFromGeoJSON
 from sqlalchemy.orm import Session
@@ -44,6 +44,13 @@ def _parse_departure_to_timestamptz(date_val, time_str: str | None) -> datetime 
         return None
  
  
+def _validate_departure_date(departure_date: date) -> None:
+    """Solo se permite publicar para hoy o mañana (hora de Colombia)."""
+    today = colombia_today()
+    if departure_date not in (today, today + timedelta(days=1)):
+        raise ValueError("La fecha del viaje debe ser hoy o mañana")
+
+
 def _point_geojson(lat: float, lng: float) -> str:
     """Devuelve el GeoJSON de un punto para usarlo con ST_GeomFromGeoJSON."""
     return json.dumps({"type": "Point", "coordinates": [lng, lat]})
@@ -56,17 +63,6 @@ def _validate_consent(db: Session, driver_id: int | None) -> None:
     user = get_user_by_id(db, driver_id)
     if user is None or user.location_consent_at is None:
         raise PermissionError("location_consent_required")
- 
- 
-def _validate_bbox(lat: float, lng: float) -> None:
-    """Lanza ValueError si la coordenada está fuera del GEOCODE_BBOX."""
-    try:
-        parts = [float(x) for x in settings.GEOCODE_BBOX.split(",")]
-        lon_min, lat_min, lon_max, lat_max = parts
-    except (ValueError, AttributeError):
-        return
-    if not (lon_min <= lng <= lon_max and lat_min <= lat <= lat_max):
-        raise ValueError("Las coordenadas del viaje están fuera del área de operación.")
  
  
 def _extract_coords(driver_point) -> tuple[float | None, float | None]:
@@ -84,12 +80,13 @@ def _validate_driver_location(
     lat: float | None,
     lng: float | None,
 ) -> None:
-    """Valida consentimiento y bounding box cuando el conductor aporta coordenadas."""
+    """Valida consentimiento y rango de coordenadas cuando el conductor aporta ubicación."""
     if driver_id is None:
         raise PermissionError("location_consent_required")
     _validate_consent(db, driver_id)
     if lat is not None and lng is not None:
-        _validate_bbox(lat, lng)
+        if not (-90 <= lat <= 90 and -180 <= lng <= 180):
+            raise ValueError("Coordenadas del viaje fuera de rango.")
  
  
 def _build_trip_geoms(direction: str | None, lat: float, lng: float):
@@ -124,11 +121,14 @@ def create_trip(db: Session, trip_data: TripCreate, driver_id: int | None = None
     Raises:
         PermissionError: si el conductor no tiene consentimiento de ubicación
             y aporta coordenadas.
-        ValueError: si las coordenadas están fuera del bounding box.
+        ValueError: si la fecha no es hoy o mañana, o si las coordenadas
+            están fuera de rango.
     """
+    _validate_departure_date(trip_data.departure_date)
+
     dep_time = trip_data.departure_time or "7:00 AM"
     dep_at = _parse_departure_to_timestamptz(trip_data.departure_date, dep_time)
- 
+
     driver_point = getattr(trip_data, "driver_point", None)
     direction = getattr(trip_data, "direction", None)
     lat, lng = _extract_coords(driver_point)

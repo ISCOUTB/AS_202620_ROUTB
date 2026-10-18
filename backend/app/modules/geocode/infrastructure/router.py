@@ -15,7 +15,6 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
 from app.core.database import get_db
 from app.modules.auth.infrastructure.security import get_current_user
 from app.modules.geocode.application.rate_limit import geocode_search_rate_limit
@@ -31,22 +30,6 @@ def _check_location_consent(current_user: UserIdentity) -> None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="location_consent_required",
-        )
-
-
-def _validate_bbox(lat: float | None, lng: float | None) -> None:
-    """Valida que las coordenadas estén dentro del bounding box configurado."""
-    if lat is None or lng is None:
-        return
-    try:
-        parts = [float(x) for x in settings.GEOCODE_BBOX.split(",")]
-        lon_min, lat_min, lon_max, lat_max = parts
-    except (ValueError, AttributeError):
-        return
-    if not (lon_min <= lng <= lon_max and lat_min <= lat <= lat_max):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Las coordenadas están fuera del área de operación.",
         )
 
 
