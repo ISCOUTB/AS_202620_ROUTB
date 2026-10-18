@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 
 import 'package:frontend/core/constants/zones.dart';
 import 'package:frontend/core/map/place_locator.dart';
+import 'package:frontend/core/network/google_maps_service.dart';
 
 void main() {
   group('PlaceLocator', () {
@@ -148,6 +149,22 @@ void main() {
         Zones.pointOf(Zones.byName('Getsemaní')!),
       );
       expect(PlaceLocator.catalogPoint('Plaza de la Aduana'), isNull);
+    });
+  });
+
+  group('GoogleMapsService.decodePolyline', () {
+    test('decodifica correctamente coordenadas sin desbordar el hemisferio', () {
+      const encoded =
+          'kph~@nxvkMc@GGEASE]]BSCo@Yi@hAkAo@g@SqCc@yDgAmCgASGgCMr@cMf@oGH{A`@{DBsD^wIV}DFq@|@kDTuAFyBHqCJqDDg@Nw@Hw@P_A`@eBf@oA}CcBs@OkBIkDYmDOcJSw@E[@i@g@sA{@o@O|DaDz@u@t@w@_AmAv@k@Za@Z{@Le@n@qD`@qB?WWg@sK_Po@kArSuQfBgAhD}CnBeCZc@zEdElHbGh@n@xAdCfCvE^U';
+      final points = GoogleMapsService.decodePolyline(encoded);
+
+      expect(points, isNotEmpty);
+      for (final p in points) {
+        expect(p.latitude, inInclusiveRange(-90.0, 90.0));
+        expect(p.longitude, inInclusiveRange(-180.0, 180.0));
+      }
+      expect(points.first.latitude, closeTo(10.37, 0.05));
+      expect(points.last.latitude, closeTo(10.37, 0.05));
     });
   });
 }

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../constants/zones.dart';
 import 'initials.dart';
 import 'travel_time.dart';
+import 'trip_request.dart';
 import 'trip_status.dart';
 import 'trip_schedule.dart';
 
@@ -31,6 +32,7 @@ class MyRequest {
     this.driverName,
     this.driverPhone,
     this.canWithdraw = true,
+    this.stops = const <TripRequestStop>[],
   });
 
   /// Identificador de la solicitud, el que se usa para retirarla.
@@ -87,9 +89,13 @@ class MyRequest {
   /// viaje se dedujo de `GET /trips/` en vez de venir de `GET /requests/me`.
   final bool canWithdraw;
 
+  /// Paradas intermedias o puntos de recogida asociados a esta solicitud.
+  final List<TripRequestStop> stops;
+
   /// Lee la solicitud que devuelve `GET /requests/me`.
   factory MyRequest.fromJson(Map<String, dynamic> json) {
     final rawDeparture = (json['departure_time'] as String?)?.trim() ?? '';
+    final rawStops = json['stops'] as List<dynamic>?;
     return MyRequest(
       id: json['id'] as int? ?? 0,
       tripId: json['trip_id'] as int? ?? 0,
@@ -112,8 +118,26 @@ class MyRequest {
           DateTime.fromMillisecondsSinceEpoch(0),
       driverName: (json['driver_name'] as String?)?.trim(),
       driverPhone: (json['driver_phone'] as String?)?.trim(),
+      stops: rawStops == null
+          ? const <TripRequestStop>[]
+          : rawStops
+                .whereType<Map<String, dynamic>>()
+                .map(TripRequestStop.fromJson)
+                .toList(growable: false),
     );
   }
+
+  /// `true` si la solicitud incluye al menos una parada intermedia de recogida.
+  bool get hasStop => stops.isNotEmpty;
+
+  /// Dirección de la primera parada de recogida del pasajero.
+  String? get stopAddress => stops.firstOrNull?.addressText;
+
+  /// Lista de direcciones de parada de esta solicitud.
+  List<String> get waypoints => [
+    for (final stop in stops)
+      if (stop.addressText.trim().isNotEmpty) stop.addressText.trim(),
+  ];
 
   /// `true` mientras el conductor no ha respondido.
   bool get isPending => status.isPending;
@@ -145,7 +169,9 @@ class MyRequest {
     if (isPast) return 'Viaje finalizado';
     if (isConfirmed) return 'Cupo confirmado';
     if (isPending) return 'Solicitud enviada';
-    if (status == SeatRequestStatus.cancelled) return 'Cancelada por otra aceptación';
+    if (status == SeatRequestStatus.cancelled) {
+      return 'Cancelada por otra aceptación';
+    }
     if (status == SeatRequestStatus.expired) return 'Solicitud vencida';
     return 'No aceptada';
   }

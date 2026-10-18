@@ -67,4 +67,31 @@ void main() {
       }
     },
   );
+
+  testWidgets(
+    'RouteMap dibuja todas las paradas intermedias pasadas en waypoints',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: RoutbTheme.light(),
+          home: const Scaffold(
+            body: RouteMap(
+              origin: 'Bocagrande',
+              destination: 'UTB',
+              waypoints: <String>['Manga', 'Getsemaní'],
+              animateRoute: false,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final markerLayer = tester.widget<MarkerLayer>(find.byType(MarkerLayer));
+      // Origen, destino y 2 paradas intermedias = 4 marcadores en total
+      expect(markerLayer.markers.length, equals(4));
+      expect(find.text('1'), findsOneWidget);
+      expect(find.text('2'), findsOneWidget);
+      expect(find.text('2 paradas'), findsOneWidget);
+    },
+  );
 }

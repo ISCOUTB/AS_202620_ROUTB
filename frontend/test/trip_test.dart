@@ -381,4 +381,56 @@ void main() {
       expect(UserRole.passenger.title, 'Soy pasajero');
     });
   });
+
+  group('Trip: desvíos y paradas aceptadas', () {
+    test('sin solicitudes no hay desvío aceptado', () {
+      final trip = Trip.fromJson(tripPayload());
+      expect(trip.acceptedWaypoint, isNull);
+      expect(trip.acceptedWaypoints, isEmpty);
+      expect(trip.hasAcceptedDetour, isFalse);
+    });
+
+    test('solicitudes pendientes no activan el desvío como ruta default', () {
+      final trip = Trip.fromJson(
+        tripPayload(
+          requests: [
+            {
+              'id': 10,
+              'status': 'pending',
+              'passenger_name': 'Carlos M',
+              'stops': [
+                {'address_text': 'Calle 12 ## 121-3, El Rodeo', 'seats': 1},
+              ],
+            },
+          ],
+        ),
+      );
+      expect(trip.acceptedWaypoint, isNull);
+      expect(trip.acceptedWaypoints, isEmpty);
+      expect(trip.hasAcceptedDetour, isFalse);
+    });
+
+    test(
+      'solicitud aceptada con parada se convierte en el desvío por defecto',
+      () {
+        final trip = Trip.fromJson(
+          tripPayload(
+            requests: [
+              {
+                'id': 11,
+                'status': 'accepted',
+                'passenger_name': 'Laura V',
+                'stops': [
+                  {'address_text': 'Calle 12 ## 121-3, El Rodeo', 'seats': 1},
+                ],
+              },
+            ],
+          ),
+        );
+        expect(trip.acceptedWaypoint, 'Calle 12 ## 121-3, El Rodeo');
+        expect(trip.acceptedWaypoints, ['Calle 12 ## 121-3, El Rodeo']);
+        expect(trip.hasAcceptedDetour, isTrue);
+      },
+    );
+  });
 }

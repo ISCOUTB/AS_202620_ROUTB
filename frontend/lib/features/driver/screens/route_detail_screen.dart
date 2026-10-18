@@ -53,15 +53,14 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
   late Trip _trip = widget.trip;
   bool _busy = false;
   bool _loadedRequests = false;
+  String? _previewWaypoint;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // `GET /trips/my-trips` ya incluye las solicitudes; solo hace falta pedirlas
-    // aparte si llegaron vacías, por ejemplo cuando se abre desde otra pantalla.
     if (!_loadedRequests) {
       _loadedRequests = true;
-      if (_trip.requests.isEmpty) unawaited(_reloadRequests());
+      unawaited(_reloadRequests());
     }
   }
 
@@ -97,7 +96,10 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
             if (req.id == accepted.id) accepted else req,
         ],
       );
-      setState(() => _trip = updated);
+      setState(() {
+        _trip = updated;
+        _previewWaypoint = null;
+      });
       widget.onChanged(updated);
       if (!mounted) return;
       final free = updated.availableSeats;
@@ -136,7 +138,10 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
             if (req.id == rejected.id) rejected else req,
         ],
       );
-      setState(() => _trip = updated);
+      setState(() {
+        _trip = updated;
+        _previewWaypoint = null;
+      });
       widget.onChanged(updated);
       if (!mounted) return;
       RoutbToast.show(context, 'Solicitud rechazada');
@@ -233,6 +238,7 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                 children: [
                   RoutbTripMap(
                     trip: _trip,
+                    waypoint: _previewWaypoint,
                     height: 220,
                     interactive: true,
                     showPhase: false,
@@ -261,6 +267,45 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                           _trip.routeLabel,
                           style: RoutbText.headline(20, color: palette.ink),
                         ),
+                        if (_trip.hasAcceptedDetour) ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0x1AE67E22),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: const Color(0x80E67E22),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.alt_route_rounded,
+                                  size: 14,
+                                  color: Color(0xFFE67E22),
+                                ),
+                                const SizedBox(width: 6),
+                                Flexible(
+                                  child: Text(
+                                    'Ruta modificada: parada en ${_trip.acceptedWaypoint}',
+                                    style: RoutbText.copy(
+                                      12,
+                                      color: const Color(0xFFE67E22),
+                                      weight: FontWeight.w600,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 14),
                         DashedTimeline(
                           stops: [
@@ -270,6 +315,11 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                                   '${_trip.departureDateLabel} · salida ${_trip.departureLabel}',
                               reached: phase == TripPhase.onCourse,
                             ),
+                            for (final waypoint in _trip.acceptedWaypoints)
+                              TimelineStop(
+                                title: waypoint,
+                                subtitle: 'Parada confirmada de pasajero',
+                              ),
                             TimelineStop(
                               title: _trip.destination,
                               subtitle: 'Destino final',
@@ -335,6 +385,19 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                                 request: req,
                                 trip: _trip,
                                 busy: _busyRequests.contains(req.id),
+                                onTapPreview: req.stops.isNotEmpty
+                                    ? () {
+                                        setState(() {
+                                          if (_previewWaypoint ==
+                                              req.stops.first.addressText) {
+                                            _previewWaypoint = null;
+                                          } else {
+                                            _previewWaypoint =
+                                                req.stops.first.addressText;
+                                          }
+                                        });
+                                      }
+                                    : null,
                                 onAccept: () => _acceptRequest(req),
                                 onReject: () => _rejectRequest(req),
                               ),

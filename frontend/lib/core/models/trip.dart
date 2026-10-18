@@ -155,6 +155,31 @@ class Trip {
       ? 'Fecha por confirmar'
       : TripSchedule.dateLabel(departureDate!);
 
+  /// Dirección o parada de desvío intermedia del primer pasajero confirmado.
+  ///
+  /// Si el viaje tiene solicitudes aceptadas con paradas intermedias, devuelve
+  /// la dirección de recogida para que el mapa trace el camino real modificado.
+  String? get acceptedWaypoint {
+    for (final req in requests) {
+      if (req.isAccepted && req.stops.isNotEmpty) {
+        final text = req.stops.first.addressText.trim();
+        if (text.isNotEmpty) return text;
+      }
+    }
+    return null;
+  }
+
+  /// Lista ordenada de todas las paradas intermedias de pasajeros confirmados.
+  List<String> get acceptedWaypoints => [
+    for (final req in requests)
+      if (req.isAccepted)
+        for (final stop in req.stops)
+          if (stop.addressText.trim().isNotEmpty) stop.addressText.trim(),
+  ];
+
+  /// `true` si el viaje tiene al menos una parada intermedia confirmada por un desvío aceptado.
+  bool get hasAcceptedDetour => acceptedWaypoint != null;
+
   // --- Horarios ---------------------------------------------------------------
 
   /// Hora de salida para mostrar: la interpretada o, si no se pudo leer, el

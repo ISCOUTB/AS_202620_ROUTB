@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -26,6 +27,10 @@ class RouteMap extends StatefulWidget {
   const RouteMap({
     required this.origin,
     required this.destination,
+    this.waypoint,
+    this.waypointCoordinate,
+    this.waypoints = const <String>[],
+    this.waypointCoordinates = const <LatLng>[],
     this.height = 160,
     this.phase,
     this.showPhase = false,
@@ -40,6 +45,18 @@ class RouteMap extends StatefulWidget {
 
   /// Texto del destino.
   final String destination;
+
+  /// Dirección o nombre del punto de parada intermedia / desvío (opcional).
+  final String? waypoint;
+
+  /// Coordenada directa de la parada intermedia (opcional).
+  final LatLng? waypointCoordinate;
+
+  /// Lista de direcciones o paradas intermedias confirmadas en la ruta.
+  final List<String> waypoints;
+
+  /// Lista directa de coordenadas de paradas intermedias.
+  final List<LatLng> waypointCoordinates;
 
   /// Alto del contenedor.
   final double height;
@@ -74,10 +91,19 @@ class _RouteMapState extends State<RouteMap> {
 
   LatLng? _start;
   LatLng? _end;
+  List<LatLng> _waypoints = const <LatLng>[];
   List<LatLng>? _road;
   int _epoch = 0;
   Timer? _debounceTimer;
   bool _lookupDone = false;
+
+  List<String> get _allWaypointTexts => [
+    ...widget.waypoints,
+    if (widget.waypoint != null &&
+        widget.waypoint!.trim().isNotEmpty &&
+        !widget.waypoints.contains(widget.waypoint!.trim()))
+      widget.waypoint!.trim(),
+  ];
 
   @override
   void initState() {
@@ -90,8 +116,14 @@ class _RouteMapState extends State<RouteMap> {
   @override
   void didUpdateWidget(RouteMap oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final waypointsChanged =
+        !listEquals(oldWidget.waypoints, widget.waypoints) ||
+        !listEquals(oldWidget.waypointCoordinates, widget.waypointCoordinates);
     if (oldWidget.origin == widget.origin &&
-        oldWidget.destination == widget.destination) {
+        oldWidget.destination == widget.destination &&
+        oldWidget.waypoint == widget.waypoint &&
+        oldWidget.waypointCoordinate == widget.waypointCoordinate &&
+        !waypointsChanged) {
       return;
     }
     setState(() {
@@ -117,6 +149,23 @@ class _RouteMapState extends State<RouteMap> {
     _end =
         locator.cachedPoint(widget.destination) ??
         PlaceLocator.catalogPoint(widget.destination);
+
+    final points = <LatLng>[
+      ...widget.waypointCoordinates,
+      if (widget.waypointCoordinate != null &&
+          !widget.waypointCoordinates.contains(widget.waypointCoordinate))
+        widget.waypointCoordinate!,
+    ];
+
+    for (final text in _allWaypointTexts) {
+      final cached =
+          locator.cachedPoint(text) ?? PlaceLocator.catalogPoint(text);
+      if (cached != null && !points.contains(cached)) {
+        points.add(cached);
+      }
+    }
+
+    _waypoints = points;
     _road = null;
   }
 
@@ -134,26 +183,55 @@ class _RouteMapState extends State<RouteMap> {
 
     final originText = widget.origin;
     final destinationText = widget.destination;
+    final texts = _allWaypointTexts;
     final locator = PlaceLocator.instance;
 
-    final located = await Future.wait<LatLng?>([
+    final directCoords = <LatLng>[
+      ...widget.waypointCoordinates,
+      if (widget.waypointCoordinate != null &&
+          !widget.waypointCoordinates.contains(widget.waypointCoordinate))
+        widget.waypointCoordinate!,
+    ];
+
+    final futures = <Future<LatLng?>>[
       locator.locate(originText),
       locator.locate(destinationText),
-    ]);
+      for (final text in texts)
+        text.trim().isNotEmpty ? locator.locate(text) : Future.value(null),
+    ];
+
+    final located = await Future.wait<LatLng?>(futures);
     if (!mounted || epoch != _epoch) return;
 
     final start = located[0];
     final end = located[1];
+
+    final resolvedWaypoints = <LatLng>[...directCoords];
+    for (var i = 2; i < located.length; i++) {
+      final wp = located[i];
+      if (wp != null && !resolvedWaypoints.contains(wp)) {
+        resolvedWaypoints.add(wp);
+      }
+    }
+
     setState(() {
       _start = start;
       _end = end;
+      _waypoints = resolvedWaypoints;
       _road = null;
       _lookupDone = true;
     });
     _fitCamera();
 
     if (start == null || end == null) return;
-    final road = await locator.route(start, end);
+
+    List<LatLng>? road;
+    if (resolvedWaypoints.isNotEmpty) {
+      road = await locator.routeWithWaypoints(start, end, resolvedWaypoints);
+    } else {
+      road = await locator.route(start, end);
+    }
+
     if (!mounted || epoch != _epoch) return;
     if (road == null || road.length < 2) return;
     setState(() => _road = road);
@@ -166,6 +244,7 @@ class _RouteMapState extends State<RouteMap> {
     final camera = _TripCamera.forPoints(
       start: _start,
       end: _end,
+      waypoints: _waypoints,
       width: size.width,
       height: size.height == 0 ? widget.height : size.height,
     );
@@ -201,6 +280,7 @@ class _RouteMapState extends State<RouteMap> {
             : _OsmMap(
                 start: _start,
                 end: _end,
+                waypoints: _waypoints,
                 road: _road,
                 interactive: widget.interactive,
                 animateRoute: widget.animateRoute,
@@ -212,6 +292,7 @@ class _RouteMapState extends State<RouteMap> {
                 overlays: _overlays(
                   originText: originText,
                   destinationText: destinationText,
+                  waypointTexts: _allWaypointTexts,
                 ),
               ),
       ),
@@ -229,11 +310,23 @@ class _RouteMapState extends State<RouteMap> {
   Widget _overlays({
     required String originText,
     required String destinationText,
+    List<String> waypointTexts = const <String>[],
   }) {
+    final stopsCount = waypointTexts.length;
+    final stopLabel = stopsCount == 1
+        ? 'Parada: ${waypointTexts.first}'
+        : (stopsCount > 1 ? '$stopsCount paradas' : null);
+
     return Stack(
       children: <Widget>[
         if (widget.showPhase && widget.phase != null)
           Positioned(left: 10, top: 10, child: LivePill(phase: widget.phase!)),
+        if (stopLabel != null)
+          Positioned(
+            left: (widget.showPhase && widget.phase != null) ? 100 : 10,
+            top: 10,
+            child: _MapChip(label: stopLabel, isStop: true),
+          ),
         Positioned(left: 10, bottom: 10, child: _MapChip(label: originText)),
         Positioned(
           right: 10,
@@ -241,10 +334,6 @@ class _RouteMapState extends State<RouteMap> {
           child: _MapChip(label: destinationText, accent: true),
         ),
         if (widget.showAttribution)
-          // La atribución a OpenStreetMap es obligatoria por licencia de los
-          // mosaicos. No se usa `SimpleAttributionWidget` porque su `Row` no
-          // respeta el ancho disponible y se desborda en pantallas estrechas;
-          // aquí va como una etiqueta propia, alineada y recortable.
           const Positioned(right: 0, bottom: 0, child: _Attribution()),
       ],
     );
@@ -314,29 +403,43 @@ class _Attribution extends StatelessWidget {
 
 /// Etiqueta sobre el mapa, con fondo oscuro para leerse en cualquier mosaico.
 class _MapChip extends StatelessWidget {
-  const _MapChip({required this.label, this.accent = false});
+  const _MapChip({
+    required this.label,
+    this.accent = false,
+    this.isStop = false,
+  });
 
   final String label;
   final bool accent;
+  final bool isStop;
 
   @override
   Widget build(BuildContext context) {
+    Color bg;
+    Color fg;
+    if (isStop) {
+      bg = const Color(0xE6E67E22);
+      fg = Colors.white;
+    } else if (accent) {
+      bg = const Color(0xE6E9E7FF);
+      fg = const Color(0xFF17133A);
+    } else {
+      bg = const Color(0xD9171A3A);
+      fg = Colors.white;
+    }
+
     return Container(
       constraints: const BoxConstraints(maxWidth: 150),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: accent ? const Color(0xE6E9E7FF) : const Color(0xD9171A3A),
+        color: bg,
         borderRadius: BorderRadius.circular(99),
       ),
       child: Text(
         label,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: RoutbText.copy(
-          11,
-          color: accent ? const Color(0xFF17133A) : Colors.white,
-          weight: FontWeight.w700,
-        ),
+        style: RoutbText.copy(11, color: fg, weight: FontWeight.w700),
       ),
     );
   }
@@ -346,6 +449,7 @@ class _OsmMap extends StatelessWidget {
   const _OsmMap({
     required this.start,
     required this.end,
+    this.waypoints = const <LatLng>[],
     required this.road,
     required this.interactive,
     required this.animateRoute,
@@ -356,6 +460,7 @@ class _OsmMap extends StatelessWidget {
 
   final LatLng? start;
   final LatLng? end;
+  final List<LatLng> waypoints;
   final List<LatLng>? road;
   final bool interactive;
   final bool animateRoute;
@@ -366,6 +471,7 @@ class _OsmMap extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final allWaypoints = waypoints;
 
     // El encuadre depende del tamaño real del mapa, así que se calcula dentro de
     // un `LayoutBuilder`. Ver [_TripCamera.forPoints].
@@ -374,6 +480,7 @@ class _OsmMap extends StatelessWidget {
         final camera = _TripCamera.forPoints(
           start: start,
           end: end,
+          waypoints: allWaypoints,
           width: constraints.maxWidth,
           height: constraints.maxHeight,
         );
@@ -419,6 +526,35 @@ class _OsmMap extends StatelessWidget {
                         child: const _RouteDot(
                           color: Colors.white,
                           border: null,
+                        ),
+                      ),
+                    for (var i = 0; i < allWaypoints.length; i++)
+                      Marker(
+                        point: allWaypoints[i],
+                        width: 28,
+                        height: 28,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE67E22),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Colors.black26,
+                                blurRadius: 4,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            '${i + 1}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
                         ),
                       ),
                     if (end != null)
@@ -567,27 +703,33 @@ class _TripCamera {
   factory _TripCamera.forPoints({
     required LatLng? start,
     required LatLng? end,
+    LatLng? waypoint,
+    List<LatLng>? waypoints,
     required double width,
     required double height,
   }) {
-    final from = start ?? end ?? Zones.campusPoint;
-    final to = end ?? start ?? Zones.campusPoint;
-    return _TripCamera.forRoute(
-      start: from,
-      end: to,
-      width: width,
-      height: height,
-    );
-  }
+    final points = <LatLng>[?start, ?end, ?waypoint, ...?waypoints];
+    if (points.isEmpty) {
+      return _TripCamera(center: Zones.campusPoint, zoom: 13);
+    }
+    if (points.length == 1) {
+      return _TripCamera(center: points.first, zoom: 14);
+    }
 
-  factory _TripCamera.forRoute({
-    required LatLng start,
-    required LatLng end,
-    required double width,
-    required double height,
-  }) {
-    final centerLat = (start.latitude + end.latitude) / 2;
-    final center = LatLng(centerLat, (start.longitude + end.longitude) / 2);
+    double minLat = points.first.latitude;
+    double maxLat = points.first.latitude;
+    double minLng = points.first.longitude;
+    double maxLng = points.first.longitude;
+
+    for (final p in points) {
+      if (p.latitude < minLat) minLat = p.latitude;
+      if (p.latitude > maxLat) maxLat = p.latitude;
+      if (p.longitude < minLng) minLng = p.longitude;
+      if (p.longitude > maxLng) maxLng = p.longitude;
+    }
+
+    final centerLat = (minLat + maxLat) / 2;
+    final center = LatLng(centerLat, (minLng + maxLng) / 2);
 
     if (width <= 0 || height <= 0) {
       return _TripCamera(center: center, zoom: 13);
@@ -596,9 +738,8 @@ class _TripCamera {
     final cosLat = math.cos(centerLat * math.pi / 180);
     final metersPerPixel = _metersPerPixelAtZero * cosLat;
 
-    // Un grado de longitud se acorta con la latitud; uno de latitud no.
-    final spanLng = (end.longitude - start.longitude).abs() * 111320 * cosLat;
-    final spanLat = (end.latitude - start.latitude).abs() * 111320;
+    final spanLng = (maxLng - minLng).abs() * 111320 * cosLat;
+    final spanLat = (maxLat - minLat).abs() * 111320;
 
     final usableWidth = math.max(width - 2 * _padding, 1.0);
     final usableHeight = math.max(height - 2 * _padding, 1.0);
@@ -613,10 +754,6 @@ class _TripCamera {
       zoomToFit(spanLat, usableHeight),
     );
 
-    // El tope inferior solo actúa en los trayectos largos: Turbaco está a 37 km de
-    // la universidad y con un suelo más alto el encuadre no llegaba a caber, así
-    // que el mapa se salía por arriba y el punto de llegada quedaba medio
-    // cortado.
     return _TripCamera(center: center, zoom: zoom.clamp(8.0, 16.0));
   }
 }

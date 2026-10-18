@@ -6,7 +6,9 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 
+import '../config/maps_config.dart';
 import '../constants/zones.dart';
+import '../network/google_maps_service.dart';
 import '../theme/routb_palette.dart';
 import '../theme/routb_text.dart';
 import '../../features/trips/data/geocode_repository.dart';
@@ -230,7 +232,24 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
       locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
     );
 
-    // 1. Encuentra el barrio más cercano de Cartagena
+    // 1. Intento de geocodificación inversa exacta con Google Maps
+    if (MapsConfig.hasApiKey) {
+      try {
+        final googleAddress = await GoogleMapsService.instance.reverseGeocode(
+          position.latitude,
+          position.longitude,
+        );
+        if (googleAddress != null && googleAddress.isNotEmpty) {
+          return SelectedLocation(
+            lat: position.latitude,
+            lng: position.longitude,
+            addressText: googleAddress,
+          );
+        }
+      } catch (_) {}
+    }
+
+    // 2. Encuentra el barrio más cercano de Cartagena
     Zone closestZone = Zones.neighborhoods.first;
     double minDistance = double.infinity;
     const distanceCalculator = Distance();
@@ -249,7 +268,7 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
 
     String resolvedAddress = '${closestZone.name}, Cartagena';
 
-    // 2. Intento de geocodificación inversa detallada con Nominatim
+    // 3. Intento de geocodificación inversa detallada con Nominatim
     try {
       final uri = Uri.parse(
         'https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.latitude}&lon=${position.longitude}&zoom=18&addressdetails=1',
@@ -298,7 +317,38 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
     });
 
     try {
-      final results = await widget.geocodeRepository.search(query);
+      List<GeocodeResult> googleResults = const [];
+      if (MapsConfig.hasApiKey) {
+        try {
+          final suggestions = await GoogleMapsService.instance.autocomplete(
+            query,
+          );
+          if (suggestions.isNotEmpty) {
+            final detailsList = await Future.wait(
+              suggestions
+                  .take(5)
+                  .map(
+                    (s) =>
+                        GoogleMapsService.instance.getPlaceDetails(s.placeId),
+                  ),
+            );
+            googleResults = [
+              for (final d in detailsList)
+                if (d != null)
+                  GeocodeResult(
+                    lat: d.location.latitude,
+                    lng: d.location.longitude,
+                    displayName: d.formattedAddress,
+                    source: 'google',
+                  ),
+            ];
+          }
+        } catch (_) {}
+      }
+
+      final results = googleResults.isNotEmpty
+          ? googleResults
+          : await widget.geocodeRepository.search(query);
       if (mounted && epoch == _searchEpoch) {
         setState(() {
           _isLoading = false;
@@ -750,8 +800,30 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
                       color: palette.brand,
                       borderRadius: BorderRadius.circular(12),
                       child: InkWell(
-                        onTap: () {
+                        onTap: () async {
                           if (_pinnedPoint != null) {
+                            String? exactAddress;
+                            if (MapsConfig.hasApiKey) {
+                              try {
+                                exactAddress = await GoogleMapsService.instance
+                                    .reverseGeocode(
+                                      _pinnedPoint!.latitude,
+                                      _pinnedPoint!.longitude,
+                                    );
+                              } catch (_) {}
+                            }
+
+                            if (exactAddress != null &&
+                                exactAddress.isNotEmpty) {
+                              setState(() {
+                                _selectedAddress = exactAddress;
+                                _queryController.text = exactAddress!;
+                                _showMap = false;
+                              });
+                              _notifyChange();
+                              return;
+                            }
+
                             // Resolver barrio más cercano al pin
                             Zone closest = Zones.neighborhoods.first;
                             double minD = double.infinity;
