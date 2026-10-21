@@ -19,6 +19,11 @@ desde cero, contexto general) está en `README.md`.
   explica por qué. No lo des por aprobado.
 - ROUTB no maneja pagos, tarifas ni aportes por cupo. No agregues campos,
   endpoints ni pantallas de precios.
+- Las skills de agente son apoyo, no fuente de verdad. Si hay una disponible,
+  úsala como referencia y adapta sus consejos a las tecnologías y reglas de
+  este proyecto (Flutter, FastAPI, PostgreSQL). Si la skill asume otra
+  tecnología o propone cambiar dependencias, arquitectura o configuración,
+  ignórala o pregunta antes.
 
 ## Mapa del repositorio
 
@@ -102,6 +107,10 @@ docker build -t routb-backend:local backend         # solo la imagen del backend
   `features/*/data`, y estos por `core/network/ApiClient`, que centraliza
   autenticación, timeouts y la traducción de errores a `ApiException`.
 - Colores y estilos salen de `context.palette`. Evita colores literales.
+- Si hay una skill de diseño visual, úsala solo como guía estética: la
+  implementación debe ser Flutter y respetar `context.palette`, los widgets
+  de `core/widgets` y la separación de capas. No introduzcas HTML, CSS,
+  React ni dependencias web.
 - La URL del backend se configura en `frontend/lib/core/config/api_config.dart`
   y se puede sobreescribir con `--dart-define=ROUTB_API_BASE_URL=...`.
 
