@@ -7,6 +7,7 @@ import '../../../core/models/my_request.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/routb_palette.dart';
 import '../../../core/theme/routb_text.dart';
+import '../../../core/services/whatsapp_launcher.dart';
 import '../../../core/widgets/routb_button.dart';
 import '../../../core/widgets/routb_card.dart';
 import '../../../core/widgets/routb_route.dart';
@@ -313,7 +314,15 @@ class _MyTripScreenState extends State<MyTripScreen> {
                                   ],
                                 ),
                               ),
-                              if (_request.hasDriverPhone)
+                              if (_request.hasDriverPhone &&
+                                  _request.isConfirmed)
+                                WhatsAppButton(
+                                  phone: _request.driverPhone!,
+                                  message:
+                                      'Hola ${_request.driverName ?? ''}, te contacto desde ROUTB sobre el viaje ${_request.routeLabel} (${_request.departureLabel}).',
+                                  compact: true,
+                                )
+                              else if (_request.hasDriverPhone)
                                 Icon(
                                   Icons.phone_rounded,
                                   size: 18,

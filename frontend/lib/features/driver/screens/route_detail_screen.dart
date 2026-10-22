@@ -7,6 +7,7 @@ import '../../../core/models/trip.dart';
 import '../../../core/models/trip_request.dart';
 import '../../../core/models/trip_status.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../core/services/whatsapp_launcher.dart';
 import '../../../core/theme/routb_palette.dart';
 import '../../../core/theme/routb_text.dart';
 import '../../../core/widgets/routb_button.dart';
@@ -17,6 +18,7 @@ import '../../../core/widgets/routb_route.dart';
 import '../../../core/widgets/routb_seats.dart';
 import '../../../core/widgets/routb_toast.dart';
 import '../widgets/driver_cards.dart';
+import '../widgets/request_preview_sheet.dart';
 import '../widgets/routb_trip_map.dart';
 
 /// Detalle de una ruta del conductor.
@@ -152,6 +154,16 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
     } finally {
       if (mounted) setState(() => _busyRequests.remove(request.id));
     }
+  }
+
+  void _openRequestPreview(TripRequest request) {
+    showRequestPreviewSheet(
+      context: context,
+      trip: _trip,
+      request: request,
+      onAccept: () => _acceptRequest(request),
+      onReject: () => _rejectRequest(request),
+    );
   }
 
   Future<void> _cancel() async {
@@ -385,19 +397,7 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                                 request: req,
                                 trip: _trip,
                                 busy: _busyRequests.contains(req.id),
-                                onTapPreview: req.stops.isNotEmpty
-                                    ? () {
-                                        setState(() {
-                                          if (_previewWaypoint ==
-                                              req.stops.first.addressText) {
-                                            _previewWaypoint = null;
-                                          } else {
-                                            _previewWaypoint =
-                                                req.stops.first.addressText;
-                                          }
-                                        });
-                                      }
-                                    : null,
+                                onTapPreview: () => _openRequestPreview(req),
                                 onAccept: () => _acceptRequest(req),
                                 onReject: () => _rejectRequest(req),
                               ),
@@ -482,10 +482,11 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                                     ),
                                   ),
                                   if (request.hasPhone)
-                                    Icon(
-                                      Icons.phone_rounded,
-                                      size: 16,
-                                      color: palette.muted,
+                                    WhatsAppButton(
+                                      phone: request.passengerPhone,
+                                      message:
+                                          'Hola ${request.passengerName}, soy tu conductor de ROUTB para el viaje ${_trip.routeLabel} (${_trip.departureLabel}).',
+                                      compact: true,
                                     ),
                                 ],
                               ),

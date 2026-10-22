@@ -167,4 +167,90 @@ void main() {
       expect(points.last.latitude, closeTo(10.37, 0.05));
     });
   });
+
+  group('GoogleMapsService.computeRoute', () {
+    test(
+      'envía optimizeWaypointOrder cuando hay más de una parada intermedia',
+      () async {
+        late Map<String, dynamic> capturedBody;
+        late Map<String, String> capturedHeaders;
+
+        final service = GoogleMapsService(
+          client: MockClient((request) async {
+            expect(request.url.host, 'routes.googleapis.com');
+            capturedHeaders = request.headers;
+            capturedBody = jsonDecode(request.body) as Map<String, dynamic>;
+
+            return http.Response(
+              jsonEncode({
+                'routes': [
+                  {
+                    'duration': '1200s',
+                    'distanceMeters': 8500,
+                    'polyline': {
+                      'encodedPolyline': '_p~iF~ps|U_ulLnnqC_mqNvxq`@',
+                    },
+                    'optimizedIntermediateWaypointIndex': [1, 0],
+                  },
+                ],
+              }),
+              200,
+            );
+          }),
+        );
+
+        final result = await service.computeRoute(
+          origin: const LatLng(10.40, -75.50),
+          destination: const LatLng(10.45, -75.55),
+          waypoints: const [LatLng(10.41, -75.51), LatLng(10.43, -75.53)],
+        );
+
+        expect(result, isNotNull);
+        expect(capturedBody['optimizeWaypointOrder'], isTrue);
+        expect(capturedBody['intermediates'], hasLength(2));
+        expect(
+          capturedHeaders['X-Goog-FieldMask'],
+          contains('routes.optimizedIntermediateWaypointIndex'),
+        );
+        expect(result!.optimizedWaypointOrder, equals([1, 0]));
+        expect(result.durationSeconds, 1200);
+        expect(result.distanceMeters, 8500);
+      },
+    );
+
+    test(
+      'no envía optimizeWaypointOrder cuando optimizeWaypointOrder es false',
+      () async {
+        late Map<String, dynamic> capturedBody;
+
+        final service = GoogleMapsService(
+          client: MockClient((request) async {
+            capturedBody = jsonDecode(request.body) as Map<String, dynamic>;
+            return http.Response(
+              jsonEncode({
+                'routes': [
+                  {
+                    'duration': '600s',
+                    'distanceMeters': 4000,
+                    'polyline': {'encodedPolyline': ''},
+                  },
+                ],
+              }),
+              200,
+            );
+          }),
+        );
+
+        final result = await service.computeRoute(
+          origin: const LatLng(10.40, -75.50),
+          destination: const LatLng(10.45, -75.55),
+          waypoints: const [LatLng(10.41, -75.51), LatLng(10.43, -75.53)],
+          optimizeWaypointOrder: false,
+        );
+
+        expect(result, isNotNull);
+        expect(capturedBody.containsKey('optimizeWaypointOrder'), isFalse);
+      },
+    );
+  });
 }

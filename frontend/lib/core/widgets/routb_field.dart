@@ -136,7 +136,8 @@ class _RoutbFieldState extends State<RoutbField> {
     if (mounted) setState(() {});
   }
 
-  bool get _hasError => widget.errorText != null && widget.errorText!.isNotEmpty;
+  bool get _hasError =>
+      widget.errorText != null && widget.errorText!.isNotEmpty;
 
   @override
   Widget build(BuildContext context) {
@@ -156,8 +157,8 @@ class _RoutbFieldState extends State<RoutbField> {
               color: _hasError
                   ? palette.rose
                   : _focused
-                      ? palette.brand
-                      : Colors.transparent,
+                  ? palette.brand
+                  : Colors.transparent,
               width: 1.5,
             ),
           ),
@@ -169,11 +170,7 @@ class _RoutbFieldState extends State<RoutbField> {
                   style: RoutbText.copy(14, color: palette.ink),
                 ),
                 const SizedBox(width: 6),
-                Container(
-                  width: 1,
-                  height: 18,
-                  color: palette.line,
-                ),
+                Container(width: 1, height: 18, color: palette.line),
                 const SizedBox(width: 12),
               ],
               if (widget.icon != null) ...[
@@ -254,9 +251,7 @@ class _EyeButton extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(8),
           child: Icon(
-            hidden
-                ? Icons.visibility_outlined
-                : Icons.visibility_off_outlined,
+            hidden ? Icons.visibility_outlined : Icons.visibility_off_outlined,
             size: 18,
             color: palette.muted,
           ),
@@ -425,9 +420,17 @@ class RoutbStatusPill extends StatelessWidget {
             Icon(icon, size: 12, color: foreground),
             const SizedBox(width: 4),
           ],
-          Text(
-            label,
-            style: RoutbText.copy(11, color: foreground, weight: FontWeight.w700),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: RoutbText.copy(
+                11,
+                color: foreground,
+                weight: FontWeight.w700,
+              ),
+            ),
           ),
         ],
       ),

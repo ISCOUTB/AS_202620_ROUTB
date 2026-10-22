@@ -188,31 +188,24 @@ class _PassengerScreenState extends State<PassengerScreen> {
   }
 
   void _openFullMap() {
+    final active = _currentRequest;
+    if (active == null) return;
     RoutbSheet.show<void>(
       context: context,
       title: 'Trayecto estimado',
       subtitle:
-          'El mapa sitúa origen y destino con las coordenadas reales del texto',
+          'El mapa sitúa origen, destino y paradas con las coordenadas reales',
       heightFactor: 0.8,
       body: RouteMap(
-        origin: _origin.text,
-        destination: _destination.text,
+        origin: active.origin,
+        destination: active.destination,
+        waypoints: active.waypoints,
         // En la hoja el mapa sí se puede mover: hay sitio de sobra y no compite
         // con el scroll del resto del cuerpo.
         interactive: true,
         height: MediaQuery.sizeOf(context).height * 0.45,
       ),
     );
-  }
-
-  void _onQueryChanged(String _) {
-    // Se espera a que la persona termine de escribir antes de consultar.
-    _debounce?.cancel();
-    setState(() => _filtering = true);
-    _debounce = Timer(const Duration(milliseconds: 320), () {
-      if (!mounted) return;
-      unawaited(_load());
-    });
   }
 
   Future<void> _setDate(DateTime date) async {
@@ -355,11 +348,8 @@ class _PassengerScreenState extends State<PassengerScreen> {
                 children: [
                   _PassengerHero(
                     userName: widget.account.name,
-                    origin: _origin,
-                    destination: _destination,
                     selectedDate: _selectedDate,
-                    onOriginChanged: _onQueryChanged,
-                    onDestinationChanged: _onQueryChanged,
+                    currentRequest: _currentRequest,
                     onDateChanged: _setDate,
                     onLogout: _logout,
                     onOpenMap: _openFullMap,
@@ -375,7 +365,7 @@ class _PassengerScreenState extends State<PassengerScreen> {
                       PassengerStatus.ready => _TripsList(
                         trips: () {
                           final confirmedTripIds = _myRequests
-                              .where((r) => r.isConfirmed)
+                              .where((r) => r.isActive && r.isConfirmed)
                               .map((r) => r.tripId)
                               .toSet();
                           return confirmedTripIds.isEmpty
@@ -436,7 +426,7 @@ class _PassengerScreenState extends State<PassengerScreen> {
   }
 }
 
-/// Hero del modo pasajero: saludo, mapa y acceso a búsqueda.
+/// Hero del modo pasajero: saludo, mapa (si hay viaje activo) y acceso a búsqueda.
 class _PassengerHero extends StatelessWidget {
   const _PassengerHero({
     required this.userName,
@@ -445,28 +435,21 @@ class _PassengerHero extends StatelessWidget {
     required this.onLogout,
     required this.onOpenMap,
     required this.onOpenSuggestions,
-    this.origin,
-    this.destination,
-    this.onOriginChanged,
-    this.onDestinationChanged,
+    this.currentRequest,
   });
 
   final String userName;
-  final TextEditingController? origin;
-  final TextEditingController? destination;
   final DateTime selectedDate;
-  final ValueChanged<String>? onOriginChanged;
-  final ValueChanged<String>? onDestinationChanged;
   final ValueChanged<DateTime> onDateChanged;
   final VoidCallback onLogout;
   final VoidCallback onOpenMap;
   final VoidCallback onOpenSuggestions;
+  final MyRequest? currentRequest;
 
   @override
   Widget build(BuildContext context) {
-    final originText = origin?.text.trim() ?? '';
-    final destinationText = destination?.text.trim() ?? '';
     final palette = context.palette;
+    final active = currentRequest;
 
     return Container(
       decoration: BoxDecoration(
@@ -484,51 +467,58 @@ class _PassengerHero extends StatelessWidget {
             isDarkBackground: true,
             wave: true,
           ),
-          const SizedBox(height: 16),
-          Stack(
-            children: [
-              RouteMap(
-                origin: originText,
-                destination: destinationText,
-                height: 110,
-              ),
-              Positioned(
-                right: 6,
-                top: 6,
-                child: Material(
-                  color: palette.card,
-                  borderRadius: BorderRadius.circular(RoutbTheme.radiusPill),
-                  child: InkWell(
-                    onTap: onOpenMap,
+          if (active != null) ...[
+            const SizedBox(height: 16),
+            Stack(
+              children: [
+                RouteMap(
+                  origin: active.origin,
+                  destination: active.destination,
+                  waypoints: active.waypoints,
+                  height: 110,
+                ),
+                Positioned(
+                  right: 6,
+                  top: 6,
+                  child: Material(
+                    color: palette.card,
                     borderRadius: BorderRadius.circular(RoutbTheme.radiusPill),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(9, 5, 11, 5),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.fullscreen_rounded,
-                            size: 13,
-                            color: palette.ink,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Abrir mapa',
-                            style: RoutbText.copy(
-                              11,
+                    child: InkWell(
+                      onTap: onOpenMap,
+                      borderRadius: BorderRadius.circular(
+                        RoutbTheme.radiusPill,
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(9, 5, 11, 5),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.fullscreen_rounded,
+                              size: 13,
                               color: palette.ink,
-                              weight: FontWeight.w700,
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 4),
+                            Text(
+                              'Abrir mapa',
+                              style: RoutbText.copy(
+                                11,
+                                color: palette.ink,
+                                weight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
+              ],
+            ),
+            const SizedBox(height: 12),
+          ] else ...[
+            const SizedBox(height: 16),
+          ],
           Container(
             decoration: BoxDecoration(
               color: palette.card,

@@ -145,8 +145,9 @@ class MyRequest {
   /// `true` cuando el cupo quedó confirmado.
   bool get isConfirmed => status.isAccepted;
 
-  /// `true` si la solicitud sigue viva: en curso o en espera de respuesta.
-  bool get isActive => isPending || isConfirmed;
+  /// `true` si la solicitud sigue viva: en curso o en espera de respuesta,
+  /// y el viaje no ha pasado ni fue cancelado.
+  bool get isActive => (isPending || isConfirmed) && !isPast && !isOrphaned;
 
   /// `true` cuando el viaje ya no sale, porque se canceló.
   bool get isOrphaned => !tripStatus.isActive;

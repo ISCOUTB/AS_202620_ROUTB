@@ -13,11 +13,13 @@ class GoogleRouteResult {
     required this.durationSeconds,
     required this.distanceMeters,
     required this.polyline,
+    this.optimizedWaypointOrder = const <int>[],
   });
 
   final int durationSeconds;
   final int distanceMeters;
   final List<LatLng> polyline;
+  final List<int> optimizedWaypointOrder;
 
   int get durationMinutes => (durationSeconds / 60).round();
   double get distanceKm => distanceMeters / 1000.0;
@@ -327,6 +329,7 @@ class GoogleMapsService {
     required LatLng origin,
     required LatLng destination,
     List<LatLng> waypoints = const <LatLng>[],
+    bool optimizeWaypointOrder = true,
   }) async {
     if (!MapsConfig.hasApiKey) return null;
 
@@ -369,6 +372,9 @@ class GoogleMapsService {
               },
             },
         ];
+        if (waypoints.length > 1 && optimizeWaypointOrder) {
+          body['optimizeWaypointOrder'] = true;
+        }
       }
 
       final response = await _client
@@ -377,7 +383,7 @@ class GoogleMapsService {
             headers: {
               'Content-Type': 'application/json',
               'X-Goog-Api-Key': MapsConfig.apiKey,
-              'X-Goog-FieldMask': 'routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline',
+              'X-Goog-FieldMask': 'routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline,routes.optimizedIntermediateWaypointIndex',
             },
             body: jsonEncode(body),
           )
@@ -402,10 +408,17 @@ class GoogleMapsService {
           ? decodePolyline(encoded)
           : <LatLng>[origin, ...waypoints, destination];
 
+      final optimizedOrder =
+          (route['optimizedIntermediateWaypointIndex'] as List?)
+              ?.map((item) => (item as num).toInt())
+              .toList(growable: false) ??
+          const <int>[];
+
       final result = GoogleRouteResult(
         durationSeconds: durationSeconds,
         distanceMeters: distanceMeters,
         polyline: points,
+        optimizedWaypointOrder: optimizedOrder,
       );
 
       _routeCache[routeKey] = result;
