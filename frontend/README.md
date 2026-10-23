@@ -133,8 +133,12 @@ O directamente:
 
 ```bash
 cd frontend
-flutter run
+flutter run --dart-define-from-file=.env
 ```
+
+El archivo `frontend/.env` contiene `GOOGLE_MAPS_API_KEY` y está ignorado por
+git. Si no existe, la app arranca sin geocodificación de Google y usa el
+catálogo local de barrios. Puedes crearlo a partir de `frontend/.env.example`.
 
 También puedes indicar un dispositivo específico:
 

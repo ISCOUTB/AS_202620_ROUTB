@@ -9,7 +9,6 @@ import '../features/auth/screens/auth_flow.dart';
 import '../features/matching/data/matching_repository.dart';
 import '../features/notifications/data/notifications_repository.dart';
 import '../features/notifications/push_notification_service.dart';
-import '../features/trips/data/geocode_repository.dart';
 import '../features/trips/data/trip_repository.dart';
 import 'app_routes.dart';
 
@@ -21,7 +20,6 @@ class RoutbDependencies {
   RoutbDependencies({
     required this.session,
     required this.auth,
-    required this.geocode,
     required this.trips,
     required this.matching,
     required this.push,
@@ -37,9 +35,6 @@ class RoutbDependencies {
 
   /// Ingreso, registro y cierre de sesión.
   final AuthRepository auth;
-
-  /// Búsqueda de direcciones y coordenadas exactas.
-  final GeocodeRepository geocode;
 
   /// Viajes y solicitudes de cupo.
   final TripRepository trips;
@@ -90,7 +85,6 @@ class RoutbDependencies {
     return RoutbDependencies(
       session: session,
       auth: AuthRepository(api, session),
-      geocode: GeocodeRepository(api),
       trips: TripRepository(api),
       matching: MatchingRepository(api),
       push: PushNotificationService(repository: NotificationsRepository(api)),

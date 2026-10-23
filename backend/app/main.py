@@ -7,7 +7,6 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.modules.auth.infrastructure.router import router as auth_router
-from app.modules.geocode.infrastructure.router import router as geocode_router
 from app.modules.matching.infrastructure.router import router as matching_router
 from app.modules.requests.infrastructure.router import router as requests_router
 from app.modules.trips.infrastructure.router import router as trips_router
@@ -26,7 +25,7 @@ logger.propagate = False
 app = FastAPI(
     title="ROUTB API",
     description="ROUTB",
-    version="0.8.0",
+    version="0.9.0",
 )
 
 @app.middleware("http")
@@ -59,7 +58,6 @@ app.include_router(users_router, prefix="/users", tags=["users"])
 app.include_router(trips_router, prefix="/trips", tags=["trips"])
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
 app.include_router(requests_router, prefix="/requests", tags=["requests"])
-app.include_router(geocode_router, prefix="/geocode", tags=["geocode"])
 app.include_router(matching_router, prefix="/matching", tags=["matching"])
 app.include_router(notifications_router, prefix="/notifications", tags=["notifications"])
 

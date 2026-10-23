@@ -12,6 +12,7 @@ import 'package:frontend/core/models/user_role.dart';
 import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/core/storage/session_store.dart';
 import 'package:frontend/core/theme/routb_theme.dart';
+import 'package:frontend/core/services/whatsapp_launcher.dart';
 import 'package:frontend/core/theme/theme_controller.dart';
 import 'package:frontend/core/widgets/route_map.dart';
 import 'package:frontend/features/auth/data/auth_repository.dart';
@@ -21,7 +22,6 @@ import 'package:frontend/features/notifications/push_notification_service.dart';
 import 'package:frontend/features/passenger/screens/my_trip_screen.dart';
 import 'package:frontend/features/passenger/screens/passenger_screen.dart';
 import 'package:frontend/features/passenger/widgets/my_trip_card.dart';
-import 'package:frontend/features/trips/data/geocode_repository.dart';
 import 'package:frontend/features/trips/data/trip_repository.dart';
 
 /// Tamaños de móvil que se comprueban.
@@ -120,7 +120,6 @@ RoutbDependencies _dependencies(
   return RoutbDependencies(
     session: session,
     auth: AuthRepository(api, session),
-    geocode: GeocodeRepository(api),
     trips: TripRepository(api),
     matching: MatchingRepository(api),
     push: PushNotificationService(repository: NotificationsRepository(api)),
@@ -164,13 +163,51 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues(<String, Object>{}));
 
   group('Buscador del pasajero', () {
-    testWidgets('el mapa y el buscador caben en un móvil estrecho', (
-      tester,
-    ) async {
-      for (final size in _phoneSizes) {
-        await _usePhone(tester, size);
+    testWidgets(
+      'el mapa y el buscador caben en un móvil estrecho con viaje activo',
+      (tester) async {
+        for (final size in _phoneSizes) {
+          await _usePhone(tester, size);
+          final dependencies = _dependencies(
+            _routes(
+              trips: <Map<String, dynamic>>[_tripJson()],
+              myRequests: <Map<String, dynamic>>[_myRequestJson()],
+            ),
+          );
+          addTearDown(dependencies.dispose);
+
+          await tester.pumpWidget(
+            _app(
+              RoutbScopeDependencies(
+                dependencies: dependencies,
+                child: PassengerScreen(
+                  account: const Account(
+                    token: 't',
+                    name: 'Ana',
+                    role: UserRole.passenger,
+                  ),
+                ),
+              ),
+            ),
+          );
+          await _settle(tester);
+
+          // El mapa compacto y el botón de hoja están en pantalla con viaje activo.
+          expect(find.byType(RouteMap), findsOneWidget, reason: '$size');
+          expect(find.text('Abrir mapa'), findsOneWidget, reason: '$size');
+        }
+      },
+    );
+
+    testWidgets(
+      'sin viaje activo el buscador se muestra limpio sin mapa superior',
+      (tester) async {
+        await _usePhone(tester, const Size(360, 640));
         final dependencies = _dependencies(
-          _routes(trips: <Map<String, dynamic>>[_tripJson()]),
+          _routes(
+            trips: <Map<String, dynamic>>[_tripJson()],
+            myRequests: const <Map<String, dynamic>>[],
+          ),
         );
         addTearDown(dependencies.dispose);
 
@@ -190,11 +227,14 @@ void main() {
         );
         await _settle(tester);
 
-        // El mapa compacto y el botón de hoja están en pantalla.
-        expect(find.byType(RouteMap), findsOneWidget, reason: '$size');
-        expect(find.text('Abrir mapa'), findsOneWidget, reason: '$size');
-      }
-    });
+        expect(find.byType(RouteMap), findsNothing);
+        expect(find.text('Abrir mapa'), findsNothing);
+        expect(
+          find.text('¿A dónde vas? Buscar ruta y paradas'),
+          findsOneWidget,
+        );
+      },
+    );
 
     testWidgets('la tarjeta de mi viaje aparece con la lista vacía', (
       tester,
@@ -232,19 +272,13 @@ void main() {
       expect(find.text('Cupo confirmado'), findsOneWidget);
       expect(find.textContaining('Getsemaní → UTB'), findsWidgets);
 
-      await tester.drag(
-        find.byType(CustomScrollView),
-        const Offset(0, -500),
-      );
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
       await _settle(tester);
 
       // La lista de viajes está vacía, así que aparece el estado vacío con la
       // fecha seleccionada (hoy). El texto exacto depende del DateLabel, pero
       // siempre empieza con 'No hay viajes para'.
-      expect(
-        find.textContaining('No hay viajes para'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('No hay viajes para'), findsOneWidget);
     });
 
     testWidgets('la tarjeta desaparece cuando la solicitud ya no está viva', (
@@ -285,7 +319,10 @@ void main() {
     ) async {
       await _usePhone(tester, const Size(360, 640));
       final dependencies = _dependencies(
-        _routes(trips: <Map<String, dynamic>>[_tripJson()]),
+        _routes(
+          trips: <Map<String, dynamic>>[_tripJson()],
+          myRequests: <Map<String, dynamic>>[_myRequestJson()],
+        ),
       );
       addTearDown(dependencies.dispose);
 
@@ -347,6 +384,8 @@ void main() {
 
         expect(find.text('Luis Chofer'), findsOneWidget, reason: '$size');
         expect(find.text('3015550002'), findsOneWidget, reason: '$size');
+        expect(find.byType(WhatsAppButton), findsOneWidget, reason: '$size');
+        expect(find.text('WhatsApp'), findsOneWidget, reason: '$size');
 
         // El botón está al final de una lista larga: hay que bajarlo.
         await _scrollToEnd(tester);
@@ -475,7 +514,18 @@ void main() {
       );
 
       expect(request.isOrphaned, isTrue);
+      expect(request.isActive, isFalse);
       expect(request.statusLabel, 'Viaje cancelado');
+    });
+
+    test('un viaje pasado ya no está activo', () {
+      final json = _myRequestJson();
+      json['departure_date'] = '2020-01-01';
+      final request = MyRequest.fromJson(json);
+
+      expect(request.isPast, isTrue);
+      expect(request.isActive, isFalse);
+      expect(request.statusLabel, 'Viaje finalizado');
     });
 
     test('una solicitud pendiente sigue viva', () {

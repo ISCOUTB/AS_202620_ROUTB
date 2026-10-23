@@ -2,6 +2,12 @@
 
 Este documento consolida la línea base, la tabla de modos de fallo, el análisis de idempotencia y saga, y la verificación de los 9 criterios de evaluación para la resiliencia e integración de ROUTB.
 
+> **Nota de vigencia:** este documento conserva la evidencia del commit
+> `fe82eac4ab1a9f54dbacc40b8b99a6c5322b309c`. La geocodificación del cliente
+> cambió con el [ADR 0018](../adr/0018-google-maps-platform-frontend.md); las
+> referencias a Nominatim y OSRM describen el estado auditado, no el flujo
+> actual.
+
 ---
 
 ## 1. Línea base en el repositorio (Criterio 1)

@@ -118,12 +118,14 @@ El backend está desplegado y accesible públicamente por HTTPS:
 
 ### Piezas desplegadas
 
-El backend corre en un servidor propio administrado con **Dokploy** y la base de datos se guarda en el plan gratuito de Supabase. Ninguna de las dos piezas genera costo ni requiere tarjeta de crédito para el proyecto.
+El backend corre en un servidor propio administrado con **Dokploy**, la base de datos se guarda en el plan gratuito de Supabase y la geocodificación usa la capa gratuita de Google Maps Platform. Ninguna de estas piezas genera costo para el proyecto dentro de los límites documentados.
 
 | Pieza | Dónde se ejecuta | Proveedor | Decisión |
 |---|---|---|---|
 | API Backend | Contenedor Docker en servidor propio | [Dokploy](https://dokploy.com) | [ADR 0015](docs/adr/0015-dokploy-plataforma-de-despliegue.md) |
 | Base de datos | PostgreSQL 15 administrado | [Supabase](https://supabase.com) | [ADR 0006](docs/adr/0006-base-de-datos-supabase.md) |
+| Geocodificación y rutas | Cliente Flutter | [Google Maps Platform](https://mapsplatform.google.com) | [ADR 0018](docs/adr/0018-google-maps-platform-frontend.md) |
+| Renderizado del mapa | Cliente Flutter | OpenStreetMap + `flutter_map` | [ADR 0019](docs/adr/0019-renderizado-mapas-flutter-map-osm.md) |
 
 El manifiesto de referencia del contenedor y de sus variables es [`compose.lab.yaml`](compose.lab.yaml). No se aplica automáticamente: los valores reales de los secretos, el dominio y la política de despliegue se administran desde el panel de Dokploy.
 
@@ -142,6 +144,7 @@ El manifiesto de referencia del contenedor y de sus variables es [`compose.lab.y
 | `ROUTING_TIMEOUT_SECONDS` | Tiempo máximo de espera por petición a OSRM (segundos) | `1.4` por defecto; ajustable según latencia y disponibilidad del proveedor | Dokploy (Environment del servicio) |
 | `FCM_PROJECT_ID` | Identificador del proyecto de Firebase desde el que se envían las notificaciones push | Consola de Firebase del proyecto del equipo | Dokploy (Environment del servicio) |
 | `FCM_SERVICE_ACCOUNT_B64` | Credencial de la cuenta de servicio de Firebase (el JSON en base64) con la que la API firma cada envío | Consola de Firebase → *Cuentas de servicio* → *Generar nueva clave privada* | Dokploy (Environment del servicio) |
+| `GOOGLE_MAPS_API_KEY` | Clave de Google Maps Platform para geocodificación, autocompletado y rutas en el cliente Flutter | Google Cloud → APIs y servicios → Credenciales; debe estar restringida por plataforma y APIs | `frontend/.env` (ignorado por git) e inyección con `--dart-define-from-file=.env` |
 
 ### Pasos para recrear el entorno desde cero
 

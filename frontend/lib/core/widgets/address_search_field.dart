@@ -1,17 +1,13 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 
-import '../config/maps_config.dart';
 import '../constants/zones.dart';
+import '../models/geocode_result.dart';
 import '../network/google_maps_service.dart';
 import '../theme/routb_palette.dart';
 import '../theme/routb_text.dart';
-import '../../features/trips/data/geocode_repository.dart';
 
 /// Resultado seleccionado de un punto con dirección y coordenada.
 class SelectedLocation {
@@ -30,17 +26,17 @@ class SelectedLocation {
 /// sugerencias desplegables de barrios de Cartagena y opción de señalar en mapa.
 class AddressSearchField extends StatefulWidget {
   const AddressSearchField({
-    required this.geocodeRepository,
     required this.onLocationSelected,
     this.onLocationCleared,
     this.initialLocation,
     this.label = 'Escribe tu dirección o barrio',
     this.locateCurrentPosition,
+    this.googleMapsService,
     this.toCampus,
     super.key,
   });
 
-  final GeocodeRepository geocodeRepository;
+  final GoogleMapsService? googleMapsService;
   final ValueChanged<SelectedLocation> onLocationSelected;
 
   /// Se dispara cuando el texto deja de corresponder con el punto seleccionado.
@@ -61,6 +57,9 @@ class AddressSearchField extends StatefulWidget {
 }
 
 class _AddressSearchFieldState extends State<AddressSearchField> {
+  GoogleMapsService get _googleMaps =>
+      widget.googleMapsService ?? GoogleMapsService.instance;
+
   final TextEditingController _queryController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   final MapController _mapController = MapController();
@@ -232,24 +231,22 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
       locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
     );
 
-    // 1. Intento de geocodificación inversa exacta con Google Maps
-    if (MapsConfig.hasApiKey) {
-      try {
-        final googleAddress = await GoogleMapsService.instance.reverseGeocode(
-          position.latitude,
-          position.longitude,
+    // 1. Intento de geocodificación inversa exacta con Google Maps.
+    try {
+      final googleAddress = await _googleMaps.reverseGeocode(
+        position.latitude,
+        position.longitude,
+      );
+      if (googleAddress != null && googleAddress.isNotEmpty) {
+        return SelectedLocation(
+          lat: position.latitude,
+          lng: position.longitude,
+          addressText: googleAddress,
         );
-        if (googleAddress != null && googleAddress.isNotEmpty) {
-          return SelectedLocation(
-            lat: position.latitude,
-            lng: position.longitude,
-            addressText: googleAddress,
-          );
-        }
-      } catch (_) {}
-    }
+      }
+    } catch (_) {}
 
-    // 2. Encuentra el barrio más cercano de Cartagena
+    // 2. Si Google no responde, se usa el barrio más cercano del catálogo.
     Zone closestZone = Zones.neighborhoods.first;
     double minDistance = double.infinity;
     const distanceCalculator = Distance();
@@ -266,42 +263,10 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
       }
     }
 
-    String resolvedAddress = '${closestZone.name}, Cartagena';
-
-    // 3. Intento de geocodificación inversa detallada con Nominatim
-    try {
-      final uri = Uri.parse(
-        'https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.latitude}&lon=${position.longitude}&zoom=18&addressdetails=1',
-      );
-      final response = await http
-          .get(uri, headers: {'User-Agent': 'ROUTB_UTB_Student_App/1.0'})
-          .timeout(const Duration(seconds: 3));
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final address = data['address'] as Map<String, dynamic>?;
-        if (address != null) {
-          final road = address['road'] as String?;
-          final neighbourhood =
-              (address['neighbourhood'] ??
-                      address['suburb'] ??
-                      closestZone.name)
-                  as String?;
-          if (road != null && road.isNotEmpty) {
-            resolvedAddress = '$road, $neighbourhood';
-          } else if (neighbourhood != null && neighbourhood.isNotEmpty) {
-            resolvedAddress = '$neighbourhood, Cartagena';
-          }
-        }
-      }
-    } catch (_) {
-      // Si el reverse geocoding remoto tarda o falla, se conserva el barrio más cercano
-    }
-
     return SelectedLocation(
       lat: position.latitude,
       lng: position.longitude,
-      addressText: resolvedAddress,
+      addressText: '${closestZone.name}, Cartagena',
     );
   }
 
@@ -318,37 +283,28 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
 
     try {
       List<GeocodeResult> googleResults = const [];
-      if (MapsConfig.hasApiKey) {
-        try {
-          final suggestions = await GoogleMapsService.instance.autocomplete(
-            query,
+      try {
+        final suggestions = await _googleMaps.autocomplete(query);
+        if (suggestions.isNotEmpty) {
+          final detailsList = await Future.wait(
+            suggestions
+                .take(5)
+                .map((s) => _googleMaps.getPlaceDetails(s.placeId)),
           );
-          if (suggestions.isNotEmpty) {
-            final detailsList = await Future.wait(
-              suggestions
-                  .take(5)
-                  .map(
-                    (s) =>
-                        GoogleMapsService.instance.getPlaceDetails(s.placeId),
-                  ),
-            );
-            googleResults = [
-              for (final d in detailsList)
-                if (d != null)
-                  GeocodeResult(
-                    lat: d.location.latitude,
-                    lng: d.location.longitude,
-                    displayName: d.formattedAddress,
-                    source: 'google',
-                  ),
-            ];
-          }
-        } catch (_) {}
-      }
+          googleResults = [
+            for (final d in detailsList)
+              if (d != null)
+                GeocodeResult(
+                  lat: d.location.latitude,
+                  lng: d.location.longitude,
+                  displayName: d.formattedAddress,
+                  source: 'google',
+                ),
+          ];
+        }
+      } catch (_) {}
 
-      final results = googleResults.isNotEmpty
-          ? googleResults
-          : await widget.geocodeRepository.search(query);
+      final results = googleResults;
       if (mounted && epoch == _searchEpoch) {
         setState(() {
           _isLoading = false;
@@ -803,15 +759,12 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
                         onTap: () async {
                           if (_pinnedPoint != null) {
                             String? exactAddress;
-                            if (MapsConfig.hasApiKey) {
-                              try {
-                                exactAddress = await GoogleMapsService.instance
-                                    .reverseGeocode(
-                                      _pinnedPoint!.latitude,
-                                      _pinnedPoint!.longitude,
-                                    );
-                              } catch (_) {}
-                            }
+                            try {
+                              exactAddress = await _googleMaps.reverseGeocode(
+                                _pinnedPoint!.latitude,
+                                _pinnedPoint!.longitude,
+                              );
+                            } catch (_) {}
 
                             if (exactAddress != null &&
                                 exactAddress.isNotEmpty) {

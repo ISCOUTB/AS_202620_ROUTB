@@ -7,6 +7,7 @@ from app.core.database import get_db
 from app.modules.auth.infrastructure.security import get_current_user
 from app.modules.requests.application.create_request import create_request as create_request_use_case
 from app.modules.requests.application.list_requests import (
+    get_consolidated_stops_for_request as get_consolidated_stops_for_request_use_case,
     get_passenger_requests as get_passenger_requests_use_case,
 )
 from app.modules.requests.application.list_requests import get_trip_requests as get_trip_requests_use_case
@@ -51,9 +52,10 @@ def _to_response(req) -> schemas.TripRequestResponse:
     )
 
 
-def _to_my_response(req) -> schemas.MyRequestResponse:
+def _to_my_response(req, stops=None) -> schemas.MyRequestResponse:
     trip = req.trip
     driver = trip.driver if trip else None
+    resolved_stops = stops if stops is not None else req.stops
     return schemas.MyRequestResponse(
         id=req.id,
         seat_count=req.seat_count,
@@ -72,7 +74,7 @@ def _to_my_response(req) -> schemas.MyRequestResponse:
         driver_phone=driver.phone if driver else None,
         stops=[
             schemas.RequestStopResponse.model_validate(stop)
-            for stop in req.stops
+            for stop in resolved_stops
         ],
     )
 
@@ -172,7 +174,13 @@ def my_requests(
     cupo confirmado no lo veria ahi.
     """
     requests = get_passenger_requests_use_case(db, passenger_id=current_user.id)
-    return [_to_my_response(r) for r in requests]
+    return [
+        _to_my_response(
+            r,
+            stops=get_consolidated_stops_for_request_use_case(db, r),
+        )
+        for r in requests
+    ]
 
 
 @router.delete("/{request_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -17,9 +17,9 @@ import 'routb_live_pill.dart';
 /// Mapa de un trayecto con los mosaicos de OpenStreetMap.
 ///
 /// Recibe el origen y el destino como texto libre. Primero pinta el catálogo
-/// de barrios, si hay coincidencia, y después pide a Nominatim la coordenada
-/// real del texto. Entre ambos puntos intenta la geometría de calles de OSRM;
-/// si no llega, dibuja la curva estimada de siempre.
+/// de barrios, si hay coincidencia, y después pide a Google Maps la coordenada
+/// real del texto. Entre ambos puntos intenta la geometría de calles de Google
+/// Routes; si no llega, dibuja la curva estimada de siempre.
 ///
 /// Sobre el mapa van los nombres de los extremos y la atribución a
 /// OpenStreetMap, que es obligatoria por licencia de los mosaicos.
@@ -82,7 +82,7 @@ class RouteMap extends StatefulWidget {
 }
 
 class _RouteMapState extends State<RouteMap> {
-  /// Espera antes de llamar a Nominatim, para no disparar una petición por
+  /// Espera antes de llamar a Google, para no disparar una petición por
   /// cada tecla en el buscador del pasajero.
   static const Duration _debounce = Duration(milliseconds: 450);
 
@@ -255,8 +255,8 @@ class _RouteMapState extends State<RouteMap> {
     }
   }
 
-  /// En las pruebas de widgets no se llama a Nominatim ni a OSRM: el mapa se
-  /// queda con el catálogo, que es síncrono y no deja temporizadores de red.
+  /// En las pruebas de widgets no se llama a Google: el mapa se queda con el
+  /// catálogo, que es síncrono y no deja temporizadores de red.
   bool get _useRemote {
     final name = WidgetsBinding.instance.runtimeType.toString();
     return !name.contains('TestWidgetsFlutterBinding');

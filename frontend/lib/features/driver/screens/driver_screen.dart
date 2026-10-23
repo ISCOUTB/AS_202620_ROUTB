@@ -26,6 +26,7 @@ import '../../trips/data/trip_repository.dart';
 import '../state/driver_state.dart';
 import '../widgets/driver_cards.dart';
 import '../widgets/publish_route_sheet.dart';
+import '../widgets/request_preview_sheet.dart';
 import '../widgets/routb_trip_map.dart';
 import 'route_detail_screen.dart';
 
@@ -204,6 +205,16 @@ class _DriverScreenState extends State<DriverScreen> {
     }
   }
 
+  void _openRequestPreview(Trip trip, TripRequest request) {
+    showRequestPreviewSheet(
+      context: context,
+      trip: trip,
+      request: request,
+      onAccept: () => _accept(trip, request),
+      onReject: () => _reject(trip, request),
+    );
+  }
+
   Future<void> _refreshRequests(Trip trip) async {
     try {
       final requests = await _trips.listRequests(trip.id);
@@ -280,7 +291,6 @@ class _DriverScreenState extends State<DriverScreen> {
       context: context,
       driverName: widget.account.name,
       driverInitials: initialsOf(widget.account.name),
-      geocodeRepository: RoutbScopeDependencies.of(context).geocode,
     );
     if (draft == null || !mounted) return;
 
@@ -368,6 +378,7 @@ class _DriverScreenState extends State<DriverScreen> {
                       ),
                       onAccept: _accept,
                       onReject: _reject,
+                      onOpenPreview: _openRequestPreview,
                       onCancel: _confirmCancel,
                       onOpenDetail: _openDetail,
                       onLogout: _logout,
@@ -438,6 +449,7 @@ class _Body extends StatelessWidget {
     required this.onSelect,
     required this.onAccept,
     required this.onReject,
+    required this.onOpenPreview,
     required this.onCancel,
     required this.onOpenDetail,
     required this.onLogout,
@@ -451,6 +463,7 @@ class _Body extends StatelessWidget {
   final ValueChanged<Trip> onSelect;
   final void Function(Trip trip, TripRequest request) onAccept;
   final void Function(Trip trip, TripRequest request) onReject;
+  final void Function(Trip trip, TripRequest request) onOpenPreview;
   final ValueChanged<Trip> onCancel;
   final ValueChanged<Trip> onOpenDetail;
   final VoidCallback onLogout;
@@ -499,6 +512,8 @@ class _Body extends StatelessWidget {
                                     request: request,
                                     trip: pendingTrip,
                                     busy: busyRequests.contains(request.id),
+                                    onTapPreview: () =>
+                                        onOpenPreview(pendingTrip, request),
                                     onAccept: () =>
                                         onAccept(pendingTrip, request),
                                     onReject: () =>

@@ -3,7 +3,7 @@
   "info": {
     "title": "ROUTB API",
     "description": "ROUTB",
-    "version": "0.8.0"
+    "version": "0.9.0"
   },
   "paths": {
     "/users/": {
@@ -706,72 +706,6 @@
         "responses": {
           "204": {
             "description": "Successful Response"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/geocode/search": {
-      "get": {
-        "tags": [
-          "geocode"
-        ],
-        "summary": "Geocode Search",
-        "description": "Busca una dirección y devuelve hasta 5 resultados geocodificados.\n\nRequiere consentimiento de ubicación. Rate-limit: 30 req/min por usuario.\n\nRespuestas:\n- **200**: lista de resultados (puede ser vacía).\n- **403**: ``location_consent_required`` si falta el consentimiento.\n- **503**: si fallan Photon y Nominatim.\n- **429**: si se exceden 30 búsquedas en un minuto.",
-        "operationId": "geocode_search_geocode_search_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "q",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 2,
-              "maxLength": 200,
-              "description": "Dirección a buscar",
-              "title": "Q"
-            },
-            "description": "Dirección a buscar"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "additionalProperties": true
-                  },
-                  "title": "Response Geocode Search Geocode Search Get"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "location_consent_required"
-          },
-          "429": {
-            "description": "geocode_rate_limit_exceeded"
-          },
-          "503": {
-            "description": "geocode_unavailable"
           },
           "422": {
             "description": "Validation Error",

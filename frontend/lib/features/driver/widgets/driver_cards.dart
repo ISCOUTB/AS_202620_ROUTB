@@ -53,129 +53,143 @@ class RequestTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
 
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: palette.surface,
+    return Material(
+      color: palette.surface,
+      borderRadius: BorderRadius.circular(RoutbTheme.radiusRoute),
+      child: InkWell(
+        onTap: onTapPreview,
         borderRadius: BorderRadius.circular(RoutbTheme.radiusRoute),
-      ),
-      child: Row(
-        children: [
-          InitialsAvatar(
-            name: request.passengerName,
-            initials: request.initials,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  request.passengerName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: RoutbText.headline(15, color: palette.ink),
-                ),
-                Text(
-                  '${request.seatCount} ${request.seatCount == 1 ? 'cupo' : 'cupos'}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: RoutbText.copy(12, color: palette.muted),
-                ),
-                if (request.hasPhone) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    'Tel: ${request.passengerPhone}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: RoutbText.copy(12, color: palette.muted),
-                  ),
-                ],
-                const SizedBox(height: 2),
-                Text(
-                  '${trip.routeLabel} · ${trip.departureDateLabel} ${trip.departureLabel}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: RoutbText.copy(12, color: palette.muted),
-                ),
-                for (final stop in request.stops) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    '${stop.addressText} · ${stop.seats} ${stop.seats == 1 ? 'persona' : 'personas'}',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: RoutbText.copy(12, color: palette.ink),
-                  ),
-                  DetourBadge(trip: trip, stopAddress: stop.addressText),
-                ],
-                if (onTapPreview != null && request.stops.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: InkWell(
-                      onTap: onTapPreview,
-                      borderRadius: BorderRadius.circular(6),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 2,
-                          horizontal: 4,
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.map_outlined,
-                              size: 13,
-                              color: palette.brand,
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Row(
+            children: [
+              InitialsAvatar(
+                name: request.passengerName,
+                initials: request.initials,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      request.passengerName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: RoutbText.headline(15, color: palette.ink),
+                    ),
+                    Text(
+                      '${request.seatCount} ${request.seatCount == 1 ? 'cupo' : 'cupos'}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: RoutbText.copy(12, color: palette.muted),
+                    ),
+                    if (request.hasPhone) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        'Tel: ${request.passengerPhone}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: RoutbText.copy(12, color: palette.muted),
+                      ),
+                    ],
+                    const SizedBox(height: 2),
+                    Text(
+                      '${trip.routeLabel} · ${trip.departureDateLabel} ${trip.departureLabel}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: RoutbText.copy(12, color: palette.muted),
+                    ),
+                    for (final stop in request.stops) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        '${stop.addressText} · ${stop.seats} ${stop.seats == 1 ? 'persona' : 'personas'}',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: RoutbText.copy(12, color: palette.ink),
+                      ),
+                      DetourBadge(trip: trip, stopAddress: stop.addressText),
+                    ],
+                    if (onTapPreview != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: InkWell(
+                          onTap: onTapPreview,
+                          borderRadius: BorderRadius.circular(
+                            RoutbTheme.radiusPill,
+                          ),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 3,
+                              horizontal: 8,
                             ),
-                            const SizedBox(width: 4),
-                            Flexible(
-                              child: Text(
-                                'Ver ruta en el mapa',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: RoutbText.copy(
-                                  11,
-                                  color: palette.brand,
-                                  weight: FontWeight.w600,
-                                ),
+                            decoration: BoxDecoration(
+                              color: palette.brand.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(
+                                RoutbTheme.radiusPill,
                               ),
                             ),
-                          ],
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.map_outlined,
+                                  size: 13,
+                                  color: palette.brand,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Previsualizar ruta',
+                                  style: RoutbText.copy(
+                                    11,
+                                    color: palette.brand,
+                                    weight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(width: 2),
+                                Icon(
+                                  Icons.chevron_right_rounded,
+                                  size: 13,
+                                  color: palette.brand,
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              if (busy)
+                const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _RoundAction(
+                      icon: Icons.check_rounded,
+                      color: palette.mint,
+                      tooltip: 'Aceptar a ${request.passengerName}',
+                      onTap: onAccept,
                     ),
-                  ),
-              ],
-            ),
+                    const SizedBox(width: 8),
+                    _RoundAction(
+                      icon: Icons.close_rounded,
+                      color: palette.rose,
+                      tooltip: 'Rechazar a ${request.passengerName}',
+                      onTap: onReject,
+                    ),
+                  ],
+                ),
+            ],
           ),
-          const SizedBox(width: 8),
-          if (busy)
-            const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          else
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _RoundAction(
-                  icon: Icons.check_rounded,
-                  color: palette.mint,
-                  tooltip: 'Aceptar a ${request.passengerName}',
-                  onTap: onAccept,
-                ),
-                const SizedBox(width: 8),
-                _RoundAction(
-                  icon: Icons.close_rounded,
-                  color: palette.rose,
-                  tooltip: 'Rechazar a ${request.passengerName}',
-                  onTap: onReject,
-                ),
-              ],
-            ),
-        ],
+        ),
       ),
     );
   }

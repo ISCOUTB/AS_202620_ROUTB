@@ -221,3 +221,65 @@ def test_parada_desde_cualquier_ubicacion_es_aceptada():
         assert len(resp.json()["stops"]) == 1
     finally:
         _limpiar(passenger_id, driver_id)
+
+
+def test_requests_me_consolida_todas_las_paradas_confirmadas_del_viaje():
+    """GET /requests/me devuelve las paradas confirmadas de todas las solicitudes aceptadas."""
+    driver_id, driver_token = _crear_usuario("3300000016", "driver")
+    pass_a_id, pass_a_token = _crear_usuario("3300000017", "passenger")
+    pass_b_id, pass_b_token = _crear_usuario("3300000018", "passenger")
+
+    try:
+        trip_id = _crear_viaje(driver_token, total_seats=4, direction="from_campus")
+
+        # Pasajero A solicita parada
+        r1 = client.post(
+            f"/requests/trips/{trip_id}",
+            headers={"Authorization": f"Bearer {pass_a_token}"},
+            json={"seat_count": 1, "stops": [_stop(1, 10.41, -75.53)]},
+        )
+        assert r1.status_code == 201
+        req_a_id = r1.json()["id"]
+
+        # Conductor acepta a Pasajero A
+        accept_a = client.patch(
+            f"/requests/{req_a_id}/accept",
+            headers={"Authorization": f"Bearer {driver_token}"},
+        )
+        assert accept_a.status_code == 200
+
+        # Pasajero B solicita parada
+        r2 = client.post(
+            f"/requests/trips/{trip_id}",
+            headers={"Authorization": f"Bearer {pass_b_token}"},
+            json={"seat_count": 1, "stops": [_stop(1, 10.42, -75.52)]},
+        )
+        assert r2.status_code == 201
+        req_b_id = r2.json()["id"]
+
+        # Conductor acepta a Pasajero B
+        accept_b = client.patch(
+            f"/requests/{req_b_id}/accept",
+            headers={"Authorization": f"Bearer {driver_token}"},
+        )
+        assert accept_b.status_code == 200
+
+        # Pasajero A consulta sus viajes: ve las 2 paradas confirmadas
+        me_a = client.get(
+            "/requests/me",
+            headers={"Authorization": f"Bearer {pass_a_token}"},
+        )
+        assert me_a.status_code == 200
+        a_stops = me_a.json()[0]["stops"]
+        assert len(a_stops) == 2
+
+        # Pasajero B consulta sus viajes: también ve las 2 paradas confirmadas
+        me_b = client.get(
+            "/requests/me",
+            headers={"Authorization": f"Bearer {pass_b_token}"},
+        )
+        assert me_b.status_code == 200
+        b_stops = me_b.json()[0]["stops"]
+        assert len(b_stops) == 2
+    finally:
+        _limpiar(pass_b_id, pass_a_id, driver_id)
