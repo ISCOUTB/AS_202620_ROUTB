@@ -115,7 +115,6 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> {
               ),
               AddressSearchField(
                 key: ValueKey<int>(index),
-                geocodeRepository: _dependencies.geocode,
                 toCampus: _direction == 'to_campus',
                 label: _direction == 'to_campus'
                     ? 'Escribe dirección o barrio de recogida'

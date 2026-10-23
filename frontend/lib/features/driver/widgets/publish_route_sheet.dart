@@ -12,7 +12,6 @@ import '../../../core/widgets/routb_card.dart';
 import '../../../core/widgets/routb_field.dart';
 import '../../../core/widgets/routb_seats.dart';
 import '../../../core/widgets/routb_sheet.dart';
-import '../../trips/data/geocode_repository.dart';
 
 /// Ruta en construcción dentro de la hoja de publicación.
 ///
@@ -67,16 +66,16 @@ class DraftRoute {
   /// Barrio de partida.
   String get origin => toCampus
       ? (driverPoint != null && driverPoint!.addressText.trim().isNotEmpty
-          ? driverPoint!.addressText.trim()
-          : zone.name)
+            ? driverPoint!.addressText.trim()
+            : zone.name)
       : Zones.campus.name;
 
   /// Barrio de llegada.
   String get destination => toCampus
       ? Zones.campus.name
       : (driverPoint != null && driverPoint!.addressText.trim().isNotEmpty
-          ? driverPoint!.addressText.trim()
-          : zone.name);
+            ? driverPoint!.addressText.trim()
+            : zone.name);
 
   /// Texto del trayecto, como lo muestra el conductor.
   String get routeLabel => '$origin → $destination';
@@ -100,7 +99,6 @@ Future<DraftRoute?> showPublishRouteSheet({
   required BuildContext context,
   required String driverName,
   required String driverInitials,
-  required GeocodeRepository geocodeRepository,
 }) {
   return showModalBottomSheet<DraftRoute>(
     context: context,
@@ -122,7 +120,6 @@ Future<DraftRoute?> showPublishRouteSheet({
       builder: (context, scrollController) => _PublishSheet(
         driverName: driverName,
         driverInitials: driverInitials,
-        geocodeRepository: geocodeRepository,
         scrollController: scrollController,
       ),
     ),
@@ -133,13 +130,11 @@ class _PublishSheet extends StatefulWidget {
   const _PublishSheet({
     required this.driverName,
     required this.driverInitials,
-    required this.geocodeRepository,
     required this.scrollController,
   });
 
   final String driverName;
   final String driverInitials;
-  final GeocodeRepository geocodeRepository;
   final ScrollController scrollController;
 
   @override
@@ -224,7 +219,6 @@ class _PublishSheetState extends State<_PublishSheet> {
                 : 'Obligatorio',
           ),
           AddressSearchField(
-            geocodeRepository: widget.geocodeRepository,
             toCampus: _draft.toCampus,
             label: _draft.toCampus
                 ? 'Escribe tu dirección o barrio de salida'
@@ -274,8 +268,9 @@ class _PublishSheetState extends State<_PublishSheet> {
       ),
       footer: RoutbButton(
         label: 'Publicar ruta',
-        onPressed: ((!_draft.toCampus && _draft.meetingPoint.trim().length < 3) ||
-                    _draft.driverPoint == null)
+        onPressed:
+            ((!_draft.toCampus && _draft.meetingPoint.trim().length < 3) ||
+                _draft.driverPoint == null)
             ? null
             : () {
                 if (_draft.toCampus && _draft.meetingPoint.trim().isEmpty) {

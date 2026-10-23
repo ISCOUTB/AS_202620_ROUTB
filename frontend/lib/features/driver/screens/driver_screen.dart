@@ -291,7 +291,6 @@ class _DriverScreenState extends State<DriverScreen> {
       context: context,
       driverName: widget.account.name,
       driverInitials: initialsOf(widget.account.name),
-      geocodeRepository: RoutbScopeDependencies.of(context).geocode,
     );
     if (draft == null || !mounted) return;
 
