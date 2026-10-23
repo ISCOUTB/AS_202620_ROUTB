@@ -95,12 +95,18 @@ class GoogleMapsService {
   GoogleMapsService({
     http.Client? client,
     this.timeout = const Duration(seconds: 8),
-  }) : _client = client ?? http.Client();
+    String? apiKey,
+  }) : _client = client ?? http.Client(),
+       _apiKey = apiKey ?? MapsConfig.apiKey;
 
   static final GoogleMapsService instance = GoogleMapsService();
 
   final http.Client _client;
   final Duration timeout;
+  final String _apiKey;
+
+  /// Indica si el cliente tiene una clave configurada.
+  bool get hasApiKey => _apiKey.isNotEmpty;
 
   // Cachés en memoria para minimizar consumo de cuota de la API key
   final Map<String, String> _reverseCache = <String, String>{};
@@ -112,7 +118,7 @@ class GoogleMapsService {
 
   /// Geocodificación inversa: de coordenadas GPS a nomenclatura real de Cartagena.
   Future<String?> reverseGeocode(double lat, double lng) async {
-    if (!MapsConfig.hasApiKey) return null;
+    if (!hasApiKey) return null;
 
     final key = '${lat.toStringAsFixed(5)},${lng.toStringAsFixed(5)}';
     if (_reverseCache.containsKey(key)) return _reverseCache[key];
@@ -122,7 +128,7 @@ class GoogleMapsService {
         'latlng': '$lat,$lng',
         'language': 'es',
         'region': 'co',
-        'key': MapsConfig.apiKey,
+        'key': _apiKey,
       });
 
       final response = await _client.get(uri).timeout(timeout);
@@ -155,7 +161,7 @@ class GoogleMapsService {
 
   /// Geocodificación directa: de texto a coordenadas LatLng en Cartagena.
   Future<LatLng?> geocodeAddress(String query) async {
-    if (!MapsConfig.hasApiKey) return null;
+    if (!hasApiKey) return null;
     final clean = query.trim();
     if (clean.isEmpty) return null;
 
@@ -171,7 +177,7 @@ class GoogleMapsService {
         'address': addressQuery,
         'language': 'es',
         'region': 'co',
-        'key': MapsConfig.apiKey,
+        'key': _apiKey,
       });
 
       final response = await _client.get(uri).timeout(timeout);
@@ -203,7 +209,7 @@ class GoogleMapsService {
 
   /// Autocompletado de lugares acotado estrictamente a Cartagena / Turbaco.
   Future<List<GooglePlaceSuggestion>> autocomplete(String query) async {
-    if (!MapsConfig.hasApiKey) return const [];
+    if (!hasApiKey) return const [];
     final clean = query.trim();
     if (clean.length < 2) return const [];
 
@@ -226,7 +232,7 @@ class GoogleMapsService {
             uri,
             headers: {
               'Content-Type': 'application/json',
-              'X-Goog-Api-Key': MapsConfig.apiKey,
+              'X-Goog-Api-Key': _apiKey,
             },
             body: body,
           )
@@ -278,7 +284,7 @@ class GoogleMapsService {
 
   /// Obtiene coordenadas y dirección de un lugar a partir de su `placeId`.
   Future<GooglePlaceDetails?> getPlaceDetails(String placeId) async {
-    if (!MapsConfig.hasApiKey) return null;
+    if (!hasApiKey) return null;
     final normalizedId = placeId.startsWith('places/')
         ? placeId.substring(7)
         : placeId;
@@ -292,7 +298,7 @@ class GoogleMapsService {
             uri,
             headers: {
               'Content-Type': 'application/json',
-              'X-Goog-Api-Key': MapsConfig.apiKey,
+              'X-Goog-Api-Key': _apiKey,
               'X-Goog-FieldMask': 'id,displayName,location,formattedAddress',
             },
           )
@@ -331,7 +337,7 @@ class GoogleMapsService {
     List<LatLng> waypoints = const <LatLng>[],
     bool optimizeWaypointOrder = true,
   }) async {
-    if (!MapsConfig.hasApiKey) return null;
+    if (!hasApiKey) return null;
 
     final routeKey = _buildRouteKey(origin, destination, waypoints);
     if (_routeCache.containsKey(routeKey)) {
@@ -382,7 +388,7 @@ class GoogleMapsService {
             uri,
             headers: {
               'Content-Type': 'application/json',
-              'X-Goog-Api-Key': MapsConfig.apiKey,
+              'X-Goog-Api-Key': _apiKey,
               'X-Goog-FieldMask': 'routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline,routes.optimizedIntermediateWaypointIndex',
             },
             body: jsonEncode(body),
