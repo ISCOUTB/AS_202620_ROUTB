@@ -67,7 +67,7 @@ flowchart LR
 | **Seguridad** | Atacante | Intenta interceptar las comunicaciones o acceder a las contraseñas almacenadas | ROUTB | En cualquier momento | Las contraseñas permanecen protegidas mediante hashing con salt y las comunicaciones viajan cifradas | El 100 % de las contraseñas se almacena con hashing y salt, y el 100 % del tráfico usa HTTPS |
 | **Disponibilidad** | Estudiante | Accede a la plataforma para consultar o reservar un viaje | ROUTB | Franjas de mayor demanda | Las funcionalidades principales permanecen disponibles | Disponibilidad mínima del 99 % durante las franjas de mayor demanda |
 | **Escalabilidad** | Usuarios del sistema | Aumento progresivo de usuarios, viajes y reservas | ROUTB | Periodos de alta demanda | El sistema mantiene su operación normal | Soporta hasta 100 usuarios concurrentes sin errores ni interrupciones |
-| **Resiliencia** | Proveedor externo (Photon, Nominatim u OSRM) | El proveedor no responde o devuelve error | Backend FastAPI | Operación normal con dependencia caída | Degrada de forma controlada con respuestas contractuales | Cero `500` por fallo externo y p95 bajo 3,99 s |
+| **Resiliencia** | Proveedor externo (Google Maps u OSRM) | El proveedor no responde o devuelve error | Cliente Flutter y backend FastAPI | Operación normal con dependencia caída | El cliente usa el catálogo local/curva estimada; el backend degrada con respuestas contractuales | Cero `500` por fallo externo y p95 bajo 3,99 s |
 
 ---
 
@@ -126,21 +126,23 @@ iniciales y el procedimiento.
 ### Escenario de degradación controlada ante fallo de proveedores
 
 Este caso corresponde al atributo de **resiliencia** (disponibilidad ante
-fallo de dependencias). El estímulo es que Photon, Nominatim u OSRM no
-respondan; el artefacto es el backend (`shared/geocode`, `shared/routing` y
-los endpoints que los usan); la respuesta esperada es degradar sin romperse:
-ruteo `200` con ruta geodésica marcada `degraded=true` sin persistirla, y
-geocodificación `503 geocode_unavailable` tipado; nunca `500`.
+fallo de dependencias). El estímulo es que Google Maps o OSRM no respondan;
+el artefacto es el cliente Flutter (`google_maps_service`, `place_locator`) y
+el backend de routing. La respuesta esperada es degradar sin romperse: el
+cliente usa el catálogo local y la curva estimada; el ruteo del backend
+responde `200` con ruta geodésica marcada `degraded=true` sin persistirla;
+nunca `500`.
 
 #### Línea base y procedimiento de medición
 
 - **Herramienta:** `backend/tests/test_matching_suggestions.py`
-  (`test_matching_50_responses_remain_contractual`, N=50 por rama) y medición
-  directa de latencia contra host que no responde.
+  (`test_matching_50_responses_remain_contractual`, N=50 por rama),
+  `frontend/test/place_locator_test.dart` y `frontend/test/route_map_test.dart`.
 - **Carga:** 50 solicitudes a `GET /matching/suggestions` con OSRM sano y 50
-  con timeout simulado; más temporización real de `_call_osrm` y
-  `_call_photon` con `ROUTING_TIMEOUT_SECONDS` en 3,0 y 1,4.
-- **Decisión:** timeout único de 1,4 s (geocodificación peor caso
-  2 × 1,4 + 1,05 = 3,85 s < 3,99 s). Detalle en el
-  [ADR 0014](../adr/0014-fallback-geocode-cache.md) y la evidencia en
-  `docs/evidencia/corte2-fallo-medicion.md`.
+  con timeout simulado; pruebas del cliente con Google disponible, sin clave
+  y con fallo simulado.
+- **Decisión:** `ROUTING_TIMEOUT_SECONDS` de 1,4 s para el backend y timeout
+  de 8 s en el cliente de Google. El detalle de la geocodificación del cliente
+  está en el [ADR 0018](../adr/0018-google-maps-platform-frontend.md); el
+  routing del backend sigue en el [ADR 0014](../adr/0014-fallback-geocode-cache.md)
+  y su evidencia en `docs/evidencia/corte2-fallo-medicion.md`.

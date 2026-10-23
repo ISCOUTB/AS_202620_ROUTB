@@ -91,19 +91,11 @@ El backend implementa logging estructurado en formato JSON a través de un middl
 
 ## 8.5 Degradación controlada ante fallo de proveedores externos
 
-Cuando Photon, Nominatim u OSRM no responden, ROUTB degrada sin romperse (ADR 0014):
+Cuando Google Maps u OSRM no responden, ROUTB degrada sin romperse (ADR 0018 y ADR 0014):
 
-- **Timeout único configurable:** `ROUTING_TIMEOUT_SECONDS` (1,4 s por defecto) limita cada llamada a proveedores externos; geocodificación peor caso 2 × 1,4 + 1,05 = 3,85 s, bajo el umbral p95 de 3,99 s.
-- **Respaldo tipado:** ruteo responde `200` con ruta geodésica marcada `degraded=true`; geocodificación responde `503 geocode_unavailable`. Nunca `500` por un fallo externo.
+- **Timeout único configurable:** `ROUTING_TIMEOUT_SECONDS` (1,4 s por defecto) limita cada llamada al routing del backend. El cliente de Google usa su propio timeout de 8 s y no bloquea la interfaz.
+- **Respaldo en el cliente:** si Google no responde, el buscador usa el catálogo local de barrios y el mapa dibuja la curva estimada. No se reintroduce Nominatim ni OSRM en Flutter.
+- **Respaldo tipado del backend:** el ruteo responde `200` con ruta geodésica marcada `degraded=true`; nunca `500` por un fallo externo.
 - **Caché solo válida:** los resultados `degraded` no se persisten ni se sirven desde caché, para no ocultar la recuperación del proveedor.
 - **Sin reintentos automáticos:** reintentar multiplicaría la latencia de cada petición y pondría en riesgo el umbral de 3,99 s.
-
-## 8.5 Degradación controlada ante fallo de proveedores externos
-
-Cuando Photon, Nominatim u OSRM no responden, ROUTB degrada sin romperse (ADR 0014):
-
-- **Timeout único configurable:** `ROUTING_TIMEOUT_SECONDS` (1,4 s por defecto) limita cada llamada a proveedores externos; geocodificación peor caso 2 × 1,4 + 1,05 = 3,85 s, bajo el umbral p95 de 3,99 s.
-- **Respaldo tipado:** ruteo responde `200` con ruta geodésica marcada `degraded=true`; geocodificación responde `503 geocode_unavailable`. Nunca `500` por un fallo externo.
-- **Caché solo válida:** los resultados `degraded` no se persisten ni se sirven desde caché, para no ocultar la recuperación del proveedor.
-- **Sin reintentos automáticos:** reintentar multiplicaría la latencia en el plan gratuito de Render.
 
