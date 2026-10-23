@@ -1,15 +1,23 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:http/http.dart' as http;
-import 'package:http/testing.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:frontend/core/map/place_locator.dart';
+import 'package:frontend/core/network/google_maps_service.dart';
 import 'package:frontend/core/theme/routb_theme.dart';
 import 'package:frontend/core/widgets/route_map.dart';
+
+class _FakeGeocoder extends GoogleMapsService {
+  _FakeGeocoder(this.point) : super(apiKey: 'test-key');
+
+  final LatLng point;
+
+  @override
+  Future<LatLng?> geocodeAddress(String query) async {
+    return query.trim().toLowerCase() == 'manga' ? point : null;
+  }
+}
 
 void main() {
   testWidgets(
@@ -18,16 +26,7 @@ void main() {
       final previousLocator = PlaceLocator.instance;
       final actualPoint = const LatLng(10.4011, -75.5122);
       final locator = PlaceLocator(
-        client: MockClient((request) async {
-          return http.Response(
-            jsonEncode(<Map<String, String>>[
-              <String, String>{'lat': '10.4011', 'lon': '-75.5122'},
-            ]),
-            200,
-            headers: const <String, String>{'content-type': 'application/json'},
-          );
-        }),
-        minInterval: Duration.zero,
+        googleMapsService: _FakeGeocoder(actualPoint),
       );
       await locator.locate('Manga');
       PlaceLocator.instance = locator;

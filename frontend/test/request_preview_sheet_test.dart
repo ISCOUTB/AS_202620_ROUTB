@@ -1,11 +1,6 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:http/http.dart' as http;
-import 'package:http/testing.dart';
 
-import 'package:frontend/core/map/place_locator.dart';
 import 'package:frontend/core/models/travel_time.dart';
 import 'package:frontend/core/models/trip.dart';
 import 'package:frontend/core/models/trip_request.dart';
@@ -49,21 +44,6 @@ void main() {
       ),
     ],
   );
-
-  setUp(() {
-    PlaceLocator.instance = PlaceLocator(
-      client: MockClient((request) async {
-        return http.Response(
-          jsonEncode(<Map<String, String>>[
-            <String, String>{'lat': '10.4011', 'lon': '-75.5122'},
-          ]),
-          200,
-          headers: const <String, String>{'content-type': 'application/json'},
-        );
-      }),
-      minInterval: Duration.zero,
-    );
-  });
 
   Future<void> settle(WidgetTester tester) async {
     for (var i = 0; i < 8; i++) {
@@ -111,7 +91,6 @@ void main() {
       'abre la hoja con el mapa, detalle y acciones de aceptar y rechazar',
       (tester) async {
         var accepted = false;
-        var rejected = false;
 
         await tester.pumpWidget(
           wrap(
@@ -122,7 +101,7 @@ void main() {
                   trip: testTrip,
                   request: testRequest,
                   onAccept: () => accepted = true,
-                  onReject: () => rejected = true,
+                  onReject: () {},
                 ),
                 child: const Text('Abrir'),
               ),

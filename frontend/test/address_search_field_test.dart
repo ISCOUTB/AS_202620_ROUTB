@@ -1,15 +1,48 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:frontend/core/network/api_client.dart';
-import 'package:frontend/core/storage/session_store.dart';
+import 'package:frontend/core/network/google_maps_service.dart';
 import 'package:frontend/core/theme/routb_theme.dart';
 import 'package:frontend/core/widgets/address_search_field.dart';
-import 'package:frontend/features/trips/data/geocode_repository.dart';
-import 'package:http/http.dart' as http;
-import 'package:http/testing.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:latlong2/latlong.dart';
+
+class _FakeGoogleMapsService extends GoogleMapsService {
+  _FakeGoogleMapsService() : super(apiKey: 'test-key');
+
+  @override
+  Future<List<GooglePlaceSuggestion>> autocomplete(String query) async {
+    return const <GooglePlaceSuggestion>[
+      GooglePlaceSuggestion(
+        placeId: 'manga',
+        text: 'Manga, Cartagena',
+        mainText: 'Manga',
+        secondaryText: 'Cartagena',
+      ),
+      GooglePlaceSuggestion(
+        placeId: 'turbaco',
+        text: 'Turbaco, Bolívar',
+        mainText: 'Turbaco',
+        secondaryText: 'Bolívar',
+      ),
+    ];
+  }
+
+  @override
+  Future<GooglePlaceDetails?> getPlaceDetails(String placeId) async {
+    return switch (placeId) {
+      'manga' => const GooglePlaceDetails(
+        placeId: 'manga',
+        formattedAddress: 'Manga, Cartagena',
+        location: LatLng(10.413, -75.535),
+      ),
+      'turbaco' => const GooglePlaceDetails(
+        placeId: 'turbaco',
+        formattedAddress: 'Turbaco, Bolívar',
+        location: LatLng(10.334, -75.416),
+      ),
+      _ => null,
+    };
+  }
+}
 
 void main() {
   testWidgets('solicita ubicación solo al pulsar y notifica el punto elegido', (
@@ -23,7 +56,6 @@ void main() {
         theme: RoutbTheme.light(),
         home: Scaffold(
           body: AddressSearchField(
-            geocodeRepository: GeocodeRepository(ApiClient(SessionStore())),
             locateCurrentPosition: () async {
               locateCalls += 1;
               return const SelectedLocation(
@@ -66,7 +98,6 @@ void main() {
         theme: RoutbTheme.light(),
         home: Scaffold(
           body: AddressSearchField(
-            geocodeRepository: GeocodeRepository(ApiClient(SessionStore())),
             locateCurrentPosition: () async => throw Exception('denied'),
             onLocationSelected: (_) {},
           ),
@@ -89,38 +120,13 @@ void main() {
   testWidgets(
     'buscar y elegir una sugerencia con el mapa oculto reemplaza la ubicación anterior',
     (tester) async {
-      SharedPreferences.setMockInitialValues(<String, Object>{});
-      final api = ApiClient(
-        SessionStore(),
-        client: MockClient((request) async {
-          return http.Response(
-            jsonEncode(<Map<String, Object>>[
-              <String, Object>{
-                'lat': 10.413,
-                'lng': -75.535,
-                'display_name': 'Manga, Cartagena',
-                'source': 'nominatim',
-              },
-              <String, Object>{
-                'lat': 10.334,
-                'lng': -75.416,
-                'display_name': 'Turbaco, Bolívar',
-                'source': 'nominatim',
-              },
-            ]),
-            200,
-            headers: const <String, String>{'content-type': 'application/json'},
-          );
-        }),
-      );
-
       SelectedLocation? selected;
       await tester.pumpWidget(
         MaterialApp(
           theme: RoutbTheme.light(),
           home: Scaffold(
             body: AddressSearchField(
-              geocodeRepository: GeocodeRepository(api),
+              googleMapsService: _FakeGoogleMapsService(),
               locateCurrentPosition: () async => const SelectedLocation(
                 lat: 4.6097,
                 lng: -74.0817,
