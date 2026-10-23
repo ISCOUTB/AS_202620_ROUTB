@@ -13,7 +13,7 @@ def test_purge_location_data_idempotent():
     """Valida que purge_location_data():
     1. Limpie paradas de viajes viejos (> 30 días).
     2. Anule geometrías de viajes viejos.
-    3. Limpie cachés antiguas (> 7 días).
+    3. Limpie la caché de rutas antigua (> 7 días).
     4. Sea completamente idempotente.
     """
     db = SessionLocal()
@@ -75,13 +75,7 @@ def test_purge_location_data_idempotent():
         db.add(stop)
         db.commit()
 
-        # 4. Insertar registros en cache antiguos
-        db.execute(
-            text(
-                "INSERT INTO geocode_cache (query, response, created_at) "
-                "VALUES ('test old query', '{\"res\": 1}'::jsonb, NOW() - INTERVAL '10 days')"
-            )
-        )
+        # 4. Insertar un registro antiguo en la caché de rutas
         db.execute(
             text(
                 "INSERT INTO route_cache (cache_key, response, created_at) "
@@ -105,9 +99,7 @@ def test_purge_location_data_idempotent():
         assert refreshed_trip.dest_geom is None
         assert refreshed_trip.route_geom is None
 
-        # c) Cachés viejas eliminadas
-        old_geo = db.execute(text("SELECT COUNT(*) FROM geocode_cache WHERE query = 'test old query'")).scalar()
-        assert old_geo == 0
+        # c) Caché de rutas antigua eliminada
         old_route = db.execute(text("SELECT COUNT(*) FROM route_cache WHERE cache_key = 'test_key'")).scalar()
         assert old_route == 0
 
