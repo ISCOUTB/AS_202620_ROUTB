@@ -69,9 +69,12 @@ Las restricciones se agrupan en categorías organizativas, técnicas, de integra
   migración del servidor a Dokploy, porque el uso de Dokploy en este
   proyecto no genera costo y el servidor donde se ejecuta tampoco genera
   facturación para el equipo.
+<<<<<<< HEAD
 - El uso de Google Maps Platform en el cliente se mantiene dentro de la capa
   gratuita de Google Cloud. La clave está restringida por plataforma y APIs,
   y se controla con cuotas y alertas para que el costo siga siendo $0.00 USD
   (ver [ADR 0018](../adr/0018-google-maps-platform-frontend.md) y
   [costo mensual](../evidencia/costo_mensual.md)).
+=======
+>>>>>>> origin/master
 

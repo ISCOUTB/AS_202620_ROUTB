@@ -66,16 +66,26 @@ class DraftRoute {
   /// Barrio de partida.
   String get origin => toCampus
       ? (driverPoint != null && driverPoint!.addressText.trim().isNotEmpty
+<<<<<<< HEAD
             ? driverPoint!.addressText.trim()
             : zone.name)
+=======
+          ? driverPoint!.addressText.trim()
+          : zone.name)
+>>>>>>> origin/master
       : Zones.campus.name;
 
   /// Barrio de llegada.
   String get destination => toCampus
       ? Zones.campus.name
       : (driverPoint != null && driverPoint!.addressText.trim().isNotEmpty
+<<<<<<< HEAD
             ? driverPoint!.addressText.trim()
             : zone.name);
+=======
+          ? driverPoint!.addressText.trim()
+          : zone.name);
+>>>>>>> origin/master
 
   /// Texto del trayecto, como lo muestra el conductor.
   String get routeLabel => '$origin → $destination';
@@ -219,6 +229,10 @@ class _PublishSheetState extends State<_PublishSheet> {
                 : 'Obligatorio',
           ),
           AddressSearchField(
+<<<<<<< HEAD
+=======
+            geocodeRepository: widget.geocodeRepository,
+>>>>>>> origin/master
             toCampus: _draft.toCampus,
             label: _draft.toCampus
                 ? 'Escribe tu dirección o barrio de salida'
@@ -268,9 +282,14 @@ class _PublishSheetState extends State<_PublishSheet> {
       ),
       footer: RoutbButton(
         label: 'Publicar ruta',
+<<<<<<< HEAD
         onPressed:
             ((!_draft.toCampus && _draft.meetingPoint.trim().length < 3) ||
                 _draft.driverPoint == null)
+=======
+        onPressed: ((!_draft.toCampus && _draft.meetingPoint.trim().length < 3) ||
+                    _draft.driverPoint == null)
+>>>>>>> origin/master
             ? null
             : () {
                 if (_draft.toCampus && _draft.meetingPoint.trim().isEmpty) {

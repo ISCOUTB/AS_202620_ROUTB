@@ -156,6 +156,7 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
     }
   }
 
+<<<<<<< HEAD
   void _openRequestPreview(TripRequest request) {
     showRequestPreviewSheet(
       context: context,
@@ -166,6 +167,8 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
     );
   }
 
+=======
+>>>>>>> origin/master
   Future<void> _cancel() async {
     final accepted = _trip.requests.accepted.fold<int>(
       0,
@@ -397,7 +400,23 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                                 request: req,
                                 trip: _trip,
                                 busy: _busyRequests.contains(req.id),
+<<<<<<< HEAD
                                 onTapPreview: () => _openRequestPreview(req),
+=======
+                                onTapPreview: req.stops.isNotEmpty
+                                    ? () {
+                                        setState(() {
+                                          if (_previewWaypoint ==
+                                              req.stops.first.addressText) {
+                                            _previewWaypoint = null;
+                                          } else {
+                                            _previewWaypoint =
+                                                req.stops.first.addressText;
+                                          }
+                                        });
+                                      }
+                                    : null,
+>>>>>>> origin/master
                                 onAccept: () => _acceptRequest(req),
                                 onReject: () => _rejectRequest(req),
                               ),

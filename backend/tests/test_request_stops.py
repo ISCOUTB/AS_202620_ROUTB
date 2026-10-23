@@ -221,6 +221,7 @@ def test_parada_desde_cualquier_ubicacion_es_aceptada():
         assert len(resp.json()["stops"]) == 1
     finally:
         _limpiar(passenger_id, driver_id)
+<<<<<<< HEAD
 
 
 def test_requests_me_consolida_todas_las_paradas_confirmadas_del_viaje():
@@ -283,3 +284,5 @@ def test_requests_me_consolida_todas_las_paradas_confirmadas_del_viaje():
         assert len(b_stops) == 2
     finally:
         _limpiar(pass_b_id, pass_a_id, driver_id)
+=======
+>>>>>>> origin/master

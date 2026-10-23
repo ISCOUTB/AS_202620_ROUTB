@@ -18,7 +18,10 @@ introdujo o modificó.
 | 0.6.0   | Cambios locales sin commit | `Changes` | Amplía solicitudes con fecha y paradas; agrega estados `cancelled`/`expired`, vencimiento, exclusividad por día y sentido, y registro de tokens y push FCM. |
 | 0.7.0   | Cambios locales sin commit | `Changes` | Endurece la identidad de endpoints del Aspecto 3: retira `GET /users/` y `POST /trips/{trip_id}/reservations`, y exige token y propiedad en `POST /trips/` y `PATCH /trips/{trip_id}/cancel`. |
 | 0.8.0   | Cambios locales sin commit | `Changes` | Añade el historial del conductor (parámetro `scope` en `GET /trips/my-trips`) y expone `location_consent_at` en `GET /auth/me` para el perfil de solo lectura. Cambios aditivos. |
+<<<<<<< HEAD
 | 0.9.0   | Cambios locales sin commit | `Changes` | Retira `GET /geocode/search` y la geocodificación del backend; la resolución de direcciones y rutas pasa al cliente Flutter con Google Maps Platform (ADR 0018). |
+=======
+>>>>>>> origin/master
 
 ## Endurecimiento de endpoints (Aspecto 3)
 
@@ -58,6 +61,7 @@ introdujo o modificó.
   TTL de `route_cache` y se evita guardar rutas `degraded`. No cambia el
   contrato HTTP/OpenAPI; decisión en [ADR 0014](../adr/0014-fallback-geocode-cache.md).
 
+<<<<<<< HEAD
 ## Retiro de geocodificación del backend (cambio actual)
 
 - Se retira `GET /geocode/search`, el módulo `geocode`, el servicio
@@ -70,6 +74,8 @@ introdujo o modificó.
 - La función `purge_location_data()` deja de borrar de `geocode_cache` porque
   la tabla ya no existe; conserva la purga de viajes, paradas y `route_cache`.
 
+=======
+>>>>>>> origin/master
 ## Historial del conductor y perfil (cambio actual)
 
 - `GET /trips/my-trips` acepta el parámetro de consulta `scope` con tres

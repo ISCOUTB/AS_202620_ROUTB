@@ -208,6 +208,19 @@ class _PassengerScreenState extends State<PassengerScreen> {
     );
   }
 
+<<<<<<< HEAD
+=======
+  void _onQueryChanged(String _) {
+    // Se espera a que la persona termine de escribir antes de consultar.
+    _debounce?.cancel();
+    setState(() => _filtering = true);
+    _debounce = Timer(const Duration(milliseconds: 320), () {
+      if (!mounted) return;
+      unawaited(_load());
+    });
+  }
+
+>>>>>>> origin/master
   Future<void> _setDate(DateTime date) async {
     final selected = TripSchedule.clampToTripWindow(date);
     if (selected == _selectedDate) return;
@@ -348,8 +361,16 @@ class _PassengerScreenState extends State<PassengerScreen> {
                 children: [
                   _PassengerHero(
                     userName: widget.account.name,
+<<<<<<< HEAD
                     selectedDate: _selectedDate,
                     currentRequest: _currentRequest,
+=======
+                    origin: _origin,
+                    destination: _destination,
+                    selectedDate: _selectedDate,
+                    onOriginChanged: _onQueryChanged,
+                    onDestinationChanged: _onQueryChanged,
+>>>>>>> origin/master
                     onDateChanged: _setDate,
                     onLogout: _logout,
                     onOpenMap: _openFullMap,
@@ -365,7 +386,11 @@ class _PassengerScreenState extends State<PassengerScreen> {
                       PassengerStatus.ready => _TripsList(
                         trips: () {
                           final confirmedTripIds = _myRequests
+<<<<<<< HEAD
                               .where((r) => r.isActive && r.isConfirmed)
+=======
+                              .where((r) => r.isConfirmed)
+>>>>>>> origin/master
                               .map((r) => r.tripId)
                               .toSet();
                           return confirmedTripIds.isEmpty
@@ -426,7 +451,11 @@ class _PassengerScreenState extends State<PassengerScreen> {
   }
 }
 
+<<<<<<< HEAD
 /// Hero del modo pasajero: saludo, mapa (si hay viaje activo) y acceso a búsqueda.
+=======
+/// Hero del modo pasajero: saludo, mapa y acceso a búsqueda.
+>>>>>>> origin/master
 class _PassengerHero extends StatelessWidget {
   const _PassengerHero({
     required this.userName,
@@ -435,11 +464,26 @@ class _PassengerHero extends StatelessWidget {
     required this.onLogout,
     required this.onOpenMap,
     required this.onOpenSuggestions,
+<<<<<<< HEAD
     this.currentRequest,
   });
 
   final String userName;
   final DateTime selectedDate;
+=======
+    this.origin,
+    this.destination,
+    this.onOriginChanged,
+    this.onDestinationChanged,
+  });
+
+  final String userName;
+  final TextEditingController? origin;
+  final TextEditingController? destination;
+  final DateTime selectedDate;
+  final ValueChanged<String>? onOriginChanged;
+  final ValueChanged<String>? onDestinationChanged;
+>>>>>>> origin/master
   final ValueChanged<DateTime> onDateChanged;
   final VoidCallback onLogout;
   final VoidCallback onOpenMap;
@@ -448,8 +492,14 @@ class _PassengerHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+<<<<<<< HEAD
     final palette = context.palette;
     final active = currentRequest;
+=======
+    final originText = origin?.text.trim() ?? '';
+    final destinationText = destination?.text.trim() ?? '';
+    final palette = context.palette;
+>>>>>>> origin/master
 
     return Container(
       decoration: BoxDecoration(
@@ -467,6 +517,7 @@ class _PassengerHero extends StatelessWidget {
             isDarkBackground: true,
             wave: true,
           ),
+<<<<<<< HEAD
           if (active != null) ...[
             const SizedBox(height: 16),
             Stack(
@@ -482,6 +533,24 @@ class _PassengerHero extends StatelessWidget {
                   top: 6,
                   child: Material(
                     color: palette.card,
+=======
+          const SizedBox(height: 16),
+          Stack(
+            children: [
+              RouteMap(
+                origin: originText,
+                destination: destinationText,
+                height: 110,
+              ),
+              Positioned(
+                right: 6,
+                top: 6,
+                child: Material(
+                  color: palette.card,
+                  borderRadius: BorderRadius.circular(RoutbTheme.radiusPill),
+                  child: InkWell(
+                    onTap: onOpenMap,
+>>>>>>> origin/master
                     borderRadius: BorderRadius.circular(RoutbTheme.radiusPill),
                     child: InkWell(
                       onTap: onOpenMap,
@@ -545,6 +614,77 @@ class _PassengerHero extends StatelessWidget {
                       child: Row(
                         children: [
                           Icon(
+<<<<<<< HEAD
+                            Icons.search_rounded,
+                            size: 20,
+                            color: palette.brand,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              '¿A dónde vas? Buscar ruta y paradas',
+                              style: RoutbText.copy(
+                                13,
+                                color: palette.ink,
+                                weight: FontWeight.w600,
+                              ),
+=======
+                            Icons.fullscreen_rounded,
+                            size: 13,
+                            color: palette.ink,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Abrir mapa',
+                            style: RoutbText.copy(
+                              11,
+                              color: palette.ink,
+                              weight: FontWeight.w700,
+>>>>>>> origin/master
+                            ),
+                          ),
+                          Icon(
+                            Icons.arrow_forward_ios_rounded,
+                            size: 13,
+                            color: palette.muted,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+<<<<<<< HEAD
+=======
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            decoration: BoxDecoration(
+              color: palette.card,
+              borderRadius: BorderRadius.circular(22),
+              boxShadow: palette.searchShadow,
+            ),
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DateQuickPicker(value: selectedDate, onChanged: onDateChanged),
+                const SizedBox(height: 10),
+                Material(
+                  color: palette.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  child: InkWell(
+                    onTap: onOpenSuggestions,
+                    borderRadius: BorderRadius.circular(16),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
                             Icons.search_rounded,
                             size: 20,
                             color: palette.brand,
@@ -570,6 +710,7 @@ class _PassengerHero extends StatelessWidget {
                     ),
                   ),
                 ),
+>>>>>>> origin/master
               ],
             ),
           ),

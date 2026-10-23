@@ -13,13 +13,19 @@ class GoogleRouteResult {
     required this.durationSeconds,
     required this.distanceMeters,
     required this.polyline,
+<<<<<<< HEAD
     this.optimizedWaypointOrder = const <int>[],
+=======
+>>>>>>> origin/master
   });
 
   final int durationSeconds;
   final int distanceMeters;
   final List<LatLng> polyline;
+<<<<<<< HEAD
   final List<int> optimizedWaypointOrder;
+=======
+>>>>>>> origin/master
 
   int get durationMinutes => (durationSeconds / 60).round();
   double get distanceKm => distanceMeters / 1000.0;
@@ -95,18 +101,25 @@ class GoogleMapsService {
   GoogleMapsService({
     http.Client? client,
     this.timeout = const Duration(seconds: 8),
+<<<<<<< HEAD
     String? apiKey,
   }) : _client = client ?? http.Client(),
        _apiKey = apiKey ?? MapsConfig.apiKey;
+=======
+  }) : _client = client ?? http.Client();
+>>>>>>> origin/master
 
   static final GoogleMapsService instance = GoogleMapsService();
 
   final http.Client _client;
   final Duration timeout;
+<<<<<<< HEAD
   final String _apiKey;
 
   /// Indica si el cliente tiene una clave configurada.
   bool get hasApiKey => _apiKey.isNotEmpty;
+=======
+>>>>>>> origin/master
 
   // Cachés en memoria para minimizar consumo de cuota de la API key
   final Map<String, String> _reverseCache = <String, String>{};
@@ -118,7 +131,11 @@ class GoogleMapsService {
 
   /// Geocodificación inversa: de coordenadas GPS a nomenclatura real de Cartagena.
   Future<String?> reverseGeocode(double lat, double lng) async {
+<<<<<<< HEAD
     if (!hasApiKey) return null;
+=======
+    if (!MapsConfig.hasApiKey) return null;
+>>>>>>> origin/master
 
     final key = '${lat.toStringAsFixed(5)},${lng.toStringAsFixed(5)}';
     if (_reverseCache.containsKey(key)) return _reverseCache[key];
@@ -128,7 +145,11 @@ class GoogleMapsService {
         'latlng': '$lat,$lng',
         'language': 'es',
         'region': 'co',
+<<<<<<< HEAD
         'key': _apiKey,
+=======
+        'key': MapsConfig.apiKey,
+>>>>>>> origin/master
       });
 
       final response = await _client.get(uri).timeout(timeout);
@@ -161,7 +182,11 @@ class GoogleMapsService {
 
   /// Geocodificación directa: de texto a coordenadas LatLng en Cartagena.
   Future<LatLng?> geocodeAddress(String query) async {
+<<<<<<< HEAD
     if (!hasApiKey) return null;
+=======
+    if (!MapsConfig.hasApiKey) return null;
+>>>>>>> origin/master
     final clean = query.trim();
     if (clean.isEmpty) return null;
 
@@ -177,7 +202,11 @@ class GoogleMapsService {
         'address': addressQuery,
         'language': 'es',
         'region': 'co',
+<<<<<<< HEAD
         'key': _apiKey,
+=======
+        'key': MapsConfig.apiKey,
+>>>>>>> origin/master
       });
 
       final response = await _client.get(uri).timeout(timeout);
@@ -209,7 +238,11 @@ class GoogleMapsService {
 
   /// Autocompletado de lugares acotado estrictamente a Cartagena / Turbaco.
   Future<List<GooglePlaceSuggestion>> autocomplete(String query) async {
+<<<<<<< HEAD
     if (!hasApiKey) return const [];
+=======
+    if (!MapsConfig.hasApiKey) return const [];
+>>>>>>> origin/master
     final clean = query.trim();
     if (clean.length < 2) return const [];
 
@@ -232,7 +265,11 @@ class GoogleMapsService {
             uri,
             headers: {
               'Content-Type': 'application/json',
+<<<<<<< HEAD
               'X-Goog-Api-Key': _apiKey,
+=======
+              'X-Goog-Api-Key': MapsConfig.apiKey,
+>>>>>>> origin/master
             },
             body: body,
           )
@@ -284,7 +321,11 @@ class GoogleMapsService {
 
   /// Obtiene coordenadas y dirección de un lugar a partir de su `placeId`.
   Future<GooglePlaceDetails?> getPlaceDetails(String placeId) async {
+<<<<<<< HEAD
     if (!hasApiKey) return null;
+=======
+    if (!MapsConfig.hasApiKey) return null;
+>>>>>>> origin/master
     final normalizedId = placeId.startsWith('places/')
         ? placeId.substring(7)
         : placeId;
@@ -298,7 +339,11 @@ class GoogleMapsService {
             uri,
             headers: {
               'Content-Type': 'application/json',
+<<<<<<< HEAD
               'X-Goog-Api-Key': _apiKey,
+=======
+              'X-Goog-Api-Key': MapsConfig.apiKey,
+>>>>>>> origin/master
               'X-Goog-FieldMask': 'id,displayName,location,formattedAddress',
             },
           )
@@ -335,9 +380,14 @@ class GoogleMapsService {
     required LatLng origin,
     required LatLng destination,
     List<LatLng> waypoints = const <LatLng>[],
+<<<<<<< HEAD
     bool optimizeWaypointOrder = true,
   }) async {
     if (!hasApiKey) return null;
+=======
+  }) async {
+    if (!MapsConfig.hasApiKey) return null;
+>>>>>>> origin/master
 
     final routeKey = _buildRouteKey(origin, destination, waypoints);
     if (_routeCache.containsKey(routeKey)) {
@@ -378,9 +428,12 @@ class GoogleMapsService {
               },
             },
         ];
+<<<<<<< HEAD
         if (waypoints.length > 1 && optimizeWaypointOrder) {
           body['optimizeWaypointOrder'] = true;
         }
+=======
+>>>>>>> origin/master
       }
 
       final response = await _client
@@ -388,8 +441,13 @@ class GoogleMapsService {
             uri,
             headers: {
               'Content-Type': 'application/json',
+<<<<<<< HEAD
               'X-Goog-Api-Key': _apiKey,
               'X-Goog-FieldMask': 'routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline,routes.optimizedIntermediateWaypointIndex',
+=======
+              'X-Goog-Api-Key': MapsConfig.apiKey,
+              'X-Goog-FieldMask': 'routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline',
+>>>>>>> origin/master
             },
             body: jsonEncode(body),
           )
@@ -414,17 +472,23 @@ class GoogleMapsService {
           ? decodePolyline(encoded)
           : <LatLng>[origin, ...waypoints, destination];
 
+<<<<<<< HEAD
       final optimizedOrder =
           (route['optimizedIntermediateWaypointIndex'] as List?)
               ?.map((item) => (item as num).toInt())
               .toList(growable: false) ??
           const <int>[];
 
+=======
+>>>>>>> origin/master
       final result = GoogleRouteResult(
         durationSeconds: durationSeconds,
         distanceMeters: distanceMeters,
         polyline: points,
+<<<<<<< HEAD
         optimizedWaypointOrder: optimizedOrder,
+=======
+>>>>>>> origin/master
       );
 
       _routeCache[routeKey] = result;

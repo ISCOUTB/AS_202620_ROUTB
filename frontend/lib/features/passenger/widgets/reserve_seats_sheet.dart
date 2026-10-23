@@ -247,6 +247,10 @@ class _ReserveSeatsSheetState extends State<_ReserveSeatsSheet> {
             trailing: 'Obligatorio',
           ),
           AddressSearchField(
+<<<<<<< HEAD
+=======
+            geocodeRepository: RoutbScopeDependencies.of(context).geocode,
+>>>>>>> origin/master
             toCampus: _toCampus,
             label: _toCampus
                 ? 'Escribe tu dirección o barrio de recogida'
