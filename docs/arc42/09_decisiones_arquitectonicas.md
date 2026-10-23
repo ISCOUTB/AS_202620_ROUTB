@@ -17,7 +17,6 @@ Las decisiones arquitectónicas que impactan significativamente la estructura, l
 | [ADR 0011](../adr/0011-consentimiento-y-privacidad-de-ubicacion.md) | Aceptado | Pedir consentimiento para usar ubicaciones exactas y aplicar retención, revocación y purga de los datos geoespaciales. |
 | [ADR 0012](../adr/0012-sugerencias-matching-y-orden-de-paradas.md) | Aceptado | Sugerir viajes compatibles con scoring y ETA mediante matching de solo lectura, con aprobación final del conductor y paradas ordenadas a lo largo de la ruta. |
 | [ADR 0013](../adr/0013-notificaciones-push-fcm.md) | Aceptado | Avisar por push con FCM como canal complementario a REST, sin romper el flujo si FCM falla y borrando tokens inválidos. |
-<<<<<<< HEAD
 | [ADR 0014](../adr/0014-fallback-geocode-cache.md) | Aceptado; geocodificación reemplazada por [ADR 0018](../adr/0018-google-maps-platform-frontend.md) | Configurar el timeout de routing y no retener fallbacks degradados en la caché de rutas. |
 | [ADR 0015](../adr/0015-dokploy-plataforma-de-despliegue.md) | Aceptado | Desplegar el backend contenedorizado en Dokploy, sobre un servidor propio, con dominio propio y TLS automático. |
 | [ADR 0016](../adr/0016-ventana-de-viajes-hoy-manana.md) | Aceptado | Limitar la publicación y la búsqueda de viajes a hoy y mañana para concentrar la oferta en una comunidad pequeña. |
@@ -25,11 +24,5 @@ Las decisiones arquitectónicas que impactan significativamente la estructura, l
 | [ADR 0018](../adr/0018-google-maps-platform-frontend.md) | Aceptado | Resolver geocodificación, autocompletado y rutas en el cliente Flutter con Google Maps Platform; retirar la geocodificación del backend. |
 | [ADR 0019](../adr/0019-renderizado-mapas-flutter-map-osm.md) | Aceptado | Renderizar el mapa con `flutter_map` y teselas de OpenStreetMap, separado del proveedor de datos. |
 | [ADR 0020](../adr/0020-decision-datos-mas-costosa-de-revertir.md) | Aceptado | Identificar el esquema de estados de solicitudes y control atómico de cupos como la decisión de datos más costosa de revertir, y documentar el costo comparativo de reversión de las cuatro principales decisiones de datos del sistema. |
-=======
-| [ADR 0014](../adr/0014-fallback-geocode-cache.md) | Aceptado | Configurar el timeout de routing y no retener fallbacks degradados en la caché de rutas. |
-| [ADR 0015](../adr/0015-dokploy-plataforma-de-despliegue.md) | Aceptado | Desplegar el backend contenedorizado en Dokploy, sobre un servidor propio, con dominio propio y TLS automático. |
-| [ADR 0016](../adr/0016-ventana-de-viajes-hoy-manana.md) | Aceptado | Limitar la publicación y la búsqueda de viajes a hoy y mañana para concentrar la oferta en una comunidad pequeña. |
-| [ADR 0017](../adr/0017-decision-extraccion-modulo-requests.md) | Aceptado | No extraer el módulo requests a microservicio independiente para preservar la consistencia atómica de cupos y la viabilidad operativa a costo cero. |
->>>>>>> origin/master
 
 ---

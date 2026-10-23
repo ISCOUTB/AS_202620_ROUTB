@@ -378,10 +378,7 @@ class _DriverScreenState extends State<DriverScreen> {
                       ),
                       onAccept: _accept,
                       onReject: _reject,
-<<<<<<< HEAD
                       onOpenPreview: _openRequestPreview,
-=======
->>>>>>> origin/master
                       onCancel: _confirmCancel,
                       onOpenDetail: _openDetail,
                       onLogout: _logout,

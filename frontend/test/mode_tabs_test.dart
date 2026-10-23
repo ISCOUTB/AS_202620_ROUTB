@@ -20,10 +20,6 @@ import 'package:frontend/features/matching/data/matching_repository.dart';
 import 'package:frontend/features/notifications/data/notifications_repository.dart';
 import 'package:frontend/features/notifications/push_notification_service.dart';
 import 'package:frontend/features/passenger/screens/passenger_screen.dart';
-<<<<<<< HEAD
-=======
-import 'package:frontend/features/trips/data/geocode_repository.dart';
->>>>>>> origin/master
 import 'package:frontend/features/trips/data/trip_repository.dart';
 
 const Map<String, String> _json = <String, String>{
@@ -164,10 +160,6 @@ RoutbDependencies _dependencies(http.Client client) {
   return RoutbDependencies(
     session: session,
     auth: AuthRepository(api, session),
-<<<<<<< HEAD
-=======
-    geocode: GeocodeRepository(api),
->>>>>>> origin/master
     trips: TripRepository(api),
     matching: MatchingRepository(api),
     push: PushNotificationService(repository: NotificationsRepository(api)),

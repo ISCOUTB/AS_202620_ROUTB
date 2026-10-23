@@ -8,7 +8,6 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:latlong2/latlong.dart';
 
-<<<<<<< HEAD
 class _FakeGoogleMapsService extends GoogleMapsService {
   _FakeGoogleMapsService({this.geocodeResult, this.routeResult})
     : super(apiKey: 'test-key');
@@ -35,11 +34,6 @@ class _FakeGoogleMapsService extends GoogleMapsService {
     return routeResult;
   }
 }
-=======
-import 'package:frontend/core/constants/zones.dart';
-import 'package:frontend/core/map/place_locator.dart';
-import 'package:frontend/core/network/google_maps_service.dart';
->>>>>>> origin/master
 
 void main() {
   group('PlaceLocator', () {
@@ -54,62 +48,15 @@ void main() {
     test('Google gana cuando responde una coordenada', () async {
       const expected = LatLng(10.4011, -75.5122);
       final locator = PlaceLocator(
-<<<<<<< HEAD
         googleMapsService: _FakeGoogleMapsService(geocodeResult: expected),
-=======
-        client: MockClient((request) async {
-          expect(request.url.host, 'nominatim.openstreetmap.org');
-          expect(request.headers['user-agent'], PlaceLocator.userAgent);
-          expect(request.url.queryParameters['q'], contains('Manga'));
-          expect(request.url.queryParameters['q'], contains('Cartagena'));
-          return http.Response(
-            jsonEncode(<Map<String, String>>[
-              <String, String>{'lat': '10.4011', 'lon': '-75.5122'},
-            ]),
-            200,
-            headers: const <String, String>{'content-type': 'application/json'},
-          );
-        }),
-        minInterval: Duration.zero,
->>>>>>> origin/master
       );
 
       final point = await locator.locate('Manga');
       expect(point, expected);
     });
 
-<<<<<<< HEAD
     test('si Google no encuentra, usa el catálogo', () async {
       final locator = PlaceLocator(googleMapsService: _FakeGoogleMapsService());
-=======
-    test('Turbaco se busca en Bolívar con sesgo de viewbox sin bloquear otras zonas', () async {
-      final locator = PlaceLocator(
-        client: MockClient((request) async {
-          expect(
-            request.url.queryParameters['q'],
-            'Turbaco, Bolívar, Colombia',
-          );
-          expect(request.url.queryParameters['viewbox'], isNotEmpty);
-          expect(request.url.queryParameters.containsKey('bounded'), isFalse);
-          return http.Response(
-            jsonEncode(<Map<String, String>>[
-              <String, String>{'lat': '10.334', 'lon': '-75.416'},
-            ]),
-            200,
-          );
-        }),
-        minInterval: Duration.zero,
-      );
-
-      expect(await locator.locate('Turbaco'), const LatLng(10.334, -75.416));
-    });
-
-    test('si Nominatim no encuentra, usa el catálogo', () async {
-      final locator = PlaceLocator(
-        client: MockClient((request) async => http.Response('[]', 200)),
-        minInterval: Duration.zero,
-      );
->>>>>>> origin/master
 
       final point = await locator.locate('Centro');
       expect(point, Zones.pointOf(Zones.byName('Centro')!));
@@ -183,7 +130,6 @@ void main() {
       expect(points.last.latitude, closeTo(10.37, 0.05));
     });
   });
-<<<<<<< HEAD
 
   group('GoogleMapsService.computeRoute', () {
     test(
@@ -272,6 +218,4 @@ void main() {
       },
     );
   });
-=======
->>>>>>> origin/master
 }

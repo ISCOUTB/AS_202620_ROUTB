@@ -28,10 +28,7 @@ De acuerdo con lo definido en el Árbol de Utilidad y Escenarios de Calidad de R
 | **Transferencia y Egress** | **Servidor propio & Supabase** | Incluido en el servidor | 5 GB/mes (Supabase) | ~0.6 GB/mes | **$0.00** |
 | **Certificados TLS / HTTPS** | **Let's Encrypt** (gestionado por Dokploy) | Sin costo | Renovación automática ilimitada | 1 dominio `routb.iscoutb.dev` | **$0.00** |
 | **Pipeline de CI/CD** | **GitHub Actions** | Repositorio público / Free Tier | 2.000 minutos/mes (o ilimitado en repositorios públicos) | ~150 minutos/mes (~50 ejecuciones de 3 min) | **$0.00** |
-<<<<<<< HEAD
 | **Geocodificación y rutas** | **Google Maps Platform** | Capa gratuita de Google Cloud | Geocoding, Places API (New) y Routes API con cuotas mensuales | Uso académico dentro de la cuota gratuita | **$0.00** |
-=======
->>>>>>> origin/master
 | **Gestión de plataforma** | **Dokploy** | Autoalojado en el mismo servidor | — | Alojado junto al backend, sin costo adicional | **$0.00** |
 | **Costo Total Estimado** | — | — | — | — | **$0.00 USD/mes** |
 
@@ -59,14 +56,11 @@ A continuación se determina con precisión el umbral a partir del cual cada ser
 ### 3.3 Ancho de banda y red
 * **Límite:** la capacidad de red del servidor propio, más los 5 GB/mes incluidos en Supabase.
 * **Punto de ruptura:** Con el tráfico actual de ~0.6 GB/mes, el consumo es marginal para cualquier servidor de uso académico.
-<<<<<<< HEAD
 
 ### 3.4 Google Maps Platform
 * **Límite:** la capa gratuita vigente de Google Cloud para Geocoding, Places API (New) y Routes API.
 * **Punto de ruptura:** superar las cuotas gratuitas por aumento de búsquedas, autocompletados o rutas. La clave está restringida a esas APIs y por plataforma, y se monitorea con cuotas y alertas.
 * **Siguiente escalón:** revisar el consumo y ajustar las cuotas; no se contrata un plan pago para el alcance académico. Si el uso dejara de caber en la capa gratuita, el costo dejaría de ser $0 y habría que revisar el [ADR 0018](../adr/0018-google-maps-platform-frontend.md).
-=======
->>>>>>> origin/master
 
 ---
 
@@ -74,10 +68,6 @@ A continuación se determina con precisión el umbral a partir del cual cada ser
 
 El dimensionamiento de ROUTB para el alcance académico demuestra que:
 1. La base de datos opera holgadamente dentro de los márgenes del plan gratuito de Supabase (**menos del 10 % del cupo de almacenamiento**), y el consumo de cómputo del backend es marginal.
-<<<<<<< HEAD
 2. **Se mantiene la restricción RC-04 (Costo $0 USD y Cero Tarjetas de Crédito)**: el uso de Dokploy en este proyecto no genera costo, el servidor donde se ejecuta tampoco genera facturación para el equipo y Google Maps Platform se mantiene dentro de la capa gratuita con cuotas y alertas. El costo total sigue siendo **$0.00 USD/mes**.
-=======
-2. **Se mantiene la restricción RC-04 (Costo $0 USD y Cero Tarjetas de Crédito)**: el uso de Dokploy en este proyecto no genera costo, y el servidor donde se ejecuta tampoco genera facturación para el equipo. El costo total sigue siendo **$0.00 USD/mes**.
->>>>>>> origin/master
 3. El arranque en frío (*cold start* de 30-50 segundos tras 15 minutos sin tráfico) **no aplica en Dokploy**: la plataforma no suspende el contenedor por inactividad y el servicio corre de forma continua, por lo que ese mecanismo desaparece. En las mediciones externas la latencia estuvo estable alrededor de 680 ms. Ver [ADR 0015](../adr/0015-dokploy-plataforma-de-despliegue.md) y [verificación de despliegue](despliegue-dokploy.md).
 4. El riesgo operativo cambió de naturaleza: ya no está la plataforma que duerme la instancia, sino que el servidor es responsabilidad del equipo. No hay réplicas, de modo que una caída del servidor sí representa indisponibilidad hasta que alguien intervenga.

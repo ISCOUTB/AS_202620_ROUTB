@@ -17,10 +17,6 @@ import 'package:frontend/features/matching/data/matching_repository.dart';
 import 'package:frontend/features/notifications/data/notifications_repository.dart';
 import 'package:frontend/features/notifications/push_notification_service.dart';
 import 'package:frontend/features/profile/screens/profile_screen.dart';
-<<<<<<< HEAD
-=======
-import 'package:frontend/features/trips/data/geocode_repository.dart';
->>>>>>> origin/master
 import 'package:frontend/features/trips/data/trip_repository.dart';
 
 const Map<String, String> _json = <String, String>{
@@ -77,10 +73,6 @@ RoutbDependencies _dependencies(_FakeApi api) {
   return RoutbDependencies(
     session: session,
     auth: AuthRepository(client, session),
-<<<<<<< HEAD
-=======
-    geocode: GeocodeRepository(client),
->>>>>>> origin/master
     trips: TripRepository(client),
     matching: MatchingRepository(client),
     push: PushNotificationService(repository: NotificationsRepository(client)),

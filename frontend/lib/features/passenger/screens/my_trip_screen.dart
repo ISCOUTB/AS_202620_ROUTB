@@ -314,7 +314,6 @@ class _MyTripScreenState extends State<MyTripScreen> {
                                   ],
                                 ),
                               ),
-<<<<<<< HEAD
                               if (_request.hasDriverPhone &&
                                   _request.isConfirmed)
                                 WhatsAppButton(
@@ -324,9 +323,6 @@ class _MyTripScreenState extends State<MyTripScreen> {
                                   compact: true,
                                 )
                               else if (_request.hasDriverPhone)
-=======
-                              if (_request.hasDriverPhone)
->>>>>>> origin/master
                                 Icon(
                                   Icons.phone_rounded,
                                   size: 18,
