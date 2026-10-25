@@ -84,7 +84,9 @@ if self.idempotency_store.is_processed(mid):
 * **Terminología formal unificada:**
   * `max_retries = 2`: 1 intento inicial + hasta 2 reintentos = **3 intentos totales permitidos**.
 * **Retardo de backoff con tope y jitter:**
-  $$\text{delay} = \min\left(\text{max\_backoff}, \text{base} \times (\text{multiplier}^{\text{retry\_number} - 1})\right) \pm \text{jitter}$$
+  ```text
+  delay = min(max_backoff, base * (multiplier ** (retry_number - 1))) ± jitter
+  ```
   * Producción: Base de 0.5s, factor multiplicador 2.0, tope máximo de 30.0s y jitter aleatorio (20%).
   * Pruebas: Función de espera inyectable (`sleep_func`), lo que permite verificar la exactitud de los cálculos de retardo en **0 milisegundos de tiempo de reloj**, garantizando determinismo estricto sin sleeps reales.
 * **Clasificación de errores de FCM:**

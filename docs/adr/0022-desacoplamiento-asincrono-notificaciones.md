@@ -57,7 +57,9 @@ El consumidor consulta un almacén de idempotencia (`InMemoryIdempotencyStore`) 
 Se unifica la política de resiliencia (`RetryPolicy`):
 * **Terminología formal:** 1 intento inicial + hasta 2 reintentos = **3 intentos totales permitidos**.
 * **Retardo exponencial con tope y jitter:**
-  $$\text{delay} = \min\left(\text{max\_backoff}, \text{base} \times (\text{multiplier}^{\text{retry\_number} - 1})\right) \pm \text{jitter}$$
+  ```text
+  delay = min(max_backoff, base * (multiplier ** (retry_number - 1))) ± jitter
+  ```
   En producción: base de 0.5s, factor multiplicador 2.0, tope máximo (`max_backoff_seconds`) de 30.0s y jitter aleatorio (20%) para mitigar avalanchas.
   En pruebas: base configurable y función de espera inyectable (`sleep_func`), lo que permite validar los retardos calculados en 0 ms sin pausas de reloj reales.
 * **Clasificación de errores:**
