@@ -1,5 +1,5 @@
 from geoalchemy2 import Geometry
-from sqlalchemy import CheckConstraint, Column, DateTime, ForeignKey, Integer, SmallInteger, String, Text, func
+from sqlalchemy import CheckConstraint, Column, DateTime, ForeignKey, Index, Integer, SmallInteger, String, Text, func, text
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -15,6 +15,16 @@ class TripRequest(Base):
     status = Column(String, nullable=False, default="pending", server_default="pending")
     requested_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        Index(
+            "uq_trip_requests_active_passenger",
+            "trip_id",
+            "passenger_id",
+            unique=True,
+            postgresql_where=text("status IN ('pending', 'accepted')"),
+        ),
+    )
 
     trip = relationship("Trip", back_populates="requests")
     passenger = relationship("User")

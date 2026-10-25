@@ -24,5 +24,6 @@ Las decisiones arquitectónicas que impactan significativamente la estructura, l
 | [ADR 0018](../adr/0018-google-maps-platform-frontend.md) | Aceptado | Resolver geocodificación, autocompletado y rutas en el cliente Flutter con Google Maps Platform; retirar la geocodificación del backend. |
 | [ADR 0019](../adr/0019-renderizado-mapas-flutter-map-osm.md) | Aceptado | Renderizar el mapa con `flutter_map` y teselas de OpenStreetMap, separado del proveedor de datos. |
 | [ADR 0020](../adr/0020-decision-datos-mas-costosa-de-revertir.md) | Aceptado | Identificar el esquema de estados de solicitudes y control atómico de cupos como la decisión de datos más costosa de revertir, y documentar el costo comparativo de reversión de las cuatro principales decisiones de datos del sistema. |
+| [ADR 0021](../adr/0021-integridad-solicitudes-y-concurrencia.md) | Aceptado | Garantizar una sola solicitud activa por pasajero y viaje con un índice único parcial y verificar la concurrencia del flujo crear → aceptar. |
 
 ---
