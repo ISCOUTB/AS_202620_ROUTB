@@ -7,8 +7,9 @@ Documento de consolidación para la entrega del taller sobre desacoplamiento tem
 ## 1. Enlace al commit de entrega
 
 * **Rama:** `Changes`
-* **Commit:** *(Pendiente de confirmación para `git commit` por el usuario)*
-* **Convención:** `feat(messaging): prototipo aislado de mensajería asíncrona, reintentos y DLQ`
+* **Commit:** [`4c906eb`](https://github.com/ISCOUTB/AS_202620_ROUTB/commit/4c906ebbadf3782972ab8b51b0c690a3c7b17947)
+* **Enlace directo:** https://github.com/ISCOUTB/AS_202620_ROUTB/commit/4c906ebbadf3782972ab8b51b0c690a3c7b17947
+* **Mensaje:** `feat: add asynchronous notification messaging prototype and ADR 0022`
 
 ---
 
