@@ -2,6 +2,7 @@ import logging
 
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm.exc import ObjectDeletedError
 
 from app.modules.notifications.application.manage_device_token import get_tokens_for_user
 from app.modules.notifications.application.send_notification import send_push
@@ -39,7 +40,9 @@ def accept_request(db: Session, request_id: int, driver_id: int | None = None) -
         raise TripRequestNotFoundError()
 
     expire_stale_requests(db, request_id=request_id)
-    db.refresh(request)
+    request = db.get(TripRequest, request_id)
+    if request is None:
+        raise TripRequestNotFoundError()
     if request.status == "expired":
         raise RequestExpiredError()
 
@@ -82,9 +85,11 @@ def accept_request(db: Session, request_id: int, driver_id: int | None = None) -
     )
     if transitioned.rowcount != 1:
         db.rollback()
-        db.refresh(request)
-        if request.status == "accepted":
-            return request
+        current = db.get(TripRequest, request_id)
+        if current is None:
+            raise TripRequestNotFoundError()
+        if current.status == "accepted":
+            return current
         raise InvalidRequestStateError()
 
     if not reserve_request_seats(db, request.trip_id, request.seat_count):
@@ -122,7 +127,10 @@ def accept_request(db: Session, request_id: int, driver_id: int | None = None) -
         reorder_accepted_stops(db, request.trip_id)
 
     db.commit()
-    db.refresh(request)
+    try:
+        db.refresh(request)
+    except ObjectDeletedError as exc:
+        raise TripRequestNotFoundError() from exc
 
     if trip and trip.direction:
         try:
@@ -175,9 +183,11 @@ def reject_request(db: Session, request_id: int, driver_id: int | None = None) -
     )
     if transitioned.rowcount != 1:
         db.rollback()
-        db.refresh(request)
-        if request.status == "rejected":
-            return request
+        current = db.get(TripRequest, request_id)
+        if current is None:
+            raise TripRequestNotFoundError()
+        if current.status == "rejected":
+            return current
         raise InvalidRequestStateError()
 
     if old_status == "accepted" and not release_request_seats(
@@ -187,7 +197,10 @@ def reject_request(db: Session, request_id: int, driver_id: int | None = None) -
         raise InvalidRequestStateError("No fue posible liberar todos los cupos del grupo")
 
     db.commit()
-    db.refresh(request)
+    try:
+        db.refresh(request)
+    except ObjectDeletedError as exc:
+        raise TripRequestNotFoundError() from exc
 
     # Notificar al pasajero (best-effort, no bloquea el flujo)
     try:

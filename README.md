@@ -148,19 +148,19 @@ El manifiesto de referencia del contenedor y de sus variables es [`compose.lab.y
 
 ### Pasos para recrear el entorno desde cero
 
-**Requisitos:** cuentas gratuitas en GitHub, Supabase y Render, y Python instalado.
+**Requisitos:** cuentas gratuitas en GitHub y Supabase, un servidor con Docker y Dokploy instalado, y un dominio o subdominio con DNS apuntando al servidor.
 
 1. **Base de datos (Supabase):** crea un proyecto (plan Free) y copia la cadena de conexión del panel; la usarás como `DATABASE_URL`.
 2. **Migraciones:** en `backend`, con las dependencias instaladas y `DATABASE_URL` exportada, ejecuta `alembic upgrade head`.
-3. **Servicio (Render):** *New → Web Service* → selecciona el repo → entorno **Docker** (`backend/Dockerfile`), instancia **Free**, **Health Check Path** = `/health`.
-4. **Variables de entorno** en Render → *Environment*: `DATABASE_URL` (paso 1), `JWT_SECRET_KEY` (genera una con `python -c "import secrets; print(secrets.token_urlsafe(32))"`) y `ROUTING_TIMEOUT_SECONDS` (por defecto `3.0`, declarada en `render.yaml`).
-5. **Verificar:** espera a que el servicio quede **Live** y prueba:
+3. **Servicio (Dokploy):** crea un proyecto y un servicio desde el repositorio de GitHub (rama `Changes`), con `backend/Dockerfile` como build; `compose.lab.yaml` documenta el contenedor y sus variables como referencia. Configura el dominio `routb.iscoutb.dev` y deja que Dokploy emita el certificado TLS.
+4. **Variables de entorno** en Dokploy → *Environment*: `DATABASE_URL` (paso 1), `JWT_SECRET_KEY` (genera una con `python -c "import secrets; print(secrets.token_urlsafe(32))"`), `ROUTING_TIMEOUT_SECONDS` (por defecto `1.4`) y las credenciales `FCM_*` si se usan notificaciones push.
+5. **Verificar:** espera a que el servicio quede desplegado y prueba:
    ```bash
-   curl https://as-202620-routb.onrender.com/health
-   curl -i https://as-202620-routb.onrender.com/trips/
+   curl https://routb.iscoutb.dev/health
+   curl -i https://routb.iscoutb.dev/trips/
    ```
 
-> En el plan gratuito de Render, tras 15 min sin tráfico la primera petición puede tardar 30-50 s; las siguientes responden con normalidad. La documentación interactiva de la API está en `/docs`.
+> El contenedor corre de forma continua en Dokploy: no hay suspensión por inactividad ni arranque en frío. La verificación completa está en [docs/evidencia/despliegue-dokploy.md](docs/evidencia/despliegue-dokploy.md). La documentación interactiva de la API está en `/docs`.
 
 ---
 

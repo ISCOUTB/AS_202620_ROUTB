@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from geoalchemy2.elements import WKTElement
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.timezone import colombia_now
@@ -75,18 +76,26 @@ def create_request(
         requested_at=requested_at or colombia_now(),
     )
     db.add(request)
-    db.flush()
-    for stop in stop_data:
-        db.add(
-            RequestStop(
-                request_id=request.id,
-                seats=stop["seats"],
-                place_type=stop["place_type"],
-                stop_geom=WKTElement(f"POINT({stop['lng']} {stop['lat']})", srid=4326),
-                address_text=stop["address_text"],
+    try:
+        db.flush()
+        for stop in stop_data:
+            db.add(
+                RequestStop(
+                    request_id=request.id,
+                    seats=stop["seats"],
+                    place_type=stop["place_type"],
+                    stop_geom=WKTElement(f"POINT({stop['lng']} {stop['lat']})", srid=4326),
+                    address_text=stop["address_text"],
+                )
             )
-        )
-    db.commit()
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        if "uq_trip_requests_active_passenger" in str(exc.orig):
+            raise ActiveRequestAlreadyExistsError(
+                "Ya tienes una solicitud activa para este viaje"
+            ) from exc
+        raise
     db.refresh(request)
     if trip.driver_id is not None:
         try:

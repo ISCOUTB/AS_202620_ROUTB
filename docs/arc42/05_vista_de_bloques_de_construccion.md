@@ -16,12 +16,12 @@ ROUTB se organiza en cuatro bloques principales para separar claramente la inter
 | **Aplicación Móvil** | Interfaz de usuario para conductores, pasajeros y administradores. Permite registrarse, publicar y buscar recorridos, solicitar cupos, calificar viajes y recibir notificaciones. Construida con Flutter para Android e iOS. |
 | **Backend / API (Monolito Modular)** | Contiene la lógica de negocio central del sistema. Implementado en Python usando FastAPI y Uvicorn. Se encarga de la autenticación, gestión de recorridos, emparejamiento geoespacial y administración general. |
 | **Base de Datos** | Almacena de forma persistente la información de usuarios, recorridos, solicitudes, historial de viajes y reputación. Utiliza PostgreSQL con la extensión PostGIS para las consultas geoespaciales. |
-| **Integraciones Externas** | Conjunto de servicios de terceros consumidos por el backend. Incluye el servicio de mapas/geolocalización y el servicio de envío de notificaciones push. |
+| **Integraciones Externas** | Conjunto de servicios de terceros. El cliente Flutter consume los mapas y la geocodificación (Google Maps Platform y tiles de OpenStreetMap); el backend consume el envío de notificaciones push (Firebase Cloud Messaging) y el servicio de rutas OSRM. |
 
 **Interfaces Importantes:**
 *   API REST sobre HTTPS entre la aplicación móvil y el Backend.
 *   Protocolo SQL TCP/IP entre el Backend y la Base de Datos.
-*   APIs REST/SDK de terceros entre el Backend y las Integraciones Externas (mapas, notificaciones push).
+*   APIs REST de terceros: el cliente consume mapas/geocodificación por HTTPS y el backend consume OSRM y notificaciones push.
 
 ---
 
@@ -41,6 +41,7 @@ Se adoptó un modelo de **Monolito Modular** como estrategia arquitectónica [AD
 | **`auth`** | Gestión de autenticación, registro, inicio de sesión y emisión/validación de tokens de seguridad (JWT). |
 | **`users`** | Administración de perfiles de usuario, preferencias y cálculo del puntaje de reputación mediante calificaciones históricas. |
 | **`trips`** | Gestión de los recorridos: publicación, edición, cancelación y búsqueda de recorridos compatibles usando rutas y horarios. |
+| **`matching`** | Cálculo de coincidencias espaciales y temporales y sugerencias de viajes, con desvío y ETA estimados. |
 | **`requests`** | Control del ciclo de vida de la solicitud de cupos (creación, aceptación, rechazo o cancelación) entre pasajero y conductor. |
 | **`notifications`** | Adaptadores y lógica para la generación de alertas del sistema y consumo del proveedor externo de notificaciones push. |
 | **`admin`** | Funciones administrativas para moderación de usuarios, resolución de incidencias y estadísticas. |

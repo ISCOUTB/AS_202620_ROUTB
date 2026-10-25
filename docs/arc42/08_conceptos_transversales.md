@@ -15,7 +15,7 @@ las personas que trabajan en el proyecto.
 | Backend | Aplicación que contiene las reglas del negocio y expone la funcionalidad de ROUTB. | FastAPI en `backend/app/`. |
 | Frontend | Aplicación con la que interactúan los estudiantes y administradores. | Flutter en `frontend/lib/`. |
 | API | Punto de comunicación entre frontend y backend. | Endpoints FastAPI que reciben y devuelven JSON. |
-| Módulo | Unidad funcional dentro del backend monolítico. | `users`, `auth`, `trips`, `requests`, `notifications` y `admin`. |
+| Módulo | Unidad funcional dentro del backend monolítico. | `users`, `auth`, `trips`, `matching`, `requests`, `notifications` y `admin`. |
 | Capa | Tipo de responsabilidad dentro de un módulo. | `router` expone la API, `service` aplica reglas, `models` representa datos y `schemas` valida mensajes. |
 | Autenticación | Verificación de la identidad antes de permitir una operación protegida. | `/auth/login`, JWT y `get_current_user`. |
 | Autorización | Decisión sobre qué operaciones puede ejecutar una identidad autenticada. | Roles del usuario y dependencias de seguridad del backend. |
@@ -65,10 +65,9 @@ flowchart LR
 | Notificaciones | Informar solicitudes, reservas, cambios y disponibilidad. | Recibe eventos de Recorridos y Solicitudes y los entrega a los usuarios. |
 | Administración | Supervisar usuarios, recorridos y solicitudes, además de gestionar reportes. | Consulta y gestiona los demás contextos según permisos administrativos. |
 
-En el código actual, Identidad y Usuarios corresponde a `users` y `auth`, y
-Gestión de Recorridos corresponde a `trips`. Los contextos de Solicitudes y
-Reservas, Notificaciones y Administración están definidos arquitectónicamente,
-pero sus entidades y casos de uso todavía se encuentran en desarrollo.
+En el código actual, Identidad y Usuarios corresponde a `users` y `auth`;
+Gestión de Recorridos a `trips` y `matching`; Solicitudes y Reservas a
+`requests`; Notificaciones a `notifications`; y Administración a `admin`.
 
 ---
 
@@ -102,17 +101,17 @@ Cuando Google Maps u OSRM no responden, ROUTB degrada sin romperse (ADR 0018 y A
 
 ## 8.6 Tabla de operaciones y garantías de consistencia
 
-Esta tabla mapea cada operación real del sistema a su mecanismo de garantía y al código que lo implementa. Cubre tanto el flujo crítico de solicitudes/cupos como la caché de geocodificación.
+Esta tabla mapea cada operación real del sistema a su mecanismo de garantía y al código que lo implementa. Cubre tanto el flujo crítico de solicitudes/cupos como la caché de geocodificación del cliente y la caché de rutas del backend.
 
 | Operación | Archivo de implementación | Mecanismo de garantía | Garantía efectiva |
 |---|---|---|---|
-| **Aceptar solicitud y reservar cupos** | `backend/app/modules/requests/application/manage_request.py:77–94` | `UPDATE … WHERE status='pending'` con `rowcount == 1`; `reserve_request_seats` en la misma transacción; `db.rollback()` si la reserva falla | Atomicidad ACID: ambas partes ocurren o ninguna; 0 % de sobreventa bajo concurrencia |
-| **Rechazar solicitud y liberar cupos** | `backend/app/modules/requests/application/manage_request.py:170–187` | `UPDATE … WHERE status=old_status`; `release_request_seats` solo si el estado anterior era `accepted`; `db.rollback()` si la liberación falla | Atomicidad ACID: liberación ocurre entera o no ocurre; cupos nunca se liberan dos veces |
-| **Crear solicitud (idempotencia ante duplicado)** | `backend/app/modules/requests/application/create_request.py:58–68` | Chequeo previo de existencia de solicitud activa `(trip_id, passenger_id)` en estado `pending` o `accepted` antes de insertar | Consistencia: nunca dos solicitudes activas del mismo pasajero en el mismo viaje |
-| **Retirar solicitud y liberar cupos** | `backend/app/modules/requests/application/manage_request.py:217–235` | `DELETE … RETURNING`; si `removed is None` → `db.rollback()` + 404 | Idempotencia: segunda llamada retorna 404 sin doble liberación de cupos |
-| **Cancelar solicitudes alternativas al aceptar** | `backend/app/modules/requests/application/manage_request.py:97–120` | `UPDATE … WHERE status='pending' AND trip_id IN (…)` en la misma transacción que la aceptación | Consistencia: el pasajero no puede quedar con dos solicitudes aceptadas el mismo día y sentido |
-| **Caché de geocodificación (lectura)** | `backend/app/modules/geocode/` | Consulta `geocode_cache` por clave normalizada y TTL vigente antes de llamar al proveedor externo | Consistencia temporal: se sirven coordenadas vigentes; nunca coordenadas degradadas desde caché |
-| **Caché de geocodificación (escritura)** | `backend/app/modules/geocode/` | Upsert (`ON CONFLICT … DO UPDATE`) con nueva coordenada y marca de tiempo | Invalidación por reemplazo: una geocodificación nueva de la misma consulta desplaza la entrada anterior |
+| **Aceptar solicitud y reservar cupos** | `backend/app/modules/requests/application/manage_request.py` (`accept_request`) | `UPDATE … WHERE status='pending'` con `rowcount == 1`; `reserve_request_seats` en la misma transacción; `db.rollback()` si la reserva falla; si la transición pierde, relee y responde 404/409 (ADR 0021) | Atomicidad ACID: ambas partes ocurren o ninguna; 0 % de sobreventa bajo concurrencia |
+| **Rechazar solicitud y liberar cupos** | `backend/app/modules/requests/application/manage_request.py` (`reject_request`) | `UPDATE … WHERE status=old_status`; `release_request_seats` solo si el estado anterior era `accepted`; `db.rollback()` si la liberación falla | Atomicidad ACID: liberación ocurre entera o no ocurre; cupos nunca se liberan dos veces |
+| **Crear solicitud (idempotencia ante duplicado)** | `backend/app/modules/requests/application/create_request.py` y `backend/migrations/versions/010_solicitud_activa_unica.py` | Chequeo previo + índice único parcial `uq_trip_requests_active_passenger` sobre `(trip_id, passenger_id) WHERE status IN ('pending','accepted')`; `IntegrityError` se traduce a 400 | Consistencia: nunca dos solicitudes activas del mismo pasajero en el mismo viaje, incluso con peticiones simultáneas |
+| **Retirar solicitud y liberar cupos** | `backend/app/modules/requests/application/manage_request.py` (`withdraw_request`) | `DELETE … RETURNING`; si `removed is None` → `db.rollback()` + 404 | Idempotencia: segunda llamada retorna 404 sin doble liberación de cupos |
+| **Cancelar solicitudes alternativas al aceptar** | `backend/app/modules/requests/application/manage_request.py` (`accept_request`) | `UPDATE … WHERE status='pending' AND trip_id IN (…)` en la misma transacción que la aceptación | Consistencia: el pasajero no puede quedar con dos solicitudes aceptadas el mismo día y sentido |
+| **Caché de geocodificación (cliente)** | `frontend/lib/core/map/place_locator.dart` | Mapa en memoria por consulta normalizada; si Google no responde se usa el catálogo local de barrios; no se persiste ni se comparte entre sesiones | Solo caché de sesión: ROUTB no almacena consultas de direcciones; una nueva sesión vuelve a consultar al proveedor (ADR 0018) |
+| **Caché de rutas del backend (`route_cache`)** | `backend/app/shared/routing/service.py` | TTL de 24 h con intervalo parametrizado; llave SHA-256 de coordenadas redondeadas a 5 decimales; solo se persisten y sirven rutas OSRM con `degraded=false`; purga con `RETENTION_CACHE_DAYS` | Consistencia temporal: nunca se sirve una ruta degradada; una caída del proveedor se reintenta en la siguiente solicitud |
 
 
 ## 8.7 Estrategia integrada de consistencia e invalidación de caché
@@ -126,53 +125,81 @@ ROUTB maneja dos dominios de datos con requisitos de consistencia completamente 
 - **Invariante garantizada:** `available_seats` en la tabla `trips` nunca cae por debajo de cero ni refleja una reserva que no se haya confirmado. Cualquier concurrencia se resuelve en la base de datos, no en la aplicación.
 - **Referencia:** [ADR 0003](../adr/0003-control-atomico-de-cupos.md), [ADR 0017](../adr/0017-decision-extraccion-modulo-requests.md).
 
-### Dominio 2: caché de geocodificación
+### Dominio 2: geocodificación en el cliente y caché de rutas
 
-- **Modelo:** consistencia eventual con ventana configurable de 7 días (`RETENTION_CACHE_DAYS`).
-- **Política de invalidación:**
-  1. **Por expiración (TTL):** las entradas caducan automáticamente transcurridos `RETENTION_CACHE_DAYS` días desde su última escritura.
-  2. **Por escritura/upsert:** una nueva geocodificación exitosa de la misma consulta normalizada reemplaza la entrada anterior (`ON CONFLICT … DO UPDATE`); la caché nunca acumula versiones antiguas de la misma clave.
-  3. **Por resultado degradado:** los resultados marcados `degraded=true` no se persisten (§8.5), garantizando que la caché no sirva coordenadas de respaldo como si fueran válidas.
-  4. **Sin sincronización con OSM/Photon:** ROUTB no rastrea actualizaciones del mapa base en tiempo real; la expiración por TTL cubre la coherencia eventual con la fuente geográfica.
-- **Referencia:** [ADR 0010](../adr/0010-geocodificacion-y-cache.md), [ADR 0014](../adr/0014-fallback-geocode-cache.md), [Evidencia: Política de invalidación de caché](../evidencia/politica-invalidacion-cache-geocode.md).
+La resolución de direcciones y la caché de rutas viven en capas distintas:
+
+- **Geocodificación (cliente Flutter).** Google Maps Platform resuelve dirección
+  a coordenada, coordenada a dirección y autocompletado (ADR 0018). `PlaceLocator`
+  guarda en memoria las respuestas de la sesión (`_geocodeCache`) y las geometrías
+  de ruta (`_routeCache`); no hay persistencia ni caché de geocodificación en
+  PostgreSQL. Si Google no responde o no hay clave, se usa el catálogo local de
+  barrios y la curva estimada, sin reintroducir Photon ni Nominatim.
+- **Caché de rutas del backend (`route_cache`).** El cálculo de rutas del backend
+  usa OSRM y conserva únicamente resultados reales (`degraded=false`) durante
+  24 horas. La llave es el SHA-256 de las coordenadas redondeadas a 5 decimales.
+  Las rutas de respaldo geodésicas no se guardan ni se sirven desde caché, de modo
+  que una caída transitoria de OSRM se reintenta en la siguiente petición
+  (ADR 0014). La purga de privacidad usa `RETENTION_CACHE_DAYS` (ADR 0011).
+- **Invalidación.** En el cliente, la caché se descarta al terminar la sesión o
+  al llamar a `clearCache()` en pruebas. En el backend, las entradas caducan por
+  TTL y se reemplazan con un upsert (`ON CONFLICT ... DO UPDATE`) cuando OSRM
+  devuelve una ruta válida.
+- **Referencias:** [ADR 0018](../adr/0018-google-maps-platform-frontend.md),
+  [ADR 0014](../adr/0014-fallback-geocode-cache.md),
+  [ADR 0011](../adr/0011-consentimiento-y-privacidad-de-ubicacion.md) y
+  `backend/app/shared/routing/service.py`.
 
 ### Separación de dominios (sin interferencia)
 
-Los cupos **nunca** pasan por la caché de geocodificación. Ambos dominios comparten la misma base de datos PostgreSQL pero usan tablas y flujos independientes: la caché solo afecta a la latencia de búsqueda de ubicaciones, mientras que la consistencia de cupos se resuelve siempre en tiempo real con bloqueos a nivel de fila.
+Los cupos **nunca** pasan por una caché. La caché de geocodificación vive en la
+memoria del cliente y la de rutas en la tabla `route_cache` del backend; los
+cupos se resuelven siempre en tiempo real con actualizaciones condicionales y
+transacciones ACID sobre `trips` y `trip_requests` (ADR 0003 y ADR 0021).
 
 ```mermaid
 flowchart TD
     Client([Cliente Flutter])
 
+    subgraph ClientSide["Cliente"]
+        Places["Google Maps Platform\n(Geocoding / Places / Routes)"]
+        ClientCache[("Caché en memoria\n(PlaceLocator)")]
+    end
+
     subgraph BackendAPI["Backend FastAPI"]
-        GeoEP["GET /geocode/search"]
         ReqEP["POST /requests/trips/{id}\nPATCH /requests/{id}/accept\nPATCH /requests/{id}/reject\nDELETE /requests/{id}"]
+        RouteSvc["RoutingService\n(calculate_route)"]
     end
 
     subgraph PostgreSQL["PostgreSQL"]
-        GeoCache[("geocode_cache\n(TTL 7 días, upsert)")]
+        RouteCache[("route_cache\n(TTL 24 h, solo no degradadas)")]
         Business[("trips · trip_requests · users\n(transacciones ACID)")]
     end
 
-    Photon["Photon / Nominatim\n(proveedor externo)"]
+    OSRM["OSRM\n(proveedor externo)"]
 
-    Client -->|búsqueda de ubicación| GeoEP
-    GeoEP -->|"¿clave en caché y TTL vigente?"| GeoCache
-    GeoCache -->|"HIT → respuesta inmediata"| GeoEP
-    GeoCache -->|"MISS → llamada externa"| Photon
-    Photon -->|"resultado (no degraded)"| GeoEP
-    GeoEP -->|"upsert en caché"| GeoCache
+    Client -->|"búsqueda de dirección o ruta"| ClientCache
+    ClientCache -->|"MISS"| Places
+    Places -->|"resultado de la sesión"| ClientCache
 
     Client -->|solicitud / reserva| ReqEP
     ReqEP -->|"transacción ACID\n(UPDATE condicional)"| Business
     Business -->|"commit / rollback"| ReqEP
 
-    style GeoCache fill:#0e7490,stroke:#2dd4bf,color:#fff
+    ReqEP -->|"recalcula la ruta aceptada"| RouteSvc
+    RouteSvc -->|"¿clave vigente en caché?"| RouteCache
+    RouteCache -->|"HIT"| RouteSvc
+    RouteCache -->|"MISS"| OSRM
+    OSRM -->|"ruta válida (degraded=false)"| RouteSvc
+    RouteSvc -->|"upsert solo si es válida"| RouteCache
+
+    style ClientCache fill:#0e7490,stroke:#2dd4bf,color:#fff
+    style RouteCache fill:#0e7490,stroke:#2dd4bf,color:#fff
     style Business fill:#065f46,stroke:#34d399,color:#fff
-    style Photon fill:#78350f,stroke:#fbbf24,color:#fff
+    style OSRM fill:#78350f,stroke:#fbbf24,color:#fff
 ```
 
 **Clave de lectura del diagrama:**
-- El camino de geocodificación (azul) pasa por caché con TTL e invalidación por upsert.
+- El camino de mapas del cliente (azul) usa Google Maps con caché en memoria de la sesión; no pasa por el backend.
 - El camino de solicitudes/cupos (verde) va directo a la base de datos con garantía ACID; **no existe caché intermedia**.
-- Los resultados degradados del proveedor externo (naranja) se descartan antes del upsert.
+- El camino de rutas del backend (azul) usa `route_cache` con TTL de 24 h y descarta los resultados degradados antes del upsert.
