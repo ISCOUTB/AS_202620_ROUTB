@@ -154,6 +154,18 @@ Justificación: Las herramientas fueron utilizadas con propósitos diferentes. C
 - **Justificación:** El análisis garantiza la coherencia arquitectónica entre el código implementado, los riesgos operativos del despliegue en la nube y las decisiones de diseño del equipo, cumpliendo la totalidad de los criterios de evaluación sin introducir regresiones ni acoplamientos innecesarios.
 - **Fecha:** 2026-10-17
 
+### Semana 12
+
+- **Actividad realizada:** La semana se dedicó a la estrategia de datos y eventos. Se crearon los ADR 0018 (uso de Google Maps en el cliente), 0019 (renderizado de mapas), 0020 (decisión de datos más costosa de revertir) y 0021 (integridad de las solicitudes). En arc42 se crearon la tabla de operaciones y garantías de consistencia (§8.6) y la estrategia de consistencia e invalidación de caché (§8.7); se dejó constancia de que no hay un flujo por eventos, porque las notificaciones son un complemento y no la fuente de verdad; y se revisó el C4 nivel 2 con la base de datos como contenedor. Se actualizaron las secciones 2, 5, 6, 8, 9, 10 y 11, la matriz de aspectos y el catálogo de decisiones. Se crearon las evidencias de la política de invalidación de caché y de concurrencia de solicitudes, y se actualizó la guía de despliegue. En código se trasladó la geocodificación al cliente, se retiró la geocodificación del backend y se agregó la garantía de una sola solicitud activa por pasajero y viaje, con sus pruebas de concurrencia.
+- **Herramienta utilizada:** OpenCode (DeepSeek V4.1 Flash).
+- **Contexto proporcionado:** Rúbrica de la semana 12 (tabla de operaciones y garantías, dos operaciones contrastadas, diseño de caché e invalidación, garantías del flujo por eventos, ADR de la decisión de datos más costosa, C4 nivel 2 y arc42 §8), historial de la semana, código del sistema y restricciones del proyecto.
+- **Respuesta que se obtuvo:** El mapa de la rúbrica contra los documentos creados, la detección de documentación desactualizada, la redacción del ADR 0021, la tabla y la estrategia de caché, y el plan de verificación con pruebas de concurrencia.
+- **Qué se aceptó:** Los cuatro ADR, la tabla de operaciones y garantías, la estrategia de caché y su invalidación, el argumento del ADR 0020, la base de datos como contenedor en el C4 nivel 2, la guía de despliegue actualizada y las pruebas de concurrencia.
+- **Qué se corrigió:** La documentación que describía mecanismos ya retirados; la guía de despliegue que seguía apuntando a la plataforma anterior; la validación de solicitudes duplicadas, que tenía una ventana de carrera; y el manejo de aceptar o rechazar una solicitud retirada al mismo tiempo.
+- **Qué se rechazó:** Inventar un flujo por eventos o un broker que el sistema no usa; agregar bloqueos o cambios de aislamiento sin una decisión que los justifique; reformatear archivos ajenos a la semana; y aplicar cambios de base de datos en producción sin autorización.
+- **Justificación:** La rúbrica quedó cubierta con documentos creados y verificables, y la tabla se contrastó con dos operaciones reales del sistema. Las pruebas de backend quedaron en verde (95) y las de frontend también (138), con el análisis y la compilación correctos; los pendientes quedaron declarados.
+- **Fecha:** 2026-10-25
+
 ## Observaciones
 
 La Inteligencia Artificial se utiliza como una herramienta de apoyo durante el desarrollo y la documentación del proyecto. Las respuestas generadas no se incorporan automáticamente: son revisadas, contrastadas con el contexto y los requisitos del proyecto y, cuando corresponde, modificadas o rechazadas por el equipo.
