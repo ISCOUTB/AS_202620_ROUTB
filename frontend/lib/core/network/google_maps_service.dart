@@ -111,6 +111,10 @@ class GoogleMapsService {
   // Cachés en memoria para minimizar consumo de cuota de la API key
   final Map<String, String> _reverseCache = <String, String>{};
   final Map<String, LatLng?> _forwardCache = <String, LatLng?>{};
+  final Map<String, List<GooglePlaceSuggestion>> _autocompleteCache =
+      <String, List<GooglePlaceSuggestion>>{};
+  final Map<String, GooglePlaceDetails?> _placeDetailsCache =
+      <String, GooglePlaceDetails?>{};
   final Map<String, GoogleRouteResult> _routeCache =
       <String, GoogleRouteResult>{};
   final Map<String, RouteDetourResult> _detourCache =
@@ -208,10 +212,21 @@ class GoogleMapsService {
   }
 
   /// Autocompletado de lugares acotado estrictamente a Cartagena / Turbaco.
-  Future<List<GooglePlaceSuggestion>> autocomplete(String query) async {
+  ///
+  /// [abortTrigger] permite cancelar la petición anterior cuando la persona
+  /// sigue escribiendo. Las respuestas exitosas se cachean en memoria para no
+  /// repetir la misma consulta.
+  Future<List<GooglePlaceSuggestion>> autocomplete(
+    String query, {
+    Future<void>? abortTrigger,
+  }) async {
     if (!hasApiKey) return const [];
     final clean = query.trim();
     if (clean.length < 2) return const [];
+
+    final cacheKey = clean.toLowerCase();
+    final cached = _autocompleteCache[cacheKey];
+    if (cached != null) return cached;
 
     try {
       final uri = Uri.parse(
@@ -227,15 +242,16 @@ class GoogleMapsService {
         },
       });
 
-      final response = await _client
-          .post(
-            uri,
-            headers: {
+      final request =
+          http.AbortableRequest('POST', uri, abortTrigger: abortTrigger)
+            ..headers.addAll({
               'Content-Type': 'application/json',
               'X-Goog-Api-Key': _apiKey,
-            },
-            body: body,
-          )
+            })
+            ..body = body;
+
+      final streamed = await _client.send(request).timeout(timeout);
+      final response = await http.Response.fromStream(streamed)
           .timeout(timeout);
 
       if (response.statusCode != 200) return const [];
@@ -243,7 +259,10 @@ class GoogleMapsService {
       final data =
           jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
       final suggestions = data['suggestions'] as List?;
-      if (suggestions == null) return const [];
+      if (suggestions == null) {
+        _autocompleteCache[cacheKey] = const <GooglePlaceSuggestion>[];
+        return const [];
+      }
 
       final results = <GooglePlaceSuggestion>[];
       for (final item in suggestions) {
@@ -275,6 +294,7 @@ class GoogleMapsService {
           );
         }
       }
+      _autocompleteCache[cacheKey] = results;
       return results;
     } on Object catch (error) {
       debugPrint('GoogleMapsService.autocomplete error: $error');
@@ -283,25 +303,36 @@ class GoogleMapsService {
   }
 
   /// Obtiene coordenadas y dirección de un lugar a partir de su `placeId`.
-  Future<GooglePlaceDetails?> getPlaceDetails(String placeId) async {
+  ///
+  /// [abortTrigger] cancela la petición si la búsqueda quedó obsoleta. Los
+  /// detalles exitosos se cachean en memoria por `placeId`.
+  Future<GooglePlaceDetails?> getPlaceDetails(
+    String placeId, {
+    Future<void>? abortTrigger,
+  }) async {
     if (!hasApiKey) return null;
     final normalizedId = placeId.startsWith('places/')
         ? placeId.substring(7)
         : placeId;
 
+    if (_placeDetailsCache.containsKey(normalizedId)) {
+      return _placeDetailsCache[normalizedId];
+    }
+
     try {
       final uri = Uri.parse(
         'https://places.googleapis.com/v1/places/$normalizedId',
       );
-      final response = await _client
-          .get(
-            uri,
-            headers: {
+      final request =
+          http.AbortableRequest('GET', uri, abortTrigger: abortTrigger)
+            ..headers.addAll({
               'Content-Type': 'application/json',
               'X-Goog-Api-Key': _apiKey,
               'X-Goog-FieldMask': 'id,displayName,location,formattedAddress',
-            },
-          )
+            });
+
+      final streamed = await _client.send(request).timeout(timeout);
+      final response = await http.Response.fromStream(streamed)
           .timeout(timeout);
 
       if (response.statusCode != 200) return null;
@@ -319,11 +350,13 @@ class GoogleMapsService {
           (data['displayName'] as Map<String, dynamic>?)?['text'] as String? ??
           '';
 
-      return GooglePlaceDetails(
+      final details = GooglePlaceDetails(
         placeId: normalizedId,
         formattedAddress: _cleanFormattedAddress(formatted),
         location: LatLng(lat, lng),
       );
+      _placeDetailsCache[normalizedId] = details;
+      return details;
     } on Object catch (error) {
       debugPrint('GoogleMapsService.getPlaceDetails error: $error');
       return null;
@@ -618,6 +651,8 @@ class GoogleMapsService {
   void clearCache() {
     _reverseCache.clear();
     _forwardCache.clear();
+    _autocompleteCache.clear();
+    _placeDetailsCache.clear();
     _routeCache.clear();
     _detourCache.clear();
   }

@@ -28,7 +28,7 @@ class DraftRoute {
     this.seats = 3,
     this.meetingPoint = '',
     this.driverPoint,
-  }) : zone = zone ?? Zones.neighborhoods.first,
+  }) : zone = zone ?? Zones.byName('Centro') ?? Zones.neighborhoods.first,
        departure = departure ?? const TravelTime.fromClock(7, 30),
        departureDate =
            departureDate ??
@@ -155,7 +155,8 @@ class _PublishSheetState extends State<_PublishSheet> {
   }
 
   Zone _resolveZone(SelectedLocation location) {
-    final direct = Zones.byName(location.addressText);
+    final namePart = location.addressText.split(',').first.trim();
+    final direct = Zones.byName(namePart) ?? Zones.byName(location.addressText);
     if (direct != null && !direct.isCampus) return direct;
 
     final lower = location.addressText.toLowerCase();
