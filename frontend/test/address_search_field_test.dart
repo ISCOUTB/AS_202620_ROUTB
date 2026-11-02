@@ -9,7 +9,10 @@ class _FakeGoogleMapsService extends GoogleMapsService {
   _FakeGoogleMapsService() : super(apiKey: 'test-key');
 
   @override
-  Future<List<GooglePlaceSuggestion>> autocomplete(String query) async {
+  Future<List<GooglePlaceSuggestion>> autocomplete(
+    String query, {
+    Future<void>? abortTrigger,
+  }) async {
     return const <GooglePlaceSuggestion>[
       GooglePlaceSuggestion(
         placeId: 'manga',
@@ -27,7 +30,10 @@ class _FakeGoogleMapsService extends GoogleMapsService {
   }
 
   @override
-  Future<GooglePlaceDetails?> getPlaceDetails(String placeId) async {
+  Future<GooglePlaceDetails?> getPlaceDetails(
+    String placeId, {
+    Future<void>? abortTrigger,
+  }) async {
     return switch (placeId) {
       'manga' => const GooglePlaceDetails(
         placeId: 'manga',
@@ -118,7 +124,7 @@ void main() {
   });
 
   testWidgets(
-    'buscar y elegir una sugerencia con el mapa oculto reemplaza la ubicación anterior',
+    'buscar deja las sugerencias visibles y solo confirma al tocarlas',
     (tester) async {
       SelectedLocation? selected;
       await tester.pumpWidget(
@@ -149,8 +155,8 @@ void main() {
 
       await tester.tap(find.text('Buscar'));
       await tester.pumpAndSettle();
-      // Al buscar toma el primer resultado y además permite tocar otro con el mapa cerrado.
-      expect(selected?.lat, 10.413);
+      // Escribir o buscar no confirma una ubicación por sí solo.
+      expect(selected, isNull);
 
       await tester.tap(find.text('Turbaco, Bolívar'));
       await tester.pumpAndSettle();
@@ -159,4 +165,55 @@ void main() {
       expect(selected?.addressText, 'Turbaco, Bolívar');
     },
   );
+
+  testWidgets(
+    'tocar el campo abre el menú y elegir un barrio confirma su punto',
+    (tester) async {
+      SelectedLocation? selected;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: RoutbTheme.light(),
+          home: Scaffold(
+            body: AddressSearchField(
+              onLocationSelected: (location) => selected = location,
+              onLocationCleared: () => selected = null,
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byType(TextField));
+      await tester.pump();
+      expect(find.text('Barrios de Cartagena'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), 'Manga');
+      await tester.pump();
+      expect(selected, isNull);
+
+      await tester.tap(find.widgetWithText(ListTile, 'Manga'));
+      await tester.pumpAndSettle();
+      expect(selected?.lat, 10.4130);
+      expect(selected?.lng, -75.5350);
+      expect(selected?.addressText, 'Manga, Cartagena');
+    },
+  );
+
+  testWidgets('muestra Sin resultados cuando el texto no coincide', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: RoutbTheme.light(),
+        home: Scaffold(body: AddressSearchField(onLocationSelected: (_) {})),
+      ),
+    );
+
+    await tester.tap(find.byType(TextField));
+    await tester.pump();
+    await tester.enterText(find.byType(TextField), 'zzzz');
+    await tester.pump();
+
+    expect(find.text('Sin resultados'), findsOneWidget);
+    expect(find.text('Barrios de Cartagena'), findsNothing);
+  });
 }

@@ -75,6 +75,21 @@ jobs:
           JWT_ALGORITHM: HS256
           JWT_EXPIRE_MINUTES: "60"
 
+  dependency-audit:
+    name: Dependency Vulnerability Audit (pip-audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Set up Python environment
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: "3.14"
+      - name: Install pip-audit
+        run: "pip install --only-binary=:all: pip-audit==2.9.0"
+      - name: Run pip-audit vulnerability scan
+        working-directory: backend
+        run: pip-audit -r requirements.txt
+
   sonar:
     name: SonarCloud Scan & Quality Gate
     runs-on: ubuntu-latest

@@ -2,8 +2,8 @@ import logging
 
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.orm.exc import ObjectDeletedError
-
 from app.modules.notifications.application.manage_device_token import get_tokens_for_user
 from app.modules.notifications.application.send_notification import send_push
 from app.modules.requests.domain.exceptions import (
@@ -29,54 +29,56 @@ from app.modules.trips.application import (
 logger = logging.getLogger(__name__)
 
 
-def accept_request(db: Session, request_id: int, driver_id: int | None = None) -> TripRequest:
-    request = (
-        db.query(TripRequest)
-        .options(joinedload(TripRequest.trip))
-        .filter(TripRequest.id == request_id)
-        .first()
-    )
-    if not request:
+def _validate_acceptance(
+    db: Session, request_id: int, driver_id: int | None
+) -> TripRequest:
+    if db.get(TripRequest, request_id) is None:
         raise TripRequestNotFoundError()
 
     expire_stale_requests(db, request_id=request_id)
-    request = db.get(TripRequest, request_id)
-    if request is None:
+    refreshed_request = db.get(TripRequest, request_id)
+    if refreshed_request is None:
         raise TripRequestNotFoundError()
-    if request.status == "expired":
+    if refreshed_request.status == "expired":
         raise RequestExpiredError()
 
-    trip = request.trip
-    if driver_id is not None and trip.driver_id != driver_id:
+    if driver_id is not None and refreshed_request.trip.driver_id != driver_id:
         raise UnauthorizedRequestActionError("No tienes permiso para gestionar esta solicitud")
-
-    if request.status == "accepted":
-        return request
-    if request.status != "pending":
+    if refreshed_request.status == "accepted":
+        return refreshed_request
+    if refreshed_request.status != "pending":
         raise InvalidRequestStateError("Solo se pueden aceptar solicitudes pendientes")
+    return refreshed_request
 
-    # Serializa aceptaciones simultáneas de solicitudes del mismo pasajero.
+
+def _validate_passenger_schedule(
+    db: Session, request: TripRequest, trip: Trip | None
+) -> None:
+    if trip is None or not trip.direction:
+        return
+
     db.execute(select(User.id).where(User.id == request.passenger_id).with_for_update()).scalar_one()
-    trip = db.query(Trip).filter(Trip.id == request.trip_id).first()
-    if trip and trip.direction:
-        assigned = (
-            db.query(TripRequest.id)
-            .join(Trip, Trip.id == TripRequest.trip_id)
-            .filter(
-                TripRequest.passenger_id == request.passenger_id,
-                TripRequest.status == "accepted",
-                TripRequest.id != request.id,
-                Trip.departure_date == trip.departure_date,
-                Trip.direction == trip.direction,
-            )
-            .first()
+    assigned = (
+        db.query(TripRequest.id)
+        .join(Trip, Trip.id == TripRequest.trip_id)
+        .filter(
+            TripRequest.passenger_id == request.passenger_id,
+            TripRequest.status == "accepted",
+            TripRequest.id != request.id,
+            Trip.departure_date == trip.departure_date,
+            Trip.direction == trip.direction,
         )
-        if assigned:
-            db.rollback()
-            raise InvalidRequestStateError(
-                "El pasajero ya tiene un viaje aceptado para ese día y sentido"
-            )
+        .first()
+    )
+    if assigned:
+        db.rollback()
+        raise InvalidRequestStateError(
+            "El pasajero ya tiene un viaje aceptado para ese día y sentido"
+        )
 
+
+def _transition_to_accepted(db: Session, request: TripRequest) -> TripRequest:
+    request_id = request.id
     transitioned = db.execute(
         update(TripRequest)
         .where(TripRequest.id == request_id, TripRequest.status == "pending")
@@ -91,61 +93,58 @@ def accept_request(db: Session, request_id: int, driver_id: int | None = None) -
         if current.status == "accepted":
             return current
         raise InvalidRequestStateError()
+    return request
 
-    if not reserve_request_seats(db, request.trip_id, request.seat_count):
-        db.rollback()
-        raise NoSeatsToAcceptError(
-            "No hay suficientes cupos disponibles para aceptar el grupo completo"
-        )
 
-    # Cancelar alternativas del mismo día/sentido; viajes legados quedan intactos.
-    if trip and trip.direction:
-        cancelled_ids = db.execute(
-            update(TripRequest)
-            .where(
-                TripRequest.passenger_id == request.passenger_id,
-                TripRequest.status == "pending",
-                TripRequest.id != request.id,
-                TripRequest.trip_id.in_(
-                    select(Trip.id).where(
-                        Trip.departure_date == trip.departure_date,
-                        Trip.direction == trip.direction,
-                    )
-                ),
-            )
-            .values(status="cancelled")
-            .returning(TripRequest.id)
-            .execution_options(synchronize_session=False)
-        ).scalars().all()
-        if cancelled_ids:
-            db.execute(
-                delete(RequestStop).where(
-                    RequestStop.request_id.in_(cancelled_ids)
+def _cancel_alternative_requests(
+    db: Session, request: TripRequest, trip: Trip | None
+) -> None:
+    if trip is None or not trip.direction:
+        return
+
+    cancelled_ids = db.execute(
+        update(TripRequest)
+        .where(
+            TripRequest.passenger_id == request.passenger_id,
+            TripRequest.status == "pending",
+            TripRequest.id != request.id,
+            TripRequest.trip_id.in_(
+                select(Trip.id).where(
+                    Trip.departure_date == trip.departure_date,
+                    Trip.direction == trip.direction,
                 )
-            )
+            ),
+        )
+        .values(status="cancelled")
+        .returning(TripRequest.id)
+        .execution_options(synchronize_session=False)
+    ).scalars().all()
+    if cancelled_ids:
+        db.execute(delete(RequestStop).where(RequestStop.request_id.in_(cancelled_ids)))
 
-        reorder_accepted_stops(db, request.trip_id)
+    reorder_accepted_stops(db, request.trip_id)
 
-    db.commit()
+
+def _refresh_accepted_request(
+    db: Session, request: TripRequest, trip: Trip | None
+) -> None:
+    if trip is None or not trip.direction:
+        return
+
     try:
+        refresh_trip_route_and_stop_eta(db, request.trip_id)
         db.refresh(request)
-    except ObjectDeletedError as exc:
-        raise TripRequestNotFoundError() from exc
+    except Exception:
+        db.rollback()
+        logger.exception("No se pudo recalcular la ruta del viaje %s", request.trip_id)
 
-    if trip and trip.direction:
-        try:
-            refresh_trip_route_and_stop_eta(db, request.trip_id)
-            db.refresh(request)
-        except Exception:
-            db.rollback()
-            logger.exception("No se pudo recalcular la ruta del viaje %s", request.trip_id)
 
-    # Notificar al pasajero (best-effort, no bloquea el flujo)
+def _notify_request_accepted(db: Session, request: TripRequest) -> None:
     try:
         tokens = get_tokens_for_user(db, request.passenger_id)
         if tokens:
             send_push(
-                [t.device_token for t in tokens],
+                [token.device_token for token in tokens],
                 title="Solicitud aceptada",
                 body="El conductor ha aceptado tu solicitud de cupo.",
                 data={"trip_id": str(request.trip_id), "event": "request_accepted"},
@@ -154,6 +153,32 @@ def accept_request(db: Session, request_id: int, driver_id: int | None = None) -
     except Exception:
         pass
 
+
+def accept_request(db: Session, request_id: int, driver_id: int | None = None) -> TripRequest:
+    request = _validate_acceptance(db, request_id, driver_id)
+    if request.status == "accepted":
+        return request
+
+    trip = db.query(Trip).filter(Trip.id == request.trip_id).first()
+    _validate_passenger_schedule(db, request, trip)
+    request = _transition_to_accepted(db, request)
+    if not reserve_request_seats(db, request.trip_id, request.seat_count):
+        db.rollback()
+        raise NoSeatsToAcceptError(
+            "No hay suficientes cupos disponibles para aceptar el grupo completo"
+        )
+
+    _cancel_alternative_requests(db, request, trip)
+    db.commit()
+    try:
+        db.refresh(request)
+    except ObjectDeletedError as exc:
+        raise TripRequestNotFoundError() from exc
+    except InvalidRequestError as exc:
+        raise TripRequestNotFoundError() from exc
+
+    _refresh_accepted_request(db, request, trip)
+    _notify_request_accepted(db, request)
     return request
 
 
@@ -200,6 +225,8 @@ def reject_request(db: Session, request_id: int, driver_id: int | None = None) -
     try:
         db.refresh(request)
     except ObjectDeletedError as exc:
+        raise TripRequestNotFoundError() from exc
+    except InvalidRequestError as exc:
         raise TripRequestNotFoundError() from exc
 
     # Notificar al pasajero (best-effort, no bloquea el flujo)
