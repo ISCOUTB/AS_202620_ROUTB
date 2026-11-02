@@ -47,3 +47,6 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Caché local del generador de coordenadas de barrios
+/tool/neighborhoods_cache.json

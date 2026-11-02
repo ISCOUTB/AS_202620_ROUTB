@@ -36,40 +36,104 @@ void main() {
       expect(Zones.campus.isCampus, isTrue);
     });
 
-    test('los ocho barrios del diseño están con sus minutos', () {
+    test('conserva los barrios históricos del diseño con sus minutos', () {
+      const legacy = <String>[
+        'Centro',
+        'Manga',
+        'Bocagrande',
+        'Getsemaní',
+        'Crespo',
+        'El Bosque',
+        'La Popa',
+        'Turbaco',
+      ];
+      for (final name in legacy) {
+        final zone = Zones.neighborhoods.firstWhere(
+          (item) => item.name == name,
+          orElse: () => throw StateError('Falta $name del catálogo'),
+        );
+        expect(zone.minutes, greaterThan(0), reason: '$name minutos');
+        expect(zone.isCampus, isFalse, reason: name);
+      }
+    });
+
+    test('la lista del menú no repite nombres y cubre la base ampliada', () {
+      expect(Zones.neighborhoodNames.length, greaterThanOrEqualTo(120));
+      final normalized = Zones.neighborhoodNames.map(Zones.normalize).toList();
+      expect(normalized.toSet().length, normalized.length);
+      expect(Zones.neighborhoodNames, contains('La Boquilla'));
+      expect(Zones.neighborhoodNames, contains('El Pozón'));
+      expect(Zones.neighborhoodNames, contains('Tierrabomba'));
+      expect(Zones.neighborhoodNames, contains('Pontezuela'));
+    });
+
+    test('el filtro pone primero los nombres que empiezan por el texto', () {
+      final filtered = Zones.filterNeighborhoodNames('m');
+      expect(filtered.take(4).toList(), <String>[
+        'Manga',
+        'Manzanillo del Mar',
+        'Marbella',
+        'Membrillal',
+      ]);
+      expect(filtered.indexOf('Manga'), lessThan(filtered.indexOf('La María')));
       expect(
-        Zones.neighborhoods.map((zone) => zone.name),
-        <String>[
-          'Centro',
-          'Manga',
-          'Bocagrande',
-          'Getsemaní',
-          'Crespo',
-          'El Bosque',
-          'La Popa',
-          'Turbaco',
-        ],
-      );
-      expect(
-        Zones.neighborhoods.map((zone) => zone.minutes),
-        <int>[25, 22, 30, 26, 28, 18, 24, 20],
+        filtered.indexOf('La María'),
+        lessThan(filtered.indexOf('Almirante Colón')),
       );
     });
 
-    test('todo el catálogo tiene coordenadas de Cartagena', () {
+    test(
+      'el filtro no devuelve todo el catálogo cuando no hay coincidencias',
+      () {
+        expect(Zones.filterNeighborhoodNames('zzzz'), isEmpty);
+        expect(
+          Zones.filterNeighborhoodNames(
+            '',
+            hidden: {'Manga'},
+          ).contains('Manga'),
+          isFalse,
+        );
+      },
+    );
+
+    test('todo el catálogo resuelto tiene coordenadas de Cartagena', () {
       for (final zone in Zones.all) {
         expect(zone.latitude, greaterThan(9.5), reason: '${zone.name} latitud');
         expect(zone.latitude, lessThan(11.0), reason: '${zone.name} latitud');
-        expect(zone.longitude, greaterThan(-76.0), reason: '${zone.name} longitud');
-        expect(zone.longitude, lessThan(-75.0), reason: '${zone.name} longitud');
+        expect(
+          zone.longitude,
+          greaterThan(-76.0),
+          reason: '${zone.name} longitud',
+        );
+        expect(
+          zone.longitude,
+          lessThan(-75.0),
+          reason: '${zone.name} longitud',
+        );
       }
 
-      // La universidad es el extremo fijo, así que no aporta minutos; los
-      // barrios sí, y son los que alimentan la hora de llegada estimada.
       for (final zone in Zones.neighborhoods) {
         expect(zone.minutes, greaterThan(0), reason: '${zone.name} minutos');
         expect(zone.isCampus, isFalse, reason: zone.name);
       }
+    });
+
+    test('un barrio nuevo se registra con su coordenada de la fuente', () {
+      const resolved = Zone(
+        name: 'Barrio de prueba',
+        minutes: 30,
+        latitude: 10.4,
+        longitude: -75.5,
+      );
+      expect(Zones.byName('Barrio de prueba'), isNull);
+
+      Zones.registerResolvedZone(resolved);
+      expect(Zones.byName('Barrio de prueba')?.latitude, 10.4);
+      expect(Zones.byName('barrio de prueba')?.name, 'Barrio de prueba');
+      expect(
+        Zones.neighborhoods.any((zone) => zone.name == 'Barrio de prueba'),
+        isTrue,
+      );
     });
 
     test('el punto de la universidad se puede leer como LatLng', () {

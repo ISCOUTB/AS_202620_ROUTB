@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
@@ -66,6 +68,7 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
 
   List<GeocodeResult> _remoteSuggestions = const [];
   bool _isLoading = false;
+  bool _isResolvingNeighborhood = false;
   bool _isLocating = false;
   bool _showMap = false;
   bool _showDropdown = false;
@@ -74,6 +77,13 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
   String? _selectedAddress;
   bool _hasSelection = false;
   int _searchEpoch = 0;
+  Timer? _searchDebounce;
+  Completer<void>? _activeSearch;
+  final Set<String> _hiddenNeighborhoods = <String>{};
+  final Map<String, List<GeocodeResult>> _suggestionCache =
+      <String, List<GeocodeResult>>{};
+
+  static const Duration _debounceDelay = Duration(milliseconds: 350);
 
   static const LatLng _defaultCenter = LatLng(10.371078, -75.466261);
 
@@ -101,9 +111,19 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
+    _activeSearch?.complete();
     _focusNode.dispose();
     _queryController.dispose();
     super.dispose();
+  }
+
+  void _cancelSearches() {
+    _searchDebounce?.cancel();
+    _searchDebounce = null;
+    final active = _activeSearch;
+    if (active != null && !active.isCompleted) active.complete();
+    _activeSearch = null;
   }
 
   void _notifyChange() {
@@ -120,6 +140,7 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
   }
 
   void _selectZone(Zone zone) {
+    _cancelSearches();
     final point = LatLng(zone.latitude, zone.longitude);
     setState(() {
       _pinnedPoint = point;
@@ -127,6 +148,7 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
       _queryController.text = '${zone.name}, Cartagena';
       _hasSelection = true;
       _showDropdown = false;
+      _isResolvingNeighborhood = false;
       _errorMessage = null;
     });
     _focusNode.unfocus();
@@ -134,7 +156,70 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
     _moveMapIfReady(point, 15.0);
   }
 
+  /// Confirma un barrio del menú. Si todavía no tiene coordenada verificada,
+  /// la pide al geocodificador y, solo si la encuentra, lo registra.
+  Future<void> _selectNeighborhood(String name) async {
+    if (_isResolvingNeighborhood) return;
+
+    final zone = Zones.byName(name);
+    if (zone != null && !zone.isCampus) {
+      _selectZone(zone);
+      return;
+    }
+
+    if (!_googleMaps.hasApiKey) {
+      setState(() {
+        _isResolvingNeighborhood = false;
+        _showDropdown = true;
+        _errorMessage =
+            'No se pudo ubicar «$name». Configura la clave de Google Maps '
+            'para validar el barrio.';
+      });
+      return;
+    }
+
+    _cancelSearches();
+    setState(() {
+      _isResolvingNeighborhood = true;
+      _showDropdown = true;
+      _errorMessage = null;
+    });
+
+    LatLng? point;
+    try {
+      point = await _googleMaps.geocodeAddress(
+        '$name, Cartagena de Indias, Bolívar, Colombia',
+      );
+    } on Object {
+      point = null;
+    }
+
+    if (!mounted) return;
+    if (point == null ||
+        !Zones.isInsideCartagena(point.latitude, point.longitude)) {
+      setState(() {
+        _isResolvingNeighborhood = false;
+        _hiddenNeighborhoods.add(name);
+        _errorMessage =
+            'No se encontró «$name» en el mapa. Se ocultó del menú.';
+      });
+      return;
+    }
+
+    final resolved = Zone(
+      name: name,
+      minutes: Zones.estimateMinutes(point.latitude, point.longitude),
+      latitude: point.latitude,
+      longitude: point.longitude,
+    );
+    Zones.registerResolvedZone(resolved);
+    if (!mounted) return;
+    setState(() => _isResolvingNeighborhood = false);
+    _selectZone(resolved);
+  }
+
   void _selectGeocodeResult(GeocodeResult result) {
+    _cancelSearches();
     final point = LatLng(result.lat, result.lng);
     setState(() {
       _pinnedPoint = point;
@@ -143,6 +228,7 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
       _hasSelection = true;
       _showDropdown = false;
       _remoteSuggestions = const [];
+      _isResolvingNeighborhood = false;
       _errorMessage = null;
     });
     _focusNode.unfocus();
@@ -161,6 +247,7 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
 
   void _onQueryChanged(String query) {
     _searchEpoch++;
+    _cancelSearches();
     final clean = query.trim();
     final selectedAddress = _selectedAddress?.trim();
     final invalidatesLocation = _hasSelection && selectedAddress != clean;
@@ -168,6 +255,7 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
     setState(() {
       _showDropdown = true;
       _remoteSuggestions = const [];
+      _isResolvingNeighborhood = false;
       _errorMessage = null;
       if (invalidatesLocation) {
         _hasSelection = false;
@@ -177,6 +265,10 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
 
     if (invalidatesLocation) {
       widget.onLocationCleared?.call();
+    }
+
+    if (clean.length >= 2 && _googleMaps.hasApiKey) {
+      _searchDebounce = Timer(_debounceDelay, () => _searchRemote(clean));
     }
   }
 
@@ -270,9 +362,40 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
     );
   }
 
+  /// Búsqueda inmediata desde el botón o el teclado. No confirma nada por sí
+  /// sola: solo deja las opciones visibles para que la persona elija.
   Future<void> _search() async {
+    _searchDebounce?.cancel();
     final query = _queryController.text.trim();
-    if (query.length < 2) return;
+    if (query.length < 2) {
+      setState(() {
+        _showDropdown = true;
+        _remoteSuggestions = const [];
+        _errorMessage = null;
+      });
+      return;
+    }
+    await _searchRemote(query);
+  }
+
+  Future<void> _searchRemote(String query) async {
+    final normalized = Zones.normalize(query);
+    if (normalized.isEmpty) return;
+
+    final cached = _suggestionCache[normalized];
+    if (cached != null) {
+      if (!mounted) return;
+      setState(() {
+        _remoteSuggestions = cached;
+        _isLoading = false;
+        _showDropdown = true;
+      });
+      return;
+    }
+
+    _cancelSearches();
+    final abort = Completer<void>();
+    _activeSearch = abort;
     final epoch = ++_searchEpoch;
 
     setState(() {
@@ -282,79 +405,61 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
     });
 
     try {
-      List<GeocodeResult> googleResults = const [];
-      try {
-        final suggestions = await _googleMaps.autocomplete(query);
-        if (suggestions.isNotEmpty) {
-          final detailsList = await Future.wait(
-            suggestions
-                .take(5)
-                .map((s) => _googleMaps.getPlaceDetails(s.placeId)),
-          );
-          googleResults = [
-            for (final d in detailsList)
-              if (d != null)
-                GeocodeResult(
-                  lat: d.location.latitude,
-                  lng: d.location.longitude,
-                  displayName: d.formattedAddress,
-                  source: 'google',
-                ),
-          ];
-        }
-      } catch (_) {}
+      final suggestions = await _googleMaps.autocomplete(
+        query,
+        abortTrigger: abort.future,
+      );
+      if (!mounted || epoch != _searchEpoch) return;
 
-      final results = googleResults;
-      if (mounted && epoch == _searchEpoch) {
-        setState(() {
-          _isLoading = false;
-          _remoteSuggestions = results;
-          if (results.isNotEmpty) {
-            final first = results.first;
-            _pinnedPoint = LatLng(first.lat, first.lng);
-            _selectedAddress = first.displayName;
-            _hasSelection = true;
-            _queryController.text = first.displayName;
-          } else {
-            final z = Zones.byName(query);
-            if (z != null) {
-              _pinnedPoint = LatLng(z.latitude, z.longitude);
-              _selectedAddress = '${z.name}, Cartagena';
-              _hasSelection = true;
-            }
-          }
-        });
-        if (results.isNotEmpty || _hasSelection) {
-          _moveMapIfReady(_pinnedPoint!, 15.0);
-          _notifyChange();
-        }
-      }
-    } on Exception catch (error) {
-      if (mounted && epoch == _searchEpoch) {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = error.toString();
-        });
-      }
+      final detailsList = await Future.wait(
+        suggestions
+            .take(5)
+            .map(
+              (s) => _googleMaps.getPlaceDetails(
+                s.placeId,
+                abortTrigger: abort.future,
+              ),
+            ),
+      );
+      if (!mounted || epoch != _searchEpoch) return;
+
+      final results = <GeocodeResult>[
+        for (final details in detailsList)
+          if (details != null)
+            GeocodeResult(
+              lat: details.location.latitude,
+              lng: details.location.longitude,
+              displayName: details.formattedAddress,
+              source: 'google',
+            ),
+      ];
+
+      if (abort.isCompleted) return;
+      _suggestionCache[normalized] = results;
+      setState(() {
+        _isLoading = false;
+        _remoteSuggestions = results;
+        _activeSearch = null;
+      });
+    } on Object catch (error) {
+      if (!mounted || epoch != _searchEpoch) return;
+      setState(() {
+        _isLoading = false;
+        _errorMessage = error.toString();
+        _activeSearch = null;
+      });
     }
   }
 
-  List<Zone> _getFilteredZones() {
-    final query = _queryController.text.trim().toLowerCase();
-    if (query.isEmpty) {
-      return Zones.neighborhoods;
-    }
-    final filtered = Zones.neighborhoods.where((zone) {
-      return zone.name.toLowerCase().contains(query);
-    }).toList();
-
-    return filtered.isNotEmpty ? filtered : Zones.neighborhoods;
-  }
+  List<String> _filteredNeighborhoods() => Zones.filterNeighborhoodNames(
+    _queryController.text,
+    hidden: _hiddenNeighborhoods,
+  );
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final filteredZones = _getFilteredZones();
+    final filteredNeighborhoods = _filteredNeighborhoods();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -422,6 +527,11 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
                       child: TextField(
                         controller: _queryController,
                         focusNode: _focusNode,
+                        onTap: () {
+                          if (!_showDropdown) {
+                            setState(() => _showDropdown = true);
+                          }
+                        },
                         onChanged: _onQueryChanged,
                         onSubmitted: (_) {
                           _search();
@@ -555,19 +665,55 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
                   shrinkWrap: true,
                   padding: const EdgeInsets.symmetric(vertical: 4),
                   children: [
-                    // Sugerencias remotas (si hubo búsqueda)
-                    if (_remoteSuggestions.isNotEmpty) ...[
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(14, 8, 14, 4),
-                        child: Text(
-                          'Resultados encontrados',
-                          style: RoutbText.copy(
-                            11,
-                            color: palette.muted,
-                            weight: FontWeight.w700,
-                          ),
-                        ),
+                    // Estado de la consulta remota o de la ubicación elegida.
+                    if (_isLoading || _isResolvingNeighborhood)
+                      const _DropdownStatus(
+                        label: 'Buscando...',
+                        loading: true,
                       ),
+
+                    // Barrios locales, con los que empiezan por el texto
+                    // escrito siempre primero.
+                    if (filteredNeighborhoods.isNotEmpty) ...[
+                      const _DropdownHeader(label: 'Barrios de Cartagena'),
+                      for (final name in filteredNeighborhoods)
+                        ListTile(
+                          dense: true,
+                          leading: Icon(
+                            Icons.location_on_outlined,
+                            color: palette.brand,
+                            size: 20,
+                          ),
+                          title: Text(
+                            name,
+                            style: RoutbText.copy(
+                              14,
+                              color: palette.ink,
+                              weight: FontWeight.w500,
+                            ),
+                          ),
+                          subtitle: Text(
+                            'Cartagena de Indias',
+                            style: RoutbText.copy(11, color: palette.muted),
+                          ),
+                          trailing: _isResolvingNeighborhood
+                              ? null
+                              : Icon(
+                                  Icons.north_west_rounded,
+                                  size: 14,
+                                  color: palette.muted,
+                                ),
+                          onTap: _isResolvingNeighborhood
+                              ? null
+                              : () => _selectNeighborhood(name),
+                        ),
+                    ],
+
+                    // Sugerencias remotas de direcciones exactas.
+                    if (_remoteSuggestions.isNotEmpty) ...[
+                      if (filteredNeighborhoods.isNotEmpty)
+                        const Divider(height: 1),
+                      const _DropdownHeader(label: 'Resultados encontrados'),
                       for (final item in _remoteSuggestions)
                         ListTile(
                           dense: true,
@@ -588,46 +734,15 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
                           ),
                           onTap: () => _selectGeocodeResult(item),
                         ),
-                      const Divider(height: 1),
                     ],
 
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(14, 8, 14, 4),
-                      child: Text(
-                        'Opciones en Cartagena',
-                        style: RoutbText.copy(
-                          11,
-                          color: palette.muted,
-                          weight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    for (final zone in filteredZones)
-                      ListTile(
-                        dense: true,
-                        leading: Icon(
-                          Icons.location_on_outlined,
-                          color: palette.brand,
-                          size: 20,
-                        ),
-                        title: Text(
-                          zone.name,
-                          style: RoutbText.copy(
-                            14,
-                            color: palette.ink,
-                            weight: FontWeight.w500,
-                          ),
-                        ),
-                        subtitle: Text(
-                          'Cartagena de Indias',
-                          style: RoutbText.copy(11, color: palette.muted),
-                        ),
-                        trailing: Icon(
-                          Icons.north_west_rounded,
-                          size: 14,
-                          color: palette.muted,
-                        ),
-                        onTap: () => _selectZone(zone),
+                    if (!_isLoading &&
+                        !_isResolvingNeighborhood &&
+                        filteredNeighborhoods.isEmpty &&
+                        _remoteSuggestions.isEmpty)
+                      const _DropdownStatus(
+                        label: 'Sin resultados',
+                        loading: false,
                       ),
 
                     const Divider(height: 1),
@@ -836,6 +951,71 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
           ),
         ],
       ],
+    );
+  }
+}
+
+/// Encabezado de una sección del menú de ubicación.
+class _DropdownHeader extends StatelessWidget {
+  const _DropdownHeader({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 4),
+      child: Text(
+        label,
+        style: RoutbText.copy(
+          11,
+          color: palette.muted,
+          weight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+/// Fila de estado del menú: «Buscando...» o «Sin resultados».
+class _DropdownStatus extends StatelessWidget {
+  const _DropdownStatus({required this.label, required this.loading});
+
+  final String label;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (loading) ...[
+            SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: palette.brand,
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+          Text(
+            label,
+            style: RoutbText.copy(
+              12,
+              color: palette.muted,
+              weight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
