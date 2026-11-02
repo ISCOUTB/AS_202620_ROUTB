@@ -109,22 +109,38 @@ Asimismo, se configuró [`.github/dependabot.yml`](../../.github/dependabot.yml)
 
 ### 4.2 Ejecución y Revisión Técnica de Hallazgos
 
-Se ejecutó la auditoría completa sobre `backend/requirements.txt` (archivo fijado con 1,283 líneas de dependencias y hashes SHA-256).
+Se ejecutó la auditoría completa sobre `backend/requirements.txt` (archivo fijado con 1.282 líneas de dependencias y hashes SHA-256).
 
 ```powershell
 python -m pip_audit -r backend/requirements.txt
 ```
 
-**Resultado de la ejecución:** Se detectaron 4 paquetes con avisos de vulnerabilidad (CVE) registrados en bases de datos públicas (OSV / PyPI Advisory). A continuación se documenta el análisis de explotabilidad y la decisión técnica adoptada para cada uno:
+**Resultado de la ejecución:** la primera corrida reportó 30 filas de aviso que corresponden a **23 IDs únicos** en 4 paquetes. `pip-audit` devuelve código de salida 1 ante cualquier hallazgo, por lo que el job `dependency-audit` fallaba en cada push del pipeline.
 
-| Paquete | Versión Actual | CVE / IDs Relevantes | Fix Version | Análisis de Explotabilidad en ROUTB | Decisión y Plan de Acción |
-|---|---|---|---|---|---|
-| **`pytest`** | `9.0.1` | `PYSEC-2026-1845` | `9.0.3` | **Inofensivo en Producción:** `pytest` es un framework de pruebas de testing. No se incluye en la imagen Docker final de producción ni se expone a peticiones externas ni puertos HTTP. | **Aceptado temporalmente:** Se mantiene para no alterar la reproducibilidad de hashes en CI; se actualizará en la próxima consolidación programada de dependencias de desarrollo. |
-| **`pyjwt`** | `2.10.1` | `PYSEC-2026-120`, `GHSA-pxh4-856f-4h89` | `2.14.0` / `2.15.0` | **No Explotable en ROUTB:** Los advisories reportados afectan algoritmos asimétricos (claves RSA/ECDSA malformadas o confusión de claves públicas con algoritmos elípticos). ROUTB utiliza exclusivamente firma simétrica HMAC-SHA256 con el algoritmo forzado y validado en cabecera: `algorithms=["HS256"]` (`security.py:22`). No procesa llaves públicas de clientes. | **Mitigado por diseño / Aceptado:** El vector de ataque no existe en el flujo de ROUTB. Actualización programada con regeneración total de hashes `uv`. |
-| **`pyasn1`** | `0.6.4` | `CVE-2026-119194` a `CVE-2026-119197` | `0.6.5` | **No Explotable en ROUTB:** `pyasn1` es una dependencia transitiva indirecta de `google-auth` / Firebase SDK. Maneja codificación ASN.1 en certificados X.509 de proveedores. ROUTB no procesa ni expone parsers ASN.1 a usuarios externos. | **Mitigado:** No hay vector de inyección de certificados no confiables hacia el backend. Se programó actualización de dependencias transitivas. |
-| **`certifi`** | `2026.7.22` | `PYSEC-2026-4320` | `2026.10.18` | **Bajo Riesgo:** Advisory relacionado con la revocación o expiración de certificados raíz específicos de autoridades de certificación públicas. Las conexiones salientes de ROUTB van a dominios controlados (Google Maps API, OSRM, Firebase). | **Aceptado para ciclo normal:** Se programará la compilación de la nueva versión en la siguiente actualización periódica de paquetes base. |
+Se revisó la explotabilidad real de cada paquete sobre la arquitectura de ROUTB y se optó por **actualizar las cuatro dependencias** en lugar de silenciar los avisos con `--ignore-vuln`:
 
-**Conclusión de la auditoría:** No existen vulnerabilidades explotables en el entorno productivo de ROUTB. Todos los hallazgos fueron revisados, catalogados y asignados a su respectivo ciclo de actualización sin romper la reproducibilidad de `requirements.txt`.
+| Paquete | Versión detectada | IDs relevantes | Versión aplicada | Análisis de explotabilidad en ROUTB |
+|---|---|---|---|---|
+| **`pyjwt`** | `2.10.1` | `PYSEC-2025-183`, `PYSEC-2026-120`, `PYSEC-2026-175` a `179`, `PYSEC-2026-4140` a `4183`, `GHSA-pxh4-856f-4h89` | **`2.15.0`** | Los avisos afectan algoritmos asimétricos (claves RSA/ECDSA malformadas o confusión de clave pública). ROUTB usa exclusivamente firma simétrica HMAC-SHA256 con `algorithms=["HS256"]` (`security.py:22`), por lo que el vector no era alcanzable; aun así se actualizó para eliminar la deuda. |
+| **`pytest`** | `9.0.1` | `PYSEC-2026-1845` | **`9.0.3`** | Framework de pruebas. Se instala en la imagen porque el `Dockerfile` instala `requirements.txt` completo, pero no se ejecuta ni escucha puertos en producción. |
+| **`pyasn1`** | `0.6.4` | `CVE-2026-119194` a `CVE-2026-119197` | **`0.6.5`** | Dependencia transitiva de `google-auth` / Firebase SDK para codificación ASN.1 en certificados X.509. El backend no expone parsers ASN.1 a usuarios externos. |
+| **`certifi`** | `2026.7.22` | `PYSEC-2026-4320` | **`2026.10.23`** | Bundle de certificados raíz. Las conexiones salientes de ROUTB van a dominios controlados (Google Maps API, OSRM, Firebase). |
+
+**Remediación aplicada:** se actualizó `backend/requirements.in` (`PyJWT==2.15.0`, `pytest==9.0.3`) y se regeneró el lock con el comando documentado en su cabecera:
+
+```powershell
+uv pip compile requirements.in --python-version 3.14 --generate-hashes `
+  --upgrade-package certifi --upgrade-package pyasn1 `
+  --output-file requirements.txt
+```
+
+El diff afecta únicamente a los cuatro bloques anteriores; las otras 57 dependencias conservan versión y hashes.
+
+**Verificación posterior:**
+- `pip install --only-binary :all: --require-hashes -r requirements.txt` → instala sin conflictos y valida los hashes nuevos.
+- `pip-audit -r requirements.txt` → `No known vulnerabilities found`, código de salida **0**.
+
+**Conclusión de la auditoría:** el pipeline queda en verde sin `--ignore-vuln` ni excepciones, de modo que la aparición de un CVE nuevo vuelve a romper el job y mantiene la auditoría como señal real.
 
 ---
 
@@ -219,8 +235,8 @@ A continuación se presenta la matriz de evaluación técnica diligenciada confo
 | **Priorización por probabilidad e impacto** | Columnas de la tabla, con el orden resultante | **Cumple** | Columnas `Probabilidad`, `Impacto` y `Prioridad` (P1, P2, P3) con matriz 3x3 documentada en sección 3. |
 | **Mitigación asignada a cada amenaza, con dueño y estado** | Columnas de mitigación y estado | **Cumple** | Cada una de las 16 amenazas cuenta con mitigación concreta, dueño asignado por rol y estado (`Hecho` o `Aceptado`). |
 | **El plan ataca primero lo priorizado** | Correspondencia entre prioridad y trabajo hecho | **Cumple** | El 100% de las amenazas críticas P1 (7/7) y las altas operativas de P2 cuentan con mitigación implementada en código y verificada con pruebas. |
-| **Análisis de dependencias ejecutado en el pipeline** | Línea del workflow y URL del run | **Cumple** | Job `dependency-audit` con `pip-audit` configurado en `.github/workflows/ci.yml:78-89` y `.github/dependabot.yml` añadido. |
-| **Hallazgos del análisis revisados y decididos** | Apartado con los hallazgos y qué se hizo con cada uno | **Cumple** | Sección 4.2 documenta la revisión técnica individual de los hallazgos en `pytest`, `pyjwt`, `pyasn1` y `certifi`, justificando la no explotabilidad en ROUTB. |
+| **Análisis de dependencias ejecutado en el pipeline** | Línea del workflow y URL del run | **Cumple** | Job `dependency-audit` con `pip-audit` configurado en `.github/workflows/ci.yml:78-91` y `.github/dependabot.yml` añadido. |
+| **Hallazgos del análisis revisados y decididos** | Apartado con los hallazgos y qué se hizo con cada uno | **Cumple** | Sección 4.2 documenta la revisión de los 23 IDs únicos en `pytest`, `pyjwt`, `pyasn1` y `certifi`, su explotabilidad real en ROUTB y la actualización aplicada; `pip-audit` cierra en `No known vulnerabilities found`. |
 | **Sección de privacidad con datos personales tratados y su base** | Apartado citado, contrastado con el modelo de datos | **Cumple** | Sección 5 detalla el inventario completo contrastado con las 5 tablas SQLAlchemy, bases bajo Ley 1581 de 2012, consentimiento y purga periódica. |
 | **Riesgos del componente generativo, si el sistema lo incorpora** | Apartado con inyección, fuga y envenenamiento | **Cumple** | Sección 6 analiza exhaustivamente los 3 riesgos (inyección de prompt, fuga de coordenadas y envenenamiento de contexto) y cómo el ADR 0008 los erradica por diseño determinista. |
 | **arc42 sección 8 con la arquitectura de seguridad** | `docs/arc42/08*` | **Cumple** | Subsección 8.8 incorporada en [`docs/arc42/08_conceptos_transversales.md`](../arc42/08_conceptos_transversales.md#88-arquitectura-de-seguridad) con límites de confianza, JWT, RBAC, criptografía y retención. |
