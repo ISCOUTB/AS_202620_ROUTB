@@ -139,6 +139,7 @@ El diff afecta únicamente a los cuatro bloques anteriores; las otras 57 depende
 **Verificación posterior:**
 - `pip install --only-binary :all: --require-hashes -r requirements.txt` → instala sin conflictos y valida los hashes nuevos.
 - `pip-audit -r requirements.txt` → `No known vulnerabilities found`, código de salida **0**.
+- Suite completa del backend (`pytest -q`): **107 pruebas aprobadas**, 0 fallos.
 
 **Conclusión de la auditoría:** el pipeline queda en verde sin `--ignore-vuln` ni excepciones, de modo que la aparición de un CVE nuevo vuelve a romper el job y mantiene la auditoría como señal real.
 
