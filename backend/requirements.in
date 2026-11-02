@@ -1,6 +1,6 @@
 alembic==1.19.2
 bcrypt==5.0.0
-fastapi==0.141.1
+fastapi==0.162.0
 httpx==0.28.1
 psycopg2-binary==2.9.13
 pydantic==2.13.5
