@@ -78,15 +78,16 @@ def _validate_passenger_schedule(
 
 
 def _transition_to_accepted(db: Session, request: TripRequest) -> TripRequest:
+    request_id = request.id
     transitioned = db.execute(
         update(TripRequest)
-        .where(TripRequest.id == request.id, TripRequest.status == "pending")
+        .where(TripRequest.id == request_id, TripRequest.status == "pending")
         .values(status="accepted")
         .execution_options(synchronize_session=False)
     )
     if transitioned.rowcount != 1:
         db.rollback()
-        current = db.get(TripRequest, request.id)
+        current = db.get(TripRequest, request_id)
         if current is None:
             raise TripRequestNotFoundError()
         if current.status == "accepted":
