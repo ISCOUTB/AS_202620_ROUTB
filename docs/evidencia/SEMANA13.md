@@ -12,8 +12,8 @@ Asimismo, se evaluaron formalmente los riesgos asociados a componentes de **inte
 
 | Parámetro | Valor |
 |---|---|
-| **Hash de referencia** | `e6283a5` (cierre de la verificación de Semana 13) |
-| **Fecha de corte** | 2026-11-01 23:25:59 -0500 |
+| **Hash de referencia** | `26edc05` (HEAD de `Changes` al cierre de esta revisión) |
+| **Fecha de corte** | 2026-11-01 23:37:05 -0500 |
 | **Rama de trabajo** | `Changes` |
 | **Entorno verificado** | Python 3.14.6 (`backend/.venv`), Flutter 3.24+, PostgreSQL 16 + PostGIS |
 
@@ -99,7 +99,7 @@ En cumplimiento del [ADR 0023](../adr/0023-estrategia-de-seguridad-stride-y-audi
         with:
           python-version: "3.14"
       - name: Install pip-audit
-        run: pip install pip-audit==2.9.0
+        run: "pip install --only-binary=:all: pip-audit==2.9.0"
       - name: Run pip-audit vulnerability scan
         working-directory: backend
         run: pip-audit -r requirements.txt
