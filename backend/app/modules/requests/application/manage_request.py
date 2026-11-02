@@ -3,6 +3,7 @@ import logging
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import InvalidRequestError
+from sqlalchemy.orm.exc import ObjectDeletedError
 from app.modules.notifications.application.manage_device_token import get_tokens_for_user
 from app.modules.notifications.application.send_notification import send_push
 from app.modules.requests.domain.exceptions import (
@@ -170,6 +171,8 @@ def accept_request(db: Session, request_id: int, driver_id: int | None = None) -
     db.commit()
     try:
         db.refresh(request)
+    except ObjectDeletedError as exc:
+        raise TripRequestNotFoundError() from exc
     except InvalidRequestError as exc:
         raise TripRequestNotFoundError() from exc
 
@@ -220,6 +223,8 @@ def reject_request(db: Session, request_id: int, driver_id: int | None = None) -
     db.commit()
     try:
         db.refresh(request)
+    except ObjectDeletedError as exc:
+        raise TripRequestNotFoundError() from exc
     except InvalidRequestError as exc:
         raise TripRequestNotFoundError() from exc
 
