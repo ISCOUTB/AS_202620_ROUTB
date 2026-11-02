@@ -28,35 +28,26 @@ from app.modules.trips.application import (
 logger = logging.getLogger(__name__)
 
 
-def _load_request(db: Session, request_id: int) -> TripRequest:
-    request = (
-        db.query(TripRequest)
-        .options(joinedload(TripRequest.trip))
-        .filter(TripRequest.id == request_id)
-        .first()
-    )
-    if not request:
-        raise TripRequestNotFoundError()
-    return request
-
-
 def _validate_acceptance(
-    db: Session, request: TripRequest, request_id: int, driver_id: int | None
+    db: Session, request_id: int, driver_id: int | None
 ) -> TripRequest:
-    expire_stale_requests(db, request_id=request_id)
-    request = db.get(TripRequest, request_id)
-    if request is None:
+    if db.get(TripRequest, request_id) is None:
         raise TripRequestNotFoundError()
-    if request.status == "expired":
+
+    expire_stale_requests(db, request_id=request_id)
+    refreshed_request = db.get(TripRequest, request_id)
+    if refreshed_request is None:
+        raise TripRequestNotFoundError()
+    if refreshed_request.status == "expired":
         raise RequestExpiredError()
 
-    if driver_id is not None and request.trip.driver_id != driver_id:
+    if driver_id is not None and refreshed_request.trip.driver_id != driver_id:
         raise UnauthorizedRequestActionError("No tienes permiso para gestionar esta solicitud")
-    if request.status == "accepted":
-        return request
-    if request.status != "pending":
+    if refreshed_request.status == "accepted":
+        return refreshed_request
+    if refreshed_request.status != "pending":
         raise InvalidRequestStateError("Solo se pueden aceptar solicitudes pendientes")
-    return request
+    return refreshed_request
 
 
 def _validate_passenger_schedule(
@@ -162,8 +153,7 @@ def _notify_request_accepted(db: Session, request: TripRequest) -> None:
 
 
 def accept_request(db: Session, request_id: int, driver_id: int | None = None) -> TripRequest:
-    request = _load_request(db, request_id)
-    request = _validate_acceptance(db, request, request_id, driver_id)
+    request = _validate_acceptance(db, request_id, driver_id)
     if request.status == "accepted":
         return request
 
