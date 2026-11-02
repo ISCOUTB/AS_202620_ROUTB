@@ -203,3 +203,95 @@ flowchart TD
 - El camino de mapas del cliente (azul) usa Google Maps con caché en memoria de la sesión; no pasa por el backend.
 - El camino de solicitudes/cupos (verde) va directo a la base de datos con garantía ACID; **no existe caché intermedia**.
 - El camino de rutas del backend (azul) usa `route_cache` con TTL de 24 h y descarta los resultados degradados antes del upsert.
+
+
+---
+
+## 8.8 Arquitectura de seguridad
+
+La arquitectura de seguridad de ROUTB implementa el principio de defensa en profundidad (*defense in depth*) y el principio de mínimo privilegio en todas las capas del monolito modular y sus fronteras externas, integrando los controles derivados del modelado de amenazas STRIDE ([ADR 0023](../adr/0023-estrategia-de-seguridad-stride-y-auditoria-de-dependencias.md)).
+
+### 8.8.1 Límites de confianza y fronteras de seguridad (Trust Boundaries)
+
+El sistema define cuatro zonas de confianza delimitadas a partir del diagrama C4 ([`docs/c4/context.md`](../c4/context.md)):
+
+```mermaid
+flowchart TD
+    subgraph TB_EXT["Zona No Confiable: Internet / Clientes"]
+        APP["Aplicación Móvil Flutter\n(Dispositivo del Estudiante)"]
+        PUB_NET["Red Pública / Operadores Móviles"]
+    end
+
+    subgraph TB_DMZ["Frontera Perimetral: Red Perimetral Dokploy"]
+        TRAEFIK["Proxy Inverso / Terminación TLS\n(Certificados Let's Encrypt / HSTS)"]
+    end
+
+    subgraph TB_BACKEND["Zona de Confianza de Aplicación: Red Privada de Contenedores"]
+        API["Backend FastAPI (Monolito Modular)\n• Middleware Logging\n• Validador Pydantic V2\n• Módulo Auth & JWT Verification"]
+    end
+
+    subgraph TB_DATA["Zona de Persistencia Aislada"]
+        DB[("PostgreSQL 16 + PostGIS\n• Tablas users, trips, requests\n• Función purge_location_data()")]
+    end
+
+    subgraph TB_THIRD_PARTY["Servicios Externos de Terceros (Frontera Egress)"]
+        GOOGLE["Google Maps Platform\n(Geocoding / Places)"]
+        OSRM["Servidor OSRM\n(Routing)"]
+        FCM["Firebase Cloud Messaging (FCM)\n(Push Notifications)"]
+    end
+
+    APP -->|"HTTPS / TLS 1.3\nBearer Token JWT"| TRAEFIK
+    APP -.->|"HTTPS directo cliente"| GOOGLE
+    TRAEFIK -->|"HTTP interno aislado\nDocker Network"| API
+    API -->|"SQL / TCP Seguro con Pooler"| DB
+    API -->|"HTTPS (Timeout 1.4s)"| OSRM
+    API -->|"HTTPS / SDK Service Account"| FCM
+
+    style TB_EXT fill:#ffe4e6,stroke:#f43f5e,stroke-width:2px,color:#881337
+    style TB_DMZ fill:#fef3c7,stroke:#f59e0b,stroke-width:2px,color:#78350f
+    style TB_BACKEND fill:#ecfdf5,stroke:#10b981,stroke-width:2px,color:#064e3b
+    style TB_DATA fill:#eff6ff,stroke:#3b82f6,stroke-width:2px,color:#1e3a8a
+    style TB_THIRD_PARTY fill:#f3e8ff,stroke:#a855f7,stroke-width:2px,color:#581c87
+```
+
+### 8.8.2 Mecanismos de autenticación e identidad
+
+- **Protocolo y Formato:** Autenticación síncrona basada en tokens JWT (*JSON Web Tokens*) transmitidos mediante el esquema estándar HTTP `Authorization: Bearer <token>`.
+- **Firma criptográfica:** Criptografía simétrica HMAC con SHA-256 (`HS256`) gobernada por `JWT_SECRET_KEY`, inyectada estrictamente desde variables de entorno seguras (Dokploy / `.env` ignorado por git).
+- **Control de expiración:** Claims temporales forzados (`exp`), con ciclo de vida predeterminado de 60 minutos (`JWT_EXPIRE_MINUTES=60`).
+- **Almacenamiento seguro en el cliente:** Flutter almacena el token de acceso en `SharedPreferences` exclusivamente en el sandbox privado de la aplicación móvil gestionado por el sistema operativo (Android/iOS).
+- **Identidad inmutable en sesión:** La función de inyección de dependencias `get_current_user` (`backend/app/modules/auth/infrastructure/security.py`) decodifica el token, extrae el identificador del usuario (`sub`) y retorna un objeto de valor inmutable `UserIdentity` (dataclass congelada), garantizando que ningún módulo transmita la entidad ORM mutable fuera de los límites de persistencia.
+
+### 8.8.3 Autorización y Control de Acceso Basado en Roles (RBAC)
+
+ROUTB gestiona tres perfiles funcionales explícitos:
+1. `passenger` (Estudiante Pasajero): Capacidad de consultar recorridos activos, registrar paradas deseadas, enviar y cancelar solicitudes de cupo.
+2. `driver` (Estudiante Conductor): Capacidad de publicar recorridos, aceptar/rechazar solicitudes de cupos y coordinar paradas.
+3. `admin` (Administrador): Supervisión global, reportes y métricas de plataforma.
+
+El control de autorización se ejecuta mediante dependencias de FastAPI inyectadas a nivel de router (`DbSession` + `get_current_user`). Los endpoints que modifican el estado de un viaje o solicitud validan la propiedad del recurso: un conductor solo puede aceptar o rechazar solicitudes dirigidas a sus propios viajes (`trip.driver_id == current_user.id`), impidiendo vulnerabilidades de referencia directa insegura a objetos (IDOR / BOLA).
+
+### 8.8.4 Sanitización, validación tipada e higiene de datos
+
+- **Esquemas Pydantic V2:** Toda entrada recibida por el backend se valida y deserializa estrictamente a través de modelos Pydantic (`backend/app/modules/*/infrastructure/schemas.py`). Tipos de datos inválidos, cargas malformadas o campos inesperados son rechazados en la capa de presentación antes de invocar la lógica de dominio.
+- **Prevención de Inyecciones SQL:** Acceso a base de datos mediado por SQLAlchemy ORM 2.0 y consultas parametrizadas tipadas. No existe concatenación dinámica de cadenas SQL en ningún módulo del backend.
+
+### 8.8.5 Criptografía y protección de credenciales
+
+- **Algoritmo de Hashing:** Las contraseñas de los usuarios nunca se persisten en texto claro; se procesan mediante `bcrypt` con factor de coste y generación automática de sal (*salt*) criptográfica aleatoria única por usuario (`backend/app/modules/auth/infrastructure/security.py`).
+- **Resistencia a ataques de temporización:** La verificación de credenciales en `verify_password` emplea comparaciones de tiempo constante que mitigan ataques de análisis temporal de respuesta (*timing attacks*).
+
+### 8.8.6 Protección de datos personales y ciclo de vida de geolocalización
+
+De conformidad con el [ADR 0011](../adr/0011-consentimiento-y-privacidad-de-ubicacion.md) y la Ley 1581 de 2012:
+- **Consentimiento informado previo:** El campo `location_consent_at` en `users` bloquea el registro o consulta de puntos geográficos exactos con `403 Forbidden` (`location_consent_required`) si no ha sido otorgado explícitamente.
+- **Revocabilidad inmediata:** El endpoint `DELETE /users/me/location-consent` revoca la autorización al instante, anula el timestamp y elimina físicamente las paradas asociadas en `request_stops`.
+- **Ofuscación de coordenadas:** Antes de que el conductor acepte una solicitud, solo puede visualizar el barrio o dirección descriptiva (`address_text`), no la geometría precisa (`stop_geom`).
+- **Retención y purga periódica:** Se aplica retención máxima de 30 días para coordenadas de viajes completados y 7 días para caché de rutas, ejecutada automáticamente mediante el cron diario `.github/workflows/purge-location-data.yml` que invoca la función SQL `purge_location_data()`.
+
+### 8.8.7 Seguridad en la cadena de suministro y auditoría continua
+
+Conforme al [ADR 0023](../adr/0023-estrategia-de-seguridad-stride-y-auditoria-de-dependencias.md):
+- **Hashes Criptográficos:** `requirements.txt` se compila con hashes SHA-256 (`--require-hashes`), garantizando la inmutabilidad de los paquetes binarios descargados en entornos locales, Docker y CI.
+- **Pipeline de Auditoría:** GitHub Actions ejecuta `pip-audit` en cada push o pull request para verificar la ausencia de CVEs no mitigados en librerías de producción.
+- **Dependabot:** Monitoreo semanal automatizado de vulnerabilidades en dependencias y workflows.
