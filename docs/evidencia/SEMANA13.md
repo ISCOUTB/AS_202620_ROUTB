@@ -107,6 +107,8 @@ En cumplimiento del [ADR 0023](../adr/0023-estrategia-de-seguridad-stride-y-audi
 
 Asimismo, se configuró [`.github/dependabot.yml`](../../.github/dependabot.yml) para monitorización semanal de dependencias en `pip` y `github-actions`.
 
+La ejecución verificable del pipeline está disponible en el [run 41388446243 de GitHub Actions](https://github.com/ISCOUTB/AS_202620_ROUTB/actions/runs/41388446243).
+
 ### 4.2 Ejecución y Revisión Técnica de Hallazgos
 
 Se ejecutó la auditoría completa sobre `backend/requirements.txt` (archivo fijado con 1.282 líneas de dependencias y hashes SHA-256).
@@ -236,7 +238,7 @@ A continuación se presenta la matriz de evaluación técnica diligenciada confo
 | **Priorización por probabilidad e impacto** | Columnas de la tabla, con el orden resultante | **Cumple** | Columnas `Probabilidad`, `Impacto` y `Prioridad` (P1, P2, P3) con matriz 3x3 documentada en sección 3. |
 | **Mitigación asignada a cada amenaza, con dueño y estado** | Columnas de mitigación y estado | **Cumple** | Cada una de las 16 amenazas cuenta con mitigación concreta, dueño asignado por rol y estado (`Hecho` o `Aceptado`). |
 | **El plan ataca primero lo priorizado** | Correspondencia entre prioridad y trabajo hecho | **Cumple** | El 100% de las amenazas críticas P1 (7/7) y las altas operativas de P2 cuentan con mitigación implementada en código y verificada con pruebas. |
-| **Análisis de dependencias ejecutado en el pipeline** | Línea del workflow y URL del run | **Cumple** | Job `dependency-audit` con `pip-audit` configurado en `.github/workflows/ci.yml:78-91` y `.github/dependabot.yml` añadido. |
+| **Análisis de dependencias ejecutado en el pipeline** | Línea del workflow y URL del run | **Cumple** | Job `dependency-audit` con `pip-audit` configurado en `.github/workflows/ci.yml:78-91`, `.github/dependabot.yml` añadido y [run verificable 41388446243](https://github.com/ISCOUTB/AS_202620_ROUTB/actions/runs/41388446243). |
 | **Hallazgos del análisis revisados y decididos** | Apartado con los hallazgos y qué se hizo con cada uno | **Cumple** | Sección 4.2 documenta la revisión de los 23 IDs únicos en `pytest`, `pyjwt`, `pyasn1` y `certifi`, su explotabilidad real en ROUTB y la actualización aplicada; `pip-audit` cierra en `No known vulnerabilities found`. |
 | **Sección de privacidad con datos personales tratados y su base** | Apartado citado, contrastado con el modelo de datos | **Cumple** | Sección 5 detalla el inventario completo contrastado con las 5 tablas SQLAlchemy, bases bajo Ley 1581 de 2012, consentimiento y purga periódica. |
 | **Riesgos del componente generativo, si el sistema lo incorpora** | Apartado con inyección, fuga y envenenamiento | **Cumple** | Sección 6 analiza exhaustivamente los 3 riesgos (inyección de prompt, fuga de coordenadas y envenenamiento de contexto) y cómo el ADR 0008 los erradica por diseño determinista. |
