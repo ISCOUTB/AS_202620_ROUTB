@@ -12,8 +12,8 @@ Asimismo, se evaluaron formalmente los riesgos asociados a componentes de **inte
 
 | Parámetro | Valor |
 |---|---|
-| **Hash de referencia** | `00f2338` (cierre de Semana 12 / inicio Semana 13) |
-| **Fecha de corte** | 2026-11-01 21:41:05 -0500 |
+| **Hash de referencia** | `e6283a5` (cierre de la verificación de Semana 13) |
+| **Fecha de corte** | 2026-11-01 23:25:59 -0500 |
 | **Rama de trabajo** | `Changes` |
 | **Entorno verificado** | Python 3.14.6 (`backend/.venv`), Flutter 3.24+, PostgreSQL 16 + PostGIS |
 
@@ -45,13 +45,13 @@ El modelado no se basa en listas genéricas de internet, sino en los elementos c
 | **T-07** | **Information Disclosure** | `USERS` / `DB` | Fuga de contraseñas de estudiantes en caso de filtración o volcado de la base de datos PostgreSQL. | Baja (1) | Alto (3) | **P2** | Hashing irreversible con algoritmo `bcrypt` y sal (*salt*) criptográfica aleatoria única por usuario (`pwd_context.hash`); nunca se almacena texto claro. | Security Lead | **Hecho** |
 | **T-08** | **Information Disclosure** | `TRIPS` / `REQUEST_STOPS` / `DB` | Rastreo o reconstrucción de patrones habituales de desplazamiento de estudiantes por retención indefinida de coordenadas históricas. | Media (2) | Medio (2) | **P2** | Política de retención máxima de 30 días ([ADR 0011](../adr/0011-consentimiento-y-privacidad-de-ubicacion.md)); purga automática diaria programada en GitHub Actions (`purge-location-data.yml`) que invoca la función SQL `purge_location_data()`. | Data Privacy Lead | **Hecho** |
 | **T-09** | **Denial of Service** | `MATCHING` / `MAP` | Indisponibilidad o latencia excesiva en el servidor OSRM que congela peticiones de ruteo y agota conexiones del backend. | Media (2) | Medio (2) | **P2** | Timeout estricto de 1.4s en backend (`ROUTING_TIMEOUT_SECONDS`), respuesta degradada tipada geodésica sin reintentos síncronos ([ADR 0014](../adr/0014-fallback-geocode-cache.md)); las rutas degradadas no se cachean en `route_cache`. | Backend Lead | **Hecho** |
-| **T-10** | **Tampering** | `REST` / Capa Presentación | Inyección de tipos corruptos, SQL injection o desbordamiento de campos en cargas HTTP JSON. | Media (2) | Medio (2) | **P2** | Validación estricta y tipado estático con modelos Pydantic V2 en todos los enrutadores; persistencia parametrizada exclusiva con SQLAlchemy ORM. | Backend Lead | **Hecho** |
+| **T-10** | **Tampering** | `API` / `APP` | Inyección de tipos corruptos, SQL injection o desbordamiento de campos en cargas HTTP JSON. | Media (2) | Medio (2) | **P2** | Validación estricta y tipado estático con modelos Pydantic V2 en todos los enrutadores; persistencia parametrizada exclusiva con SQLAlchemy ORM. | Backend Lead | **Hecho** |
 | **T-11** | **Tampering** | `API` / CI / Cadena de Suministro | Manipulación de dependencias descargadas en build o introducción de librerías con vulnerabilidades críticas (CVE). | Media (2) | Medio (2) | **P2** | Compilación de `requirements.txt` con hashes SHA-256 (`uv pip compile --generate-hashes`); integración de escaneo continuo con `pip-audit` en el pipeline de GitHub Actions ([ADR 0023](../adr/0023-estrategia-de-seguridad-stride-y-auditoria-de-dependencias.md)). | DevOps / Security | **Hecho** |
 | **T-12** | **Repudiation** | `REQUESTS` / `USERS` | Un estudiante niega haber enviado una solicitud o el conductor niega haberla aceptado en caso de disputa. | Media (2) | Bajo (1) | **P3** | Trazabilidad con marcas temporales inmutables (`created_at`, `requested_at`), historial de estados en base de datos, y logs estructurados JSON con `client_ip` y `timestamp`. | Backend Lead | **Hecho** |
 | **T-13** | **Information Disclosure** | Repositorio / CI | Exposición accidental de contraseñas de BD, tokens JWT o credenciales FCM en el código fuente versionado. | Media (2) | Alto (3) | **P1** | Aislamiento en `.env` ignorado por git, inyección por variables de entorno en Dokploy y secretos en CI; barrido continuo de credenciales. | DevOps | **Hecho** |
-| **T-14** | **Denial of Service** | `API` / Infraestructura | Ataque distribuido de denegación de servicio (DDoS) volumétrico sobre la IP pública del servidor Dokploy. | Baja (1) | Alto (3) | **P2** | Timeouts en cliente (35s) y proxy inverso Traefik con limitación básica por IP. Aceptado como riesgo residual por presupuesto $0 USD ([arc42 11.3](file:///C:/Users/Keine/dev/Universidad/AS_202620_ROUTB/docs/arc42/11_riesgos_y_deuda_tecnica.md#113-amenazas-aceptadas-como-riesgo-y-justificacion)). | DevOps | **Aceptado** |
-| **T-15** | **Spoofing** | `AUTH` / Pasajeros | Registro no autorizado con el número celular de otra persona por ausencia de validación SMS/OTP. | Media (2) | Medio (2) | **P2** | Controles compensatorios de pertenencia universitaria; riesgo aceptado temporalmente para no añadir costos de pasarela SMS a estudiantes ([arc42 11.3](file:///C:/Users/Keine/dev/Universidad/AS_202620_ROUTB/docs/arc42/11_riesgos_y_deuda_tecnica.md#113-amenazas-aceptadas-como-riesgo-y-justificacion)). | Product Owner | **Aceptado** |
-| **T-16** | **Information Disclosure** | `APP` / Dispositivo | Extracción física o forense de tokens JWT almacenados en `SharedPreferences` en teléfonos vulnerados (*rooted/jailbroken*). | Baja (1) | Medio (2) | **P3** | Sandbox de la aplicación móvil gestionado por Android/iOS; tokens con expiración de 60 minutos ([arc42 11.3](file:///C:/Users/Keine/dev/Universidad/AS_202620_ROUTB/docs/arc42/11_riesgos_y_deuda_tecnica.md#113-amenazas-aceptadas-como-riesgo-y-justificacion)). | Frontend Lead | **Aceptado** |
+| **T-14** | **Denial of Service** | `API` / Infraestructura | Ataque distribuido de denegación de servicio (DDoS) volumétrico sobre la IP pública del servidor Dokploy. | Baja (1) | Alto (3) | **P2** | Timeouts en cliente (35s) y proxy inverso Traefik con limitación básica por IP. Aceptado como riesgo residual por presupuesto $0 USD ([arc42 11.3](../arc42/11_riesgos_y_deuda_tecnica.md#113-amenazas-aceptadas-como-riesgo-y-justificacion)). | DevOps | **Aceptado** |
+| **T-15** | **Spoofing** | `AUTH` / Pasajeros | Registro no autorizado con el número celular de otra persona por ausencia de validación SMS/OTP. | Media (2) | Medio (2) | **P2** | Controles compensatorios de pertenencia universitaria; riesgo aceptado temporalmente para no añadir costos de pasarela SMS a estudiantes ([arc42 11.3](../arc42/11_riesgos_y_deuda_tecnica.md#113-amenazas-aceptadas-como-riesgo-y-justificacion)). | Product Owner | **Aceptado** |
+| **T-16** | **Information Disclosure** | `APP` / Dispositivo | Extracción física o forense de tokens JWT almacenados en `SharedPreferences` en teléfonos vulnerados (*rooted/jailbroken*). | Baja (1) | Medio (2) | **P3** | Sandbox de la aplicación móvil gestionado por Android/iOS; tokens con expiración de 60 minutos ([arc42 11.3](../arc42/11_riesgos_y_deuda_tecnica.md#113-amenazas-aceptadas-como-riesgo-y-justificacion)). | Frontend Lead | **Aceptado** |
 
 ---
 
@@ -99,13 +99,13 @@ En cumplimiento del [ADR 0023](../adr/0023-estrategia-de-seguridad-stride-y-audi
         with:
           python-version: "3.14"
       - name: Install pip-audit
-        run: pip install --upgrade pip-audit
+        run: pip install pip-audit==2.9.0
       - name: Run pip-audit vulnerability scan
         working-directory: backend
         run: pip-audit -r requirements.txt
 ```
 
-Asimismo, se configuró [`.github/dependabot.yml`](../../.github/dependabot.yml) para monitorización semanal de dependencias en `pip` y `github-actions`.
+Asimismo, se configuró [`.github/dependabot.yml`](../../.github/dependabot.yml) para monitorización semanal de dependencias en `pip` y `github-actions`. El extracto anterior omite por legibilidad los pines por SHA de las *actions*, que sí están fijados en el archivo real del workflow.
 
 La ejecución verificable del pipeline está disponible en el [run 41388446243 de GitHub Actions](https://github.com/ISCOUTB/AS_202620_ROUTB/actions/runs/41388446243).
 
@@ -123,7 +123,7 @@ Se revisó la explotabilidad real de cada paquete sobre la arquitectura de ROUTB
 
 | Paquete | Versión detectada | IDs relevantes | Versión aplicada | Análisis de explotabilidad en ROUTB |
 |---|---|---|---|---|
-| **`pyjwt`** | `2.10.1` | `PYSEC-2025-183`, `PYSEC-2026-120`, `PYSEC-2026-175` a `179`, `PYSEC-2026-4140` a `4183`, `GHSA-pxh4-856f-4h89` | **`2.15.0`** | Los avisos afectan algoritmos asimétricos (claves RSA/ECDSA malformadas o confusión de clave pública). ROUTB usa exclusivamente firma simétrica HMAC-SHA256 con `algorithms=["HS256"]` (`security.py:22`), por lo que el vector no era alcanzable; aun así se actualizó para eliminar la deuda. |
+| **`pyjwt`** | `2.10.1` | `PYSEC-2025-183`, `PYSEC-2026-120`, `PYSEC-2026-175` a `179`, `PYSEC-2026-4140` a `4183`, `GHSA-pxh4-856f-4h89` | **`2.15.0`** | Los avisos afectan algoritmos asimétricos (claves RSA/ECDSA malformadas o confusión de clave pública). ROUTB usa exclusivamente firma simétrica HMAC-SHA256: `algorithms=[settings.JWT_ALGORITHM]` (`security.py:22`) con `JWT_ALGORITHM` fijado a `HS256` por defecto (`config.py:14`), por lo que el vector no era alcanzable; aun así se actualizó para eliminar la deuda. |
 | **`pytest`** | `9.0.1` | `PYSEC-2026-1845` | **`9.0.3`** | Framework de pruebas. Se instala en la imagen porque el `Dockerfile` instala `requirements.txt` completo, pero no se ejecuta ni escucha puertos en producción. |
 | **`pyasn1`** | `0.6.4` | `CVE-2026-119194` a `CVE-2026-119197` | **`0.6.5`** | Dependencia transitiva de `google-auth` / Firebase SDK para codificación ASN.1 en certificados X.509. El backend no expone parsers ASN.1 a usuarios externos. |
 | **`certifi`** | `2026.7.22` | `PYSEC-2026-4320` | **`2026.10.23`** | Bundle de certificados raíz. Las conexiones salientes de ROUTB van a dominios controlados (Google Maps API, OSRM, Firebase). |
@@ -230,7 +230,7 @@ Get-ChildItem -Recurse -File -Exclude "*.git*", "*.venv*", "*build*", "*.dart_to
 
 ## 9. Matriz de cumplimiento S13
 
-A continuación se presenta la matriz de evaluación técnica diligenciada conforme a [`semana-13-evidencia-s13.md`](file:///C:/Users/Keine/dev/Universidad/AS_202620_ROUTB/semana-13-evidencia-s13.md):
+A continuación se presenta la matriz de evaluación técnica diligenciada conforme a la rúbrica de evidencia de la Semana 13:
 
 | Criterio de evaluación | Evidencia técnica esperada | Estado | Observaciones |
 |---|---|:---:|---|

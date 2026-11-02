@@ -3,8 +3,6 @@ import logging
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import InvalidRequestError
-from sqlalchemy.orm.exc import ObjectDeletedError
-
 from app.modules.notifications.application.manage_device_token import get_tokens_for_user
 from app.modules.notifications.application.send_notification import send_push
 from app.modules.requests.domain.exceptions import (
@@ -130,7 +128,7 @@ def accept_request(db: Session, request_id: int, driver_id: int | None = None) -
     db.commit()
     try:
         db.refresh(request)
-    except (ObjectDeletedError, InvalidRequestError) as exc:
+    except InvalidRequestError as exc:
         raise TripRequestNotFoundError() from exc
 
     if trip and trip.direction:
@@ -200,7 +198,7 @@ def reject_request(db: Session, request_id: int, driver_id: int | None = None) -
     db.commit()
     try:
         db.refresh(request)
-    except (ObjectDeletedError, InvalidRequestError) as exc:
+    except InvalidRequestError as exc:
         raise TripRequestNotFoundError() from exc
 
     # Notificar al pasajero (best-effort, no bloquea el flujo)

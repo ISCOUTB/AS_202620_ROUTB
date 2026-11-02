@@ -85,7 +85,7 @@ jobs:
         with:
           python-version: "3.14"
       - name: Install pip-audit
-        run: pip install --upgrade pip-audit
+        run: pip install pip-audit==2.9.0
       - name: Run pip-audit vulnerability scan
         working-directory: backend
         run: pip-audit -r requirements.txt
