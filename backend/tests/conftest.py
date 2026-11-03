@@ -34,12 +34,20 @@ def pytest_configure(config):
 
 @pytest.fixture(scope="session", autouse=True)
 def crear_tablas():
-    with engine.begin() as conn:
-        conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis;"))
+    # Serializa las suites que apuntan a la misma base. El lock de sesión se
+    # libera automáticamente si el proceso termina de forma inesperada.
+    lock_connection = engine.connect()
+    lock_connection.execute(text("SELECT pg_advisory_lock(726202620)"))
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis;"))
 
-    alembic_cfg = Config(os.path.join(os.path.dirname(__file__), "..", "alembic.ini"))
-    alembic_cfg.set_main_option("sqlalchemy.url", DATABASE_URL.replace("%", "%%"))
+        alembic_cfg = Config(os.path.join(os.path.dirname(__file__), "..", "alembic.ini"))
+        alembic_cfg.set_main_option("sqlalchemy.url", DATABASE_URL.replace("%", "%%"))
 
-    command.upgrade(alembic_cfg, "head")
-    yield
-    command.downgrade(alembic_cfg, "base")
+        command.upgrade(alembic_cfg, "head")
+        yield
+        command.downgrade(alembic_cfg, "base")
+    finally:
+        lock_connection.execute(text("SELECT pg_advisory_unlock(726202620)"))
+        lock_connection.close()
