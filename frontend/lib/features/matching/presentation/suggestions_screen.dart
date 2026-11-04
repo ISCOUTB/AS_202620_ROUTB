@@ -8,6 +8,8 @@ import '../../../core/theme/routb_text.dart';
 import '../../../core/widgets/address_search_field.dart';
 import '../../../core/widgets/date_quick_picker.dart';
 import '../../../core/widgets/routb_button.dart';
+import '../../../core/widgets/routb_card.dart';
+import '../../../core/widgets/routb_sheet.dart';
 import '../../../core/widgets/routb_toast.dart';
 import '../../trips/data/trip_repository.dart';
 
@@ -49,130 +51,220 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> {
       appBar: AppBar(title: const Text('Encuentra tu viaje')),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.all(18),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
           children: <Widget>[
-            Text(
-              '¿Hacia dónde viajas?',
-              style: RoutbText.headline(20, color: palette.ink),
-            ),
-            const SizedBox(height: 12),
-            SegmentedButton<String>(
-              segments: const <ButtonSegment<String>>[
-                ButtonSegment(value: 'to_campus', label: Text('Hacia UTB')),
-                ButtonSegment(value: 'from_campus', label: Text('Desde UTB')),
-              ],
-              selected: <String>{_direction},
-              onSelectionChanged: (value) => setState(() {
-                _direction = value.first;
-                if (_direction == 'to_campus' && _stops.length > 1) {
-                  _stops.removeRange(1, _stops.length);
-                }
-              }),
-            ),
-            const SizedBox(height: 14),
-            Row(
-              children: <Widget>[
-                DateQuickPicker(
-                  value: _date,
-                  onChanged: (value) => setState(() => _date = value),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _pickTime,
-                    icon: const Icon(Icons.schedule),
-                    label: Text(_time.format(context)),
+            RoutbCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    '¿Hacia dónde viajas?',
+                    style: RoutbText.headline(18, color: palette.ink),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<int>(
-              initialValue: _seatCount,
-              decoration: const InputDecoration(
-                labelText: 'Personas del grupo',
-              ),
-              items: List<DropdownMenuItem<int>>.generate(
-                4,
-                (index) => DropdownMenuItem(
-                  value: index + 1,
-                  child: Text('${index + 1}'),
-                ),
-              ),
-              onChanged: (value) => setState(() => _seatCount = value ?? 1),
-            ),
-            const SizedBox(height: 16),
-            for (var index = 0; index < _stops.length; index++) ...[
-              Text(
-                _direction == 'to_campus'
-                    ? 'Punto de recogida'
-                    : 'Parada ${index + 1}',
-                style: RoutbText.copy(
-                  14,
-                  color: palette.ink,
-                  weight: FontWeight.w700,
-                ),
-              ),
-              AddressSearchField(
-                key: ValueKey<int>(index),
-                toCampus: _direction == 'to_campus',
-                label: _direction == 'to_campus'
-                    ? 'Escribe dirección o barrio de recogida'
-                    : 'Escribe dirección o barrio de bajada',
-                onLocationSelected: (location) =>
-                    setState(() => _stops[index].location = location),
-                onLocationCleared: () =>
-                    setState(() => _stops[index].location = null),
-              ),
-              if (_direction == 'from_campus')
-                DropdownButtonFormField<int>(
-                  initialValue: _stops[index].seats,
-                  decoration: const InputDecoration(
-                    labelText: 'Personas que bajan aquí',
+                  const SizedBox(height: 12),
+                  RoutbSegmented<String>(
+                    options: const <({String value, String label})>[
+                      (value: 'to_campus', label: 'Hacia UTB'),
+                      (value: 'from_campus', label: 'Desde UTB'),
+                    ],
+                    value: _direction,
+                    onChanged: (value) => setState(() {
+                      _direction = value;
+                      if (_direction == 'to_campus' && _stops.length > 1) {
+                        _stops.removeRange(1, _stops.length);
+                      }
+                    }),
                   ),
-                  items: List<DropdownMenuItem<int>>.generate(
-                    _seatCount,
-                    (seatIndex) => DropdownMenuItem(
-                      value: seatIndex + 1,
-                      child: Text('${seatIndex + 1}'),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: <Widget>[
+                      DateQuickPicker(
+                        value: _date,
+                        onChanged: (value) => setState(() => _date = value),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Material(
+                          color: palette.surface,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(99),
+                            side: BorderSide(color: palette.line),
+                          ),
+                          child: InkWell(
+                            onTap: _pickTime,
+                            borderRadius: BorderRadius.circular(99),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: <Widget>[
+                                  Icon(
+                                    Icons.schedule_rounded,
+                                    size: 16,
+                                    color: palette.brand,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Flexible(
+                                    child: Text(
+                                      _time.format(context),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: RoutbText.copy(
+                                        12.5,
+                                        color: palette.ink,
+                                        weight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  DropdownButtonFormField<int>(
+                    initialValue: _seatCount,
+                    decoration: InputDecoration(
+                      labelText: 'Personas del grupo',
+                      filled: true,
+                      fillColor: palette.surface,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(color: palette.line),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(color: palette.line),
+                      ),
                     ),
-                  ),
-                  onChanged: (value) =>
-                      setState(() => _stops[index].seats = value ?? 1),
-                ),
-              DropdownButtonFormField<String>(
-                initialValue: _stops[index].placeType,
-                decoration: const InputDecoration(labelText: 'Tipo de punto'),
-                items: const <DropdownMenuItem<String>>[
-                  DropdownMenuItem(value: 'door', child: Text('En la puerta')),
-                  DropdownMenuItem(
-                    value: 'meeting_point',
-                    child: Text('Punto de encuentro'),
+                    items: List<DropdownMenuItem<int>>.generate(
+                      4,
+                      (index) => DropdownMenuItem(
+                        value: index + 1,
+                        child: Text('${index + 1}'),
+                      ),
+                    ),
+                    onChanged: (value) =>
+                        setState(() => _seatCount = value ?? 1),
                   ),
                 ],
-                onChanged: (value) =>
-                    setState(() => _stops[index].placeType = value ?? 'door'),
               ),
-              if (_direction == 'from_campus' && _stops.length > 1)
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton.icon(
-                    onPressed: () => setState(() => _stops.removeAt(index)),
-                    icon: const Icon(Icons.remove_circle_outline),
-                    label: const Text('Quitar parada'),
-                  ),
+            ),
+            const SizedBox(height: 14),
+            for (var index = 0; index < _stops.length; index++) ...[
+              RoutbCard(
+                margin: const EdgeInsets.only(bottom: 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      _direction == 'to_campus'
+                          ? 'Punto de recogida'
+                          : 'Parada ${index + 1}',
+                      style: RoutbText.headline(16, color: palette.ink),
+                    ),
+                    const SizedBox(height: 8),
+                    AddressSearchField(
+                      key: ValueKey<int>(index),
+                      toCampus: _direction == 'to_campus',
+                      label: _direction == 'to_campus'
+                          ? 'Escribe dirección o barrio de recogida'
+                          : 'Escribe dirección o barrio de bajada',
+                      onLocationSelected: (location) =>
+                          setState(() => _stops[index].location = location),
+                      onLocationCleared: () =>
+                          setState(() => _stops[index].location = null),
+                    ),
+                    if (_direction == 'from_campus') ...[
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<int>(
+                        initialValue: _stops[index].seats,
+                        decoration: InputDecoration(
+                          labelText: 'Personas que bajan aquí',
+                          filled: true,
+                          fillColor: palette.surface,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide(color: palette.line),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide(color: palette.line),
+                          ),
+                        ),
+                        items: List<DropdownMenuItem<int>>.generate(
+                          _seatCount,
+                          (seatIndex) => DropdownMenuItem(
+                            value: seatIndex + 1,
+                            child: Text('${seatIndex + 1}'),
+                          ),
+                        ),
+                        onChanged: (value) =>
+                            setState(() => _stops[index].seats = value ?? 1),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      initialValue: _stops[index].placeType,
+                      decoration: InputDecoration(
+                        labelText: 'Tipo de punto',
+                        filled: true,
+                        fillColor: palette.surface,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide(color: palette.line),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide(color: palette.line),
+                        ),
+                      ),
+                      items: const <DropdownMenuItem<String>>[
+                        DropdownMenuItem(
+                          value: 'door',
+                          child: Text('En la puerta'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'meeting_point',
+                          child: Text('Punto de encuentro'),
+                        ),
+                      ],
+                      onChanged: (value) => setState(
+                        () => _stops[index].placeType = value ?? 'door',
+                      ),
+                    ),
+                    if (_direction == 'from_campus' && _stops.length > 1)
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton.icon(
+                          onPressed: () =>
+                              setState(() => _stops.removeAt(index)),
+                          icon: const Icon(Icons.remove_circle_outline),
+                          label: const Text('Quitar parada'),
+                        ),
+                      ),
+                  ],
                 ),
-              const SizedBox(height: 10),
+              ),
             ],
             if (_direction == 'from_campus' && _stops.length < _seatCount)
-              TextButton.icon(
-                onPressed: () => setState(() => _stops.add(_StopDraft())),
-                icon: const Icon(Icons.add_location_alt_outlined),
-                label: const Text('Agregar otra parada'),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: TextButton.icon(
+                  onPressed: () => setState(() => _stops.add(_StopDraft())),
+                  icon: const Icon(Icons.add_location_alt_outlined),
+                  label: const Text('Agregar otra parada'),
+                ),
               ),
             RoutbButton(
               label: 'Buscar viajes compatibles',
-              icon: Icons.search,
+              icon: Icons.search_rounded,
               busy: _loading,
               onPressed: _loading ? null : () => _search(relaxed: false),
             ),
@@ -187,18 +279,22 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> {
               ),
             if (_suggestions.isEmpty && !_loading && !_relaxed)
               Padding(
-                padding: const EdgeInsets.only(top: 10),
-                child: Text(
-                  'Datos © OpenStreetMap',
-                  style: RoutbText.copy(11, color: palette.muted),
+                padding: const EdgeInsets.only(top: 12),
+                child: Center(
+                  child: Text(
+                    'Datos © OpenStreetMap',
+                    style: RoutbText.copy(11, color: palette.muted),
+                  ),
                 ),
               ),
             const SizedBox(height: 16),
             for (final suggestion in _suggestions) _suggestionCard(suggestion),
             if (_suggestions.isNotEmpty)
-              Text(
-                'Datos © OpenStreetMap',
-                style: RoutbText.copy(11, color: palette.muted),
+              Center(
+                child: Text(
+                  'Datos © OpenStreetMap',
+                  style: RoutbText.copy(11, color: palette.muted),
+                ),
               ),
           ],
         ),
@@ -211,15 +307,29 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> {
     final eta = item.etaPickup == null
         ? 'Hora por confirmar'
         : TimeOfDay.fromDateTime(item.etaPickup!.toLocal()).format(context);
-    return Card(
-      color: palette.card,
-      child: ListTile(
-        title: Text('${item.origin} → ${item.destination}'),
-        subtitle: Text(
-          '${item.driverName} · Recogida estimada $eta · Desvío ${item.detourMinutes} min',
-        ),
-        trailing: Icon(Icons.chevron_right, color: palette.brand),
-        onTap: () => _request(item),
+    return RoutbCard(
+      margin: const EdgeInsets.only(bottom: 10),
+      onTap: () => _request(item),
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  '${item.origin} → ${item.destination}',
+                  style: RoutbText.headline(15, color: palette.ink),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${item.driverName} · Recogida estimada $eta · Desvío ${item.detourMinutes} min',
+                  style: RoutbText.copy(12, color: palette.muted),
+                ),
+              ],
+            ),
+          ),
+          Icon(Icons.chevron_right_rounded, color: palette.brand),
+        ],
       ),
     );
   }

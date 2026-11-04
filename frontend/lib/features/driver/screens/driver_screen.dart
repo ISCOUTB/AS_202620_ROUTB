@@ -471,6 +471,8 @@ class _Body extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
+
     return RefreshIndicator(
       onRefresh: onRefresh,
       child: CustomScrollView(
@@ -495,11 +497,14 @@ class _Body extends StatelessWidget {
                   children: [
                     if (state.tripsWithPendingRequests.isNotEmpty) ...[
                       RoutbCard(
+                        borderColor: palette.amber.withValues(alpha: 0.45),
+                        borderWidth: 1.2,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             RoutbCardHeader(
                               title: 'Solicitudes pendientes',
+                              icon: Icons.notifications_active_outlined,
                               count: state.pendingRequestCount,
                             ),
                             for (final pendingTrip
@@ -531,6 +536,7 @@ class _Body extends StatelessWidget {
                         children: [
                           RoutbCardHeader(
                             title: 'Mis rutas',
+                            icon: Icons.route_rounded,
                             count: state.trips.length,
                           ),
                           if (!state.hasTrips)
@@ -617,64 +623,82 @@ class HeroSection extends StatelessWidget {
           else ...[
             // El alto del mapa cede en pantallas cortas para que las
             // solicitudes y las rutas tengan más espacio visible.
-            RoutbTripMap(trip: selected, height: _mapHeight(context)),
-            const SizedBox(height: 14),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        selected.routeLabel,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: RoutbText.copy(
-                          12,
-                          color: const Color(0xBFFFFFFF),
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: const Color(0x1FFFFFFF),
+                borderRadius: BorderRadius.circular(RoutbTheme.radiusTile + 4),
+                border: Border.all(color: const Color(0x2EFFFFFF)),
+              ),
+              child: RoutbTripMap(trip: selected, height: _mapHeight(context)),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0x18FFFFFF),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: const Color(0x26FFFFFF)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          selected.routeLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: RoutbText.copy(
+                            12,
+                            color: const Color(0xCCFFFFFF),
+                            weight: FontWeight.w600,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        selected.departureLabel,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: RoutbText.headline(
-                          30,
-                          color: Colors.white,
-                          height: 1.1,
+                        const SizedBox(height: 2),
+                        Text(
+                          selected.departureLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: RoutbText.headline(
+                            28,
+                            color: Colors.white,
+                            height: 1.05,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                // La columna de cupos se limita para que en pantallas
-                // estrechas el texto de hora y el de cupos repartan el ancho
-                // en vez de desbordar.
-                Flexible(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      HeroSeatSlots(trip: selected),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${selected.availableSeats}/${selected.totalSeats} cupos libres',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.end,
-                        style: RoutbText.copy(
-                          12,
-                          color: const Color(0xBFFFFFFF),
+                  const SizedBox(width: 12),
+                  // La columna de cupos se limita para que en pantallas
+                  // estrechas el texto de hora y el de cupos repartan el ancho
+                  // en vez de desbordar.
+                  Flexible(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        HeroSeatSlots(trip: selected),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${selected.availableSeats}/${selected.totalSeats} cupos libres',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.end,
+                          style: RoutbText.copy(
+                            11.5,
+                            color: const Color(0xCCFFFFFF),
+                            weight: FontWeight.w600,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ],

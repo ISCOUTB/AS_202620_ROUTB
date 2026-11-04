@@ -181,58 +181,64 @@ class RoutbPalette extends ThemeExtension<RoutbPalette> {
     heroMuted: Color(0xB8FFFFFF),
     cardShadow: <BoxShadow>[
       BoxShadow(
-        color: Color(0x1F0A2540),
-        blurRadius: 30,
-        offset: Offset(0, 12),
-        spreadRadius: -14,
+        color: Color(0x140A2540),
+        blurRadius: 24,
+        offset: Offset(0, 8),
+        spreadRadius: -6,
+      ),
+      BoxShadow(
+        color: Color(0x0A0A2540),
+        blurRadius: 6,
+        offset: Offset(0, 2),
       ),
     ],
     raisedShadow: <BoxShadow>[
       BoxShadow(
-        color: Color(0x590D59D6),
-        blurRadius: 24,
-        offset: Offset(0, 12),
-        spreadRadius: -8,
+        color: Color(0x4D0D59D6),
+        blurRadius: 22,
+        offset: Offset(0, 10),
+        spreadRadius: -4,
       ),
     ],
     searchShadow: <BoxShadow>[
       BoxShadow(
-        color: Color(0x260A2540),
+        color: Color(0x2906162E),
         blurRadius: 28,
-        offset: Offset(0, 14),
-        spreadRadius: -14,
+        offset: Offset(0, 12),
+        spreadRadius: -8,
       ),
     ],
     primaryGradient: LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: <Color>[Color(0xFF1E6BFF), Color(0xFF0B4CC0)],
+      colors: <Color>[Color(0xFF2563EB), Color(0xFF0D59D6)],
     ),
     mintGradient: LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: <Color>[Color(0xFF34D399), Color(0xFF059669)],
+      colors: <Color>[Color(0xFF10B981), Color(0xFF059669)],
     ),
     avatarGradient: LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: <Color>[Color(0xFF0D59D6), Color(0xFF0284C7)],
+      colors: <Color>[Color(0xFF1E6BFF), Color(0xFF0284C7)],
     ),
     warmGradient: LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: <Color>[Color(0xFFFFB347), Color(0xFFFF8A00)],
+      colors: <Color>[Color(0xFFF59E0B), Color(0xFFD97706)],
     ),
     heroGradient: LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: <Color>[Color(0xFF091B3A), Color(0xFF0F3E8A)],
+      colors: <Color>[Color(0xFF07152E), Color(0xFF0C347A), Color(0xFF0D59D6)],
+      stops: <double>[0.0, 0.62, 1.0],
     ),
     heroGlow: RadialGradient(
-      center: Alignment(0.9, -1),
-      radius: 1.25,
-      colors: <Color>[Color(0xFF2563EB), Color(0x002563EB)],
-      stops: <double>[0, 0.55],
+      center: Alignment(0.85, -0.9),
+      radius: 1.3,
+      colors: <Color>[Color(0x593B82F6), Color(0x002563EB)],
+      stops: <double>[0, 0.65],
     ),
   );
 
@@ -262,37 +268,37 @@ class RoutbPalette extends ThemeExtension<RoutbPalette> {
     heroMuted: Color(0xB8FFFFFF),
     cardShadow: <BoxShadow>[
       BoxShadow(
-        color: Color(0x99000000),
-        blurRadius: 30,
-        offset: Offset(0, 12),
-        spreadRadius: -14,
+        color: Color(0x80000000),
+        blurRadius: 24,
+        offset: Offset(0, 10),
+        spreadRadius: -8,
       ),
     ],
     raisedShadow: <BoxShadow>[
       BoxShadow(
-        color: Color(0x66000000),
+        color: Color(0x660D59D6),
         blurRadius: 24,
-        offset: Offset(0, 12),
-        spreadRadius: -8,
+        offset: Offset(0, 10),
+        spreadRadius: -6,
       ),
     ],
     searchShadow: <BoxShadow>[
       BoxShadow(
-        color: Color(0x8C000000),
+        color: Color(0x99000000),
         blurRadius: 28,
-        offset: Offset(0, 14),
-        spreadRadius: -14,
+        offset: Offset(0, 12),
+        spreadRadius: -8,
       ),
     ],
     primaryGradient: LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: <Color>[Color(0xFF3B82F6), Color(0xFF1D4ED8)],
+      colors: <Color>[Color(0xFF2563EB), Color(0xFF0D59D6)],
     ),
     mintGradient: LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: <Color>[Color(0xFF34D399), Color(0xFF059669)],
+      colors: <Color>[Color(0xFF10B981), Color(0xFF059669)],
     ),
     avatarGradient: LinearGradient(
       begin: Alignment.topLeft,
@@ -302,18 +308,19 @@ class RoutbPalette extends ThemeExtension<RoutbPalette> {
     warmGradient: LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: <Color>[Color(0xFFFFB347), Color(0xFFFF8A00)],
+      colors: <Color>[Color(0xFFF59E0B), Color(0xFFD97706)],
     ),
     heroGradient: LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: <Color>[Color(0xFF060F1E), Color(0xFF0C2B5E)],
+      colors: <Color>[Color(0xFF060E1F), Color(0xFF0B2552), Color(0xFF103B85)],
+      stops: <double>[0.0, 0.65, 1.0],
     ),
     heroGlow: RadialGradient(
-      center: Alignment(0.9, -1),
-      radius: 1.25,
-      colors: <Color>[Color(0xFF3B82F6), Color(0x003B82F6)],
-      stops: <double>[0, 0.55],
+      center: Alignment(0.85, -0.9),
+      radius: 1.3,
+      colors: <Color>[Color(0x4D3B82F6), Color(0x003B82F6)],
+      stops: <double>[0, 0.65],
     ),
   );
 

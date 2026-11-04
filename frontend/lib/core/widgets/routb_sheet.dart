@@ -221,6 +221,7 @@ class RoutbSegmented<T> extends StatelessWidget {
       decoration: BoxDecoration(
         color: palette.card,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: palette.line.withValues(alpha: 0.8)),
       ),
       child: Row(
         children: [
@@ -239,7 +240,9 @@ class RoutbSegmented<T> extends StatelessWidget {
                       duration: const Duration(milliseconds: 180),
                       padding: const EdgeInsets.symmetric(vertical: 11),
                       decoration: BoxDecoration(
-                        color: option.value == value ? palette.brand : null,
+                        gradient: option.value == value
+                            ? palette.primaryGradient
+                            : null,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(

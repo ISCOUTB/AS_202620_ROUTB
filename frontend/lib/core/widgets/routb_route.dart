@@ -33,7 +33,7 @@ class _DashesPainter extends CustomPainter {
         );
       }
     } else {
-      final x = _strokeWidth / 2;
+      final x = 9.0;
       for (var y = 0.0; y < size.height; y += _dash + _gap) {
         canvas.drawLine(
           Offset(x, y),
@@ -88,41 +88,115 @@ class TravelPath extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
 
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Origen', style: RoutbText.copy(11, color: palette.muted)),
-              const SizedBox(height: 2),
-              Text(
-                origin,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: RoutbText.headline(15, color: palette.ink),
-              ),
-            ],
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: palette.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: palette.line.withValues(alpha: 0.75)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 7,
+                      height: 7,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: palette.brand, width: 2),
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    Flexible(
+                      child: Text(
+                        'Origen',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: RoutbText.copy(
+                          11,
+                          color: palette.muted,
+                          weight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  origin,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: RoutbText.headline(15, color: palette.ink),
+                ),
+              ],
+            ),
           ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text('Destino', style: RoutbText.copy(11, color: palette.muted)),
-              const SizedBox(height: 2),
-              Text(
-                destination,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.end,
-                style: RoutbText.headline(15, color: palette.ink),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Container(
+              width: 26,
+              height: 26,
+              decoration: BoxDecoration(
+                color: palette.brandSurface,
+                shape: BoxShape.circle,
               ),
-            ],
+              child: Icon(
+                Icons.arrow_forward_rounded,
+                size: 14,
+                color: palette.brand,
+              ),
+            ),
           ),
-        ),
-      ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        'Destino',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: RoutbText.copy(
+                          11,
+                          color: palette.muted,
+                          weight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    Container(
+                      width: 7,
+                      height: 7,
+                      decoration: BoxDecoration(
+                        color: palette.mint,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  destination,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.end,
+                  style: RoutbText.headline(15, color: palette.ink),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -148,21 +222,31 @@ class TimelineStop extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final activeColor = reached ? palette.mint : palette.brand;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          width: 24,
-          height: 18,
+          width: 26,
+          height: 20,
           child: Align(
             alignment: Alignment.centerLeft,
             child: Container(
-              width: 12,
-              height: 12,
+              width: 18,
+              height: 18,
+              alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: reached ? palette.mint : palette.brand,
+                color: activeColor.withValues(alpha: 0.16),
                 shape: BoxShape.circle,
+              ),
+              child: Container(
+                width: 9,
+                height: 9,
+                decoration: BoxDecoration(
+                  color: activeColor,
+                  shape: BoxShape.circle,
+                ),
               ),
             ),
           ),

@@ -45,12 +45,16 @@ class InitialsAvatar extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            HSLColor.fromAHSL(1, hue.toDouble(), 0.85, 0.62).toColor(),
-            HSLColor.fromAHSL(1, ((hue + 60) % 360).toDouble(), 0.85, 0.58)
+            HSLColor.fromAHSL(1, hue.toDouble(), 0.82, 0.56).toColor(),
+            HSLColor.fromAHSL(1, ((hue + 50) % 360).toDouble(), 0.85, 0.48)
                 .toColor(),
           ],
         ),
         borderRadius: BorderRadius.circular(size * 0.34),
+        border: Border.all(
+          color: const Color(0x38FFFFFF),
+          width: 1.2,
+        ),
       ),
       child: Text(
         initials,
@@ -289,22 +293,24 @@ class _SeatSlot extends StatelessWidget {
     );
   }
 
-  /// Relleno de la plaza: el conductor va en tinta, un cupo ocupado en menta y
-  /// uno libre en superficie con borde punteado.
+  /// Relleno de la plaza: el conductor va en marca, un cupo ocupado en menta y
+  /// uno libre en superficie con borde definido.
   BoxDecoration _decorationFor(BuildContext context) {
     final palette = context.palette;
 
     return BoxDecoration(
       color: isDriver
-          ? palette.ink
+          ? palette.brand
           : filled
               ? null
               : palette.surface,
       gradient: !isDriver && filled ? palette.mintGradient : null,
       borderRadius: BorderRadius.circular(size * 0.33),
-      border: isDriver || filled
-          ? null
-          : Border.all(color: palette.line, width: 1.5),
+      border: isDriver
+          ? Border.all(color: const Color(0x33FFFFFF), width: 1.2)
+          : filled
+              ? Border.all(color: palette.mint, width: 1.5)
+              : Border.all(color: palette.line, width: 1.5),
     );
   }
 }
@@ -337,8 +343,19 @@ class RoutbEmptyState extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 28, color: palette.muted),
-            const SizedBox(height: 12),
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: palette.brandSurface,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: palette.brand.withValues(alpha: 0.22),
+                ),
+              ),
+              child: Icon(icon, size: 26, color: palette.brand),
+            ),
+            const SizedBox(height: 14),
           ],
           Text(
             message,
