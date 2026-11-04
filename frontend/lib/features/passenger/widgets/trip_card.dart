@@ -91,40 +91,62 @@ class TripCard extends StatelessWidget {
                   ],
                 ),
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    trip.departureClockLabel,
-                    style: RoutbText.headline(
-                      26,
-                      color: palette.ink,
-                      height: 1,
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: palette.brandSurface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: palette.brand.withValues(alpha: 0.22),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      trip.departureClockLabel,
+                      style: RoutbText.headline(
+                        22,
+                        color: palette.onBrandSurface,
+                        height: 1,
+                      ),
                     ),
-                  ),
-                  Text(
-                    trip.departureMeridiem,
-                    style: RoutbText.copy(11, color: palette.muted),
-                  ),
-                ],
+                    Text(
+                      trip.departureMeridiem,
+                      style: RoutbText.copy(
+                        10.5,
+                        color: palette.onBrandSurface,
+                        weight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 14),
           TravelPath(origin: trip.origin, destination: trip.destination),
           const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              'Encuentro: ${trip.meetingPoint}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: RoutbText.copy(12, color: palette.muted),
-            ),
+          Row(
+            children: [
+              Icon(Icons.flag_outlined, size: 14, color: palette.muted),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  'Encuentro: ${trip.meetingPoint}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: RoutbText.copy(12, color: palette.muted),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
-          const DashedDivider(),
           const SizedBox(height: 14),
+          const DashedDivider(),
+          const SizedBox(height: 12),
           Row(
             children: [
               // Los puntos y el texto se reparten el espacio sobrante; el botón

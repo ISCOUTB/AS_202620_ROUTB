@@ -522,10 +522,11 @@ class _PassengerHero extends StatelessWidget {
           Container(
             decoration: BoxDecoration(
               color: palette.card,
-              borderRadius: BorderRadius.circular(22),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: palette.line.withValues(alpha: 0.7)),
               boxShadow: palette.searchShadow,
             ),
-            padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -533,26 +534,41 @@ class _PassengerHero extends StatelessWidget {
                 const SizedBox(height: 10),
                 Material(
                   color: palette.surface,
-                  borderRadius: BorderRadius.circular(16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(
+                      color: palette.brand.withValues(alpha: 0.25),
+                    ),
+                  ),
                   child: InkWell(
                     onTap: onOpenSuggestions,
                     borderRadius: BorderRadius.circular(16),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
+                        horizontal: 12,
+                        vertical: 11,
                       ),
                       child: Row(
                         children: [
-                          Icon(
-                            Icons.search_rounded,
-                            size: 20,
-                            color: palette.brand,
+                          Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              gradient: palette.primaryGradient,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.search_rounded,
+                              size: 17,
+                              color: Colors.white,
+                            ),
                           ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
                               '¿A dónde vas? Buscar ruta y paradas',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: RoutbText.copy(
                                 13,
                                 color: palette.ink,
@@ -560,10 +576,19 @@ class _PassengerHero extends StatelessWidget {
                               ),
                             ),
                           ),
-                          Icon(
-                            Icons.arrow_forward_ios_rounded,
-                            size: 13,
-                            color: palette.muted,
+                          const SizedBox(width: 6),
+                          Container(
+                            width: 26,
+                            height: 26,
+                            decoration: BoxDecoration(
+                              color: palette.brandSurface,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Icons.tune_rounded,
+                              size: 14,
+                              color: palette.brand,
+                            ),
                           ),
                         ],
                       ),

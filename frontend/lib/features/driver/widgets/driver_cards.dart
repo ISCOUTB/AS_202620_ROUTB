@@ -280,14 +280,15 @@ class RouteCard extends StatelessWidget {
     };
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: highlight ? palette.mintSurface : Colors.transparent,
+        color: highlight ? palette.mintSurface : palette.card,
         borderRadius: BorderRadius.circular(RoutbTheme.radiusRoute),
         border: Border.all(
           color: selected ? palette.brand : palette.line,
-          width: 1.5,
+          width: selected ? 1.8 : 1.2,
         ),
+        boxShadow: selected ? palette.cardShadow : null,
       ),
       child: Material(
         color: Colors.transparent,
@@ -295,11 +296,27 @@ class RouteCard extends StatelessWidget {
           onTap: onSelect,
           borderRadius: BorderRadius.circular(RoutbTheme.radiusRoute),
           child: Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(14),
             child: Column(
               children: [
                 Row(
                   children: [
+                    Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? palette.brandSurface
+                            : palette.surface,
+                        borderRadius: BorderRadius.circular(9),
+                      ),
+                      child: Icon(
+                        Icons.directions_car_filled_rounded,
+                        size: 16,
+                        color: selected ? palette.brand : palette.muted,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         trip.routeLabel,
@@ -390,46 +407,85 @@ class RouteCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 12),
-                DashedTimeline(
-                  stops: <TimelineStop>[
-                    TimelineStop(
-                      title: trip.origin,
-                      subtitle:
-                          '${trip.departureDateLabel} · salida ${trip.departureLabel}',
-                      reached: phase == TripPhase.onCourse,
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: palette.surface,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: palette.line.withValues(alpha: 0.65),
                     ),
-                    for (final waypoint in trip.acceptedWaypoints)
-                      TimelineStop(
-                        title: waypoint,
-                        subtitle: 'Parada confirmada de pasajero',
-                        reached: false,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      DashedTimeline(
+                        stops: <TimelineStop>[
+                          TimelineStop(
+                            title: trip.origin,
+                            subtitle:
+                                '${trip.departureDateLabel} · salida ${trip.departureLabel}',
+                            reached: phase == TripPhase.onCourse,
+                          ),
+                          for (final waypoint in trip.acceptedWaypoints)
+                            TimelineStop(
+                              title: waypoint,
+                              subtitle: 'Parada confirmada de pasajero',
+                              reached: false,
+                            ),
+                          TimelineStop(
+                            title: trip.destination,
+                            subtitle: 'Destino final',
+                            reached: false,
+                          ),
+                        ],
                       ),
-                    TimelineStop(
-                      title: trip.destination,
-                      subtitle: 'Destino final',
-                      reached: false,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Encuentro: ${trip.meetingPoint}',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: RoutbText.copy(12, color: palette.muted),
+                      const SizedBox(height: 10),
+                      const DashedDivider(),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.flag_outlined,
+                            size: 14,
+                            color: palette.muted,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'Encuentro: ${trip.meetingPoint}',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: RoutbText.copy(12, color: palette.muted),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 12),
                 Row(
                   children: [
+                    SeatDots(
+                      total: trip.totalSeats,
+                      available: trip.availableSeats,
+                      size: const Size(8, 13),
+                    ),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         '${trip.availableSeats}/${trip.totalSeats} cupos libres',
-                        style: RoutbText.copy(12, color: palette.muted),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: RoutbText.copy(
+                          12,
+                          color: palette.muted,
+                          weight: FontWeight.w600,
+                        ),
                       ),
                     ),
+                    const SizedBox(width: 6),
                     RoutbTextAction(
                       label: 'Cancelar ruta',
                       color: palette.rose,
@@ -507,14 +563,35 @@ class HistoryRouteTile extends StatelessWidget {
       (total, request) => total + request.seatCount,
     );
 
+    final isCancelled = phase == TripPhase.cancelled;
+    final accentColor = isCancelled ? palette.rose : palette.mint;
+
     return Container(
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: palette.surface,
+        color: palette.card,
         borderRadius: BorderRadius.circular(RoutbTheme.radiusRoute),
+        border: Border.all(color: palette.line.withValues(alpha: 0.7)),
+        boxShadow: palette.cardShadow,
       ),
       child: Row(
         children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: accentColor.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              isCancelled
+                  ? Icons.cancel_outlined
+                  : Icons.check_circle_outline_rounded,
+              size: 20,
+              color: accentColor,
+            ),
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -526,22 +603,50 @@ class HistoryRouteTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: RoutbText.headline(15, color: palette.ink),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  '${trip.departureDateLabel} · ${trip.departureLabel}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: RoutbText.copy(12, color: palette.muted),
+                const SizedBox(height: 3),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.schedule_rounded,
+                      size: 13,
+                      color: palette.muted,
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        '${trip.departureDateLabel} · ${trip.departureLabel}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: RoutbText.copy(12, color: palette.muted),
+                      ),
+                    ),
+                  ],
                 ),
                 if (confirmed > 0) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    confirmed == 1
-                        ? '1 pasajero confirmado'
-                        : '$confirmed pasajeros confirmados',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: RoutbText.copy(12, color: palette.muted),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.people_alt_outlined,
+                        size: 13,
+                        color: palette.brand,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          confirmed == 1
+                              ? '1 pasajero confirmado'
+                              : '$confirmed pasajeros confirmados',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: RoutbText.copy(
+                            12,
+                            color: palette.ink,
+                            weight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ],
