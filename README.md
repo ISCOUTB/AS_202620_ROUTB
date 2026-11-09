@@ -166,4 +166,4 @@ El manifiesto de referencia del contenedor y de sus variables es [`compose.lab.y
 
 ## Calidad y métricas
 
-La calidad de rendimiento se verifica con una métrica consultable: el percentil 95 de la latencia de `GET /trips/` debe ser menor a 3,99 s. El escenario, la fuente de datos, la consulta, el umbral y la medición realizada están en [Metricas frente a escenario de calidad](docs/evidencia/metricas-escenario-calidad.md).
+La calidad de rendimiento se verifica con una métrica consultable: el percentil 95 de la latencia de `GET /trips/` debe ser menor a 3,99 s. El escenario, la fuente de datos, la consulta, el umbral y la medición realizada están en [Metricas frente a escenario de calidad](docs/evidencia/metricas-escenario-calidad.md). La medición reproducible de la Semana 14, con el script versionado y las instrucciones para repetirla, está en [medición del escenario de rendimiento](docs/evidencia/medicion-semana14.md).

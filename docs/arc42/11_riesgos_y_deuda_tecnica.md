@@ -85,3 +85,49 @@ De conformidad con el proceso de modelado de amenazas STRIDE sobre el diagrama C
 | **AR-03** | **Almacenamiento de JWT en SharedPreferences estándar en cliente móvil** *(Information Disclosure)* | Aplicación Móvil (Flutter) | El uso del sandbox estándar de SharedPreferences en Android/iOS evita añadir dependencias nativas complejas (`flutter_secure_storage`) que pueden presentar incompatibilidades de compilación en determinados emuladores y plataformas web de testing académico. | El sandbox del sistema operativo aísla el almacenamiento de datos entre aplicaciones en dispositivos sin root ni jailbreak; el token tiene expiración acotada (60 min) y no se almacenan contraseñas en el cliente. | Transición obligatoria a Android KeyStore y Apple iOS Keychain cuando la aplicación pase a distribución en tiendas públicas (Google Play Store y Apple App Store). |
 | **AR-04** | **Degradación temporal por indisponibilidad de OSRM sin reintentos** *(Denial of Service / Tampering)* | Sistema Externo OSRM / Matching | [ADR 0014](../adr/0014-fallback-geocode-cache.md) prohíbe reintentos automáticos síncronos ante caídas del servidor de routing para evitar multiplicar la latencia y romper el escenario de calidad estricto de p95 < 3.99 s. | Respuesta tipada con ruta geodésica marcada `degraded=true` (HTTP 200); la respuesta degradada no se persiste ni se sirve desde la tabla `route_cache`, reintentando de forma natural en la siguiente petición. | Si el equipo despliega una instancia propia contenerizada de OSRM local en la misma red privada de Dokploy eliminando la latencia de red pública. |
 | **AR-05** | **Vulnerabilidades en librerías transitivas no ejecutables en producción** *(Tampering / Vulnerability)* | Dependencias de Backend | Análisis de dependencias con `pip-audit` detecta CVEs en librerías fijadas (ej. `pytest` en herramientas de test, o funciones no usadas de `pyjwt`/`pyasn1`). Actualizar manualmente de forma aislada rompería los hashes criptográficos de `requirements.txt` compilados con `uv`. | En producción, `pytest` no se ejecuta ni expone puertos; ROUTB restringe el uso de `pyjwt` a `HS256` simétrico verificado, neutralizando los vectores de ataques asimétricos o de confusión de clave pública reportados en CVEs de algoritmos no usados. | Renovación planificada integral de hashes de dependencias (`uv pip compile`) en la siguiente iteración de mantenimiento semestral. |
+
+---
+
+## 11.4 Señalamientos de la revisión entre pares y de la revisión externa
+
+Esta sección incorpora lo que otras personas señalaron sobre ROUTB y el estado
+que el equipo decidió darle. Se distinguen dos fuentes: la **revisión entre
+pares** de la semana 14 y los **hallazgos de la revisión externa** que el curso
+documentó en `ISCOUTB/AS_202620_feedback`. La distinción importa porque la
+primera es una actividad de pares y la segunda es retroalimentación docente; no
+se presentan como si fueran la misma cosa.
+
+### 11.4.1 Revisión entre pares
+
+Al cierre de la Semana 14 no se recibieron señalamientos formales del taller de
+revisión entre pares (`arqsw:workshop-pares`) en el repositorio ni en los canales
+del equipo. El 2026-11-08 se revisaron los issues y pull requests del repositorio:
+no hay comentarios humanos de revisión de otros equipos; los únicos comentarios
+son de automatizaciones (Dependabot y SonarCloud). Para no inventar hallazgos ni
+omitir el requisito, el equipo **asume** explícitamente esa ausencia como un
+riesgo de validación externa y la deja registrada. Si los pares entregan sus
+comentarios después de este cierre, se incorporarán en esta misma tabla con su
+estado.
+
+| # | Señalamiento | Equipo revisor | Estado | Detalle |
+|---|---|---|---|---|
+| P-0 | No se recibieron señalamientos de pares al cierre de la Semana 14. | — | Asumido | Se consultaron issues y pull requests del repositorio; no hay comentarios humanos de revisión cruzada. El equipo asume el riesgo de no contar con validación externa y mantiene esta sección abierta para incorporar los comentarios cuando estén disponibles. |
+
+### 11.4.2 Hallazgos de la revisión externa
+
+Además de la revisión entre pares, se revisaron los hallazgos documentados por la
+revisión externa del curso en
+[`ISCOUTB/AS_202620_feedback`](https://github.com/ISCOUTB/AS_202620_feedback/blob/master/revisiones/2026-2/AS_202620_ROUTB/feedback.md)
+(última actualización consultada: 2026-11-06). Se incluyen aquí porque afectan la
+calidad y la deuda técnica del sistema, y porque el equipo debe distinguir lo
+corregido, lo asumido y lo pendiente.
+
+| # | Señalamiento | Origen | Estado | Detalle |
+|---|---|---|---|---|
+| E-1 | El job de SonarCloud es un `echo` y no ejecuta el scanner ni un Quality Gate real. | Revisión externa, seguimiento 2026-11-05 | Pendiente | `.github/workflows/ci.yml:93-98` mantiene `echo "SonarCloud reservado sin SONAR_TOKEN"` desde `af2e999`. Plan: configurar `SONAR_TOKEN`, el scanner y el Quality Gate antes del proyecto final; no se modifica el CI sin autorización del equipo. |
+| E-2 | La prueba de 50 solicitudes de matching se redujo a una respuesta contractual y no acredita rendimiento con carga. | Revisión externa, seguimiento 2026-11-04 | Corregido | La prueba contractual se conserva para regresión (`test_matching_response_remains_contractual`) y la medición de carga se separa en [`medicion-semana14.md`](../evidencia/medicion-semana14.md): 100 peticiones × 3 repeticiones sobre `GET /trips/`, con script versionado y resultados crudos. La afirmación anterior de 50 solicitudes queda reemplazada por esta medición; no se presenta la prueba contractual como prueba de carga. |
+| E-3 | La migración 010 no se ha aplicado ni verificado en el entorno objetivo; el CI no prueba la migración productiva. | Revisión externa, seguimiento 2026-10-26 | Pendiente | Requiere acceso al entorno autorizado de Supabase/Dokploy. Plan: ejecutar `alembic upgrade head` y verificar el índice `uq_trip_requests_active_passenger` antes del proyecto final. En la base de pruebas la migración sí se aplicó durante la medición de la Semana 14, pero eso no acredita producción. |
+| E-4 | `requests` actualiza campos de ruta cuyo dueño es `trips` mediante `refresh_trip_route_and_stop_eta`. | Revisión externa, corte 2 (S10) | Pendiente | `backend/app/modules/requests/application/manage_request.py:135` sigue llamando la operación y `order_stops.py` ejecuta `UPDATE trips`. Plan: mover la actualización de geometría y métricas a una operación pública de `trips.application` y dejar en `requests` solo las paradas y ETA propias, según ADR 0017 y ADR 0021. |
+| E-5 | El envío FCM permanece en el camino síncrono de la respuesta de `accept_request`. | Revisión externa, corte 2 (S10) | Asumido | `manage_request.py:146` llama `send_push` después del `commit` y con excepciones contenidas; la reserva ya está confirmada, pero la respuesta espera el envío. Se acepta como *best-effort* para el alcance académico, con revisión si el p95 o la disponibilidad de FCM se degradan (ADR 0013). |
+| E-6 | No se ha verificado el commit o la imagen servida en Dokploy ni la aceptación funcional completa. | Revisión externa, seguimiento 2026-11-04 | Asumido | El 2026-11-08 `GET https://routb.iscoutb.dev/health` responde `{"status":"ok"}` y `/openapi.json` declara `info.version = 0.9.0`, igual que `backend/app/main.py`; desde fuera no se puede demostrar el SHA exacto. Se asume como riesgo operativo y se recomienda verificar el SHA en el panel de Dokploy. |
+| E-7 | El README conservaba instrucciones de despliegue en Render. | Revisión externa, S12 | Corregido | El README vigente documenta Dokploy y `routb.iscoutb.dev`; la única mención a «Render» es «Renderizado del mapa» (OpenStreetMap). El cambio quedó en `c6f2350` y en los ajustes posteriores de despliegue. |
