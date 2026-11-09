@@ -360,20 +360,21 @@ class RoutbChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(RoutbTheme.radiusPill),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
-          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
-            color: selected ? palette.ink : palette.card,
+            gradient: selected ? palette.primaryGradient : null,
+            color: selected ? null : palette.surface,
             borderRadius: BorderRadius.circular(RoutbTheme.radiusPill),
             border: Border.all(
-              color: selected ? palette.ink : palette.line,
-              width: 1.5,
+              color: selected ? palette.brand : palette.line,
+              width: 1.2,
             ),
           ),
           child: Text(
             label,
             style: RoutbText.copy(
               12.5,
-              color: selected ? palette.background : palette.ink,
+              color: selected ? palette.onBrand : palette.ink,
               weight: FontWeight.w700,
             ),
           ),
@@ -408,10 +409,14 @@ class RoutbStatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: background,
         borderRadius: BorderRadius.circular(RoutbTheme.radiusPill),
+        border: Border.all(
+          color: foreground.withValues(alpha: 0.22),
+          width: 1,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -419,6 +424,16 @@ class RoutbStatusPill extends StatelessWidget {
           if (icon != null) ...[
             Icon(icon, size: 12, color: foreground),
             const SizedBox(width: 4),
+          ] else ...[
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: foreground,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 5),
           ],
           Flexible(
             child: Text(

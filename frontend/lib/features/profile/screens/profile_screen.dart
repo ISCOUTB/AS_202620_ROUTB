@@ -278,31 +278,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const RoutbCardHeader(
+          RoutbCardHeader(
             title: 'Ubicación',
             icon: Icons.location_on_outlined,
-          ),
-          Text(
-            profile.consentLabel,
-            style: RoutbText.copy(
-              14,
-              color: palette.ink,
-              weight: FontWeight.w700,
+            trailing: RoutbStatusPill(
+              label: profile.consentLabel,
+              background: hasConsent
+                  ? palette.mintSurface
+                  : palette.amberSurface,
+              foreground: hasConsent
+                  ? palette.onMintSurface
+                  : palette.onAmberSurface,
             ),
           ),
-          const SizedBox(height: 6),
           Text(
             hasConsent
                 ? 'Sirve para buscar direcciones y ver sugerencias puerta a '
                       'puerta. Puedes revocarla cuando quieras.'
                 : 'Sin esta autorización no puedes buscar direcciones ni ver '
                       'sugerencias puerta a puerta.',
-            style: RoutbText.copy(12, color: palette.muted),
+            style: RoutbText.copy(12.5, color: palette.muted, height: 1.4),
           ),
           const SizedBox(height: 14),
           if (hasConsent)
             RoutbTextAction(
               label: 'Revocar autorización',
+              icon: Icons.gpp_bad_outlined,
               color: palette.rose,
               onPressed: _changingConsent ? null : _revokeConsent,
             )

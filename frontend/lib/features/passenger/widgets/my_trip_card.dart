@@ -77,18 +77,18 @@ class MyTripCard extends StatelessWidget {
           : request.isConfirmed
           ? palette.mint
           : palette.amber,
-      borderWidth: 1,
+      borderWidth: request.isPast ? 1 : 1.5,
       child: Row(
         children: [
           InitialsAvatar(
             name: request.driverName ?? '?',
             initials: request.driverInitials,
-            size: 40,
+            size: 44,
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
                 MyTripStatusPill(request: request),
@@ -100,23 +100,45 @@ class MyTripCard extends StatelessWidget {
                     request.routeLabel,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
                     style: RoutbText.headline(15, color: palette.ink),
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  '${request.departureDateLabel} · ${request.departureLabel}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: RoutbText.copy(12, color: palette.muted),
+                const SizedBox(height: 3),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.schedule_rounded,
+                      size: 13,
+                      color: palette.muted,
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        '${request.departureDateLabel} · ${request.departureLabel}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: RoutbText.copy(12, color: palette.muted),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
           const SizedBox(width: 8),
-          Icon(Icons.chevron_right_rounded, color: palette.muted),
+          Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: palette.surface,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              Icons.chevron_right_rounded,
+              size: 18,
+              color: palette.brand,
+            ),
+          ),
         ],
       ),
     );

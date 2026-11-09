@@ -623,11 +623,12 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
             style: RoutbText.copy(
               13,
               color: palette.brand,
-              weight: FontWeight.w600,
+              weight: FontWeight.w700,
             ),
           ),
           style: OutlinedButton.styleFrom(
-            side: BorderSide(color: palette.brand.withValues(alpha: 0.3)),
+            backgroundColor: palette.surface,
+            side: BorderSide(color: palette.brand.withValues(alpha: 0.35)),
             padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 14),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
@@ -805,12 +806,23 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
               _showMap = !_showMap;
             });
           },
-          icon: Icon(_showMap ? Icons.keyboard_arrow_up : Icons.map_outlined),
+          icon: Icon(
+            _showMap ? Icons.keyboard_arrow_up : Icons.map_outlined,
+            size: 18,
+            color: palette.brand,
+          ),
           label: Text(
             _showMap ? 'Ocultar mapa' : 'Ajustar ubicación en el mapa',
+            style: RoutbText.copy(
+              13,
+              color: palette.brand,
+              weight: FontWeight.w700,
+            ),
           ),
           style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 10),
+            backgroundColor: palette.surface,
+            side: BorderSide(color: palette.line),
+            padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 14),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
             ),

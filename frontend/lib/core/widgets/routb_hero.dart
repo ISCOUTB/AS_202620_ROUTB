@@ -38,6 +38,11 @@ class HeroBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
+    final roleAccent = role == UserRole.driver
+        ? const Color(0xFF60A5FA)
+        : palette.mint;
+
     return Row(
       children: [
         Container(
@@ -45,8 +50,9 @@ class HeroBar extends StatelessWidget {
           height: 46,
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: const Color(0x24FFFFFF),
-            borderRadius: BorderRadius.circular(14),
+            color: const Color(0x1FFFFFFF),
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(color: const Color(0x33FFFFFF)),
           ),
           child: RoutbLogo(
             variant: isDarkBackground
@@ -61,12 +67,41 @@ class HeroBar extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                role.modeLabel,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: RoutbText.copy(12, color: const Color(0xB8FFFFFF)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0x1FFFFFFF),
+                  borderRadius: BorderRadius.circular(99),
+                  border: Border.all(color: const Color(0x26FFFFFF)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: roleAccent,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    Flexible(
+                      child: Text(
+                        role.modeLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: RoutbText.copy(
+                          11,
+                          color: const Color(0xE6FFFFFF),
+                          weight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(height: 3),
               Text(
                 wave ? 'Hola, $userName 👋' : 'Hola, $userName',
                 maxLines: 1,
@@ -76,6 +111,7 @@ class HeroBar extends StatelessWidget {
             ],
           ),
         ),
+        const SizedBox(width: 8),
         HeroAction(label: 'Salir', icon: Icons.logout_rounded, onTap: onLogout),
       ],
     );
@@ -102,35 +138,36 @@ class HeroAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final child = Opacity(
-      opacity: 0.85,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 18, color: Colors.white),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: RoutbText.copy(
-              11,
-              color: Colors.white,
-              weight: FontWeight.w700,
-            ),
+    final child = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 15, color: Colors.white),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: RoutbText.copy(
+            12,
+            color: Colors.white,
+            weight: FontWeight.w700,
           ),
-        ],
-      ),
+        ),
+      ],
     );
 
     return Semantics(
       button: true,
       label: label,
       child: Material(
-        color: Colors.transparent,
+        color: const Color(0x1FFFFFFF),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(99),
+          side: const BorderSide(color: Color(0x33FFFFFF)),
+        ),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(RoutbTheme.radiusControl),
+          borderRadius: BorderRadius.circular(99),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: child,
           ),
         ),

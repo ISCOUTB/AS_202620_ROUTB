@@ -54,7 +54,7 @@ class RoutbCard extends StatelessWidget {
       boxShadow: palette.cardShadow,
       border: borderWidth > 0 && borderColor != null
           ? Border.all(color: borderColor!, width: borderWidth)
-          : null,
+          : Border.all(color: palette.line.withValues(alpha: 0.65), width: 1),
     );
 
     final content = Padding(padding: padding, child: child);
@@ -113,12 +113,20 @@ class RoutbCardHeader extends StatelessWidget {
     final palette = context.palette;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 14),
       child: Row(
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 18, color: palette.ink),
-            const SizedBox(width: 8),
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: palette.brandSurface,
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: Icon(icon, size: 16, color: palette.brand),
+            ),
+            const SizedBox(width: 10),
           ],
           Expanded(
             child: Text(
@@ -129,8 +137,8 @@ class RoutbCardHeader extends StatelessWidget {
           if (count != null && count! > 0) ...[
             RoutbBadge(
               text: '$count',
-              background: palette.amber,
-              foreground: palette.onAmber,
+              background: palette.brandSurface,
+              foreground: palette.onBrandSurface,
             ),
             const SizedBox(width: 8),
           ],
@@ -229,9 +237,33 @@ class RoutbHint extends StatelessWidget {
 
     return Padding(
       padding: margin ?? EdgeInsets.zero,
-      child: Text(
-        text,
-        style: RoutbText.copy(12, color: palette.muted),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: palette.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: palette.line.withValues(alpha: 0.7)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 1),
+              child: Icon(
+                Icons.info_outline_rounded,
+                size: 15,
+                color: palette.brand,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                text,
+                style: RoutbText.copy(12, color: palette.muted, height: 1.4),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -69,6 +69,12 @@ flowchart LR
 | **Escalabilidad** | Usuarios del sistema | Aumento progresivo de usuarios, viajes y reservas | ROUTB | Periodos de alta demanda | El sistema mantiene su operación normal | Soporta hasta 100 usuarios concurrentes sin errores ni interrupciones |
 | **Resiliencia** | Proveedor externo (Google Maps u OSRM) | El proveedor no responde o devuelve error | Cliente Flutter y backend FastAPI | Operación normal con dependencia caída | El cliente usa el catálogo local/curva estimada; el backend degrada con respuestas contractuales | Cero `500` por fallo externo y p95 bajo 3,99 s |
 
+> **Medición vigente (Semana 14):** el escenario de Rendimiento se midió con
+> 100 peticiones × 3 repeticiones sobre `GET /trips/`; el procedimiento, el
+> entorno y los resultados están en
+> [medicion-semana14.md](../evidencia/medicion-semana14.md). El umbral se mantiene
+> en **p95 < 3,99 s**; no se cambió después de medir.
+
 ---
 
 ## 10.3 Impacto en los requisitos de calidad

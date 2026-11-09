@@ -189,81 +189,108 @@ class _PublishSheetState extends State<_PublishSheet> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 1. Sentido y Horario
-          const SectionLabel(title: 'Trayecto y horario'),
-          RoutbSegmented<bool>(
-            options: const <({bool value, String label})>[
-              (value: true, label: 'Voy a la UTB'),
-              (value: false, label: 'Salgo de la UTB'),
-            ],
-            value: _draft.toCampus,
-            onChanged: (value) => setState(() => _draft.toCampus = value),
-          ),
-          const SizedBox(height: 12),
-          DateQuickPicker(
-            value: _draft.departureDate,
-            onChanged: (date) => setState(() => _draft.departureDate = date),
-          ),
-          const SizedBox(height: 12),
-          DepartureStepper(
-            departure: _draft.departure,
-            onChanged: (value) => setState(() => _draft.departure = value),
+          RoutbCard(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SectionLabel(title: 'Trayecto y horario'),
+                RoutbSegmented<bool>(
+                  options: const <({bool value, String label})>[
+                    (value: true, label: 'Voy a la UTB'),
+                    (value: false, label: 'Salgo de la UTB'),
+                  ],
+                  value: _draft.toCampus,
+                  onChanged: (value) => setState(() => _draft.toCampus = value),
+                ),
+                const SizedBox(height: 12),
+                DateQuickPicker(
+                  value: _draft.departureDate,
+                  onChanged: (date) =>
+                      setState(() => _draft.departureDate = date),
+                ),
+                const SizedBox(height: 12),
+                DepartureStepper(
+                  departure: _draft.departure,
+                  onChanged: (value) => setState(() => _draft.departure = value),
+                ),
+              ],
+            ),
           ),
 
-          const SizedBox(height: 20),
+          const SizedBox(height: 14),
           // 2. Ubicación en Cartagena (búsqueda, barrios, GPS y mapa)
-          SectionLabel(
-            title: _draft.toCampus
-                ? 'Punto de salida en Cartagena'
-                : 'Punto de llegada en Cartagena',
-            trailing: _draft.driverPoint != null
-                ? _draft.zone.name
-                : 'Obligatorio',
-          ),
-          AddressSearchField(
-            toCampus: _draft.toCampus,
-            label: _draft.toCampus
-                ? 'Escribe tu dirección o barrio de salida'
-                : 'Escribe tu dirección o barrio de llegada',
-            initialLocation: _draft.driverPoint,
-            onLocationSelected: (location) {
-              setState(() {
-                _draft.driverPoint = location;
-                _draft.zone = _resolveZone(location);
-              });
-            },
-            onLocationCleared: () => setState(() => _draft.driverPoint = null),
+          RoutbCard(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SectionLabel(
+                  title: _draft.toCampus
+                      ? 'Punto de salida en Cartagena'
+                      : 'Punto de llegada en Cartagena',
+                  trailing: _draft.driverPoint != null
+                      ? _draft.zone.name
+                      : 'Obligatorio',
+                ),
+                AddressSearchField(
+                  toCampus: _draft.toCampus,
+                  label: _draft.toCampus
+                      ? 'Escribe tu dirección o barrio de salida'
+                      : 'Escribe tu dirección o barrio de llegada',
+                  initialLocation: _draft.driverPoint,
+                  onLocationSelected: (location) {
+                    setState(() {
+                      _draft.driverPoint = location;
+                      _draft.zone = _resolveZone(location);
+                    });
+                  },
+                  onLocationCleared: () =>
+                      setState(() => _draft.driverPoint = null),
+                ),
+              ],
+            ),
           ),
 
-          const SizedBox(height: 20),
+          const SizedBox(height: 14),
           // 3. Cupos y Punto de encuentro
-          SectionLabel(
-            title: 'Cupos disponibles',
-            trailing: _draft.seats == 1 ? '1 cupo' : '${_draft.seats} cupos',
-          ),
-          Center(
-            child: SeatPicker(
-              seats: _draft.seats,
-              onChanged: (value) => setState(() => _draft.seats = value),
+          RoutbCard(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SectionLabel(
+                  title: 'Cupos disponibles',
+                  trailing: _draft.seats == 1
+                      ? '1 cupo'
+                      : '${_draft.seats} cupos',
+                ),
+                Center(
+                  child: SeatPicker(
+                    seats: _draft.seats,
+                    onChanged: (value) => setState(() => _draft.seats = value),
+                  ),
+                ),
+                if (!_draft.toCampus) ...[
+                  const SizedBox(height: 18),
+                  const SectionLabel(title: 'Punto de encuentro en UTB'),
+                  RoutbField(
+                    hint: 'Ej. Portería principal / Bahía de buses UTB',
+                    icon: Icons.flag_outlined,
+                    controller: _meetingPoint,
+                    textCapitalization: TextCapitalization.sentences,
+                    onChanged: (value) {
+                      setState(() => _draft.meetingPoint = value);
+                    },
+                  ),
+                ],
+              ],
             ),
           ),
-
-          if (!_draft.toCampus) ...[
-            const SizedBox(height: 20),
-            const SectionLabel(title: 'Punto de encuentro en UTB'),
-            RoutbField(
-              hint: 'Ej. Portería principal / Bahía de buses UTB',
-              icon: Icons.flag_outlined,
-              controller: _meetingPoint,
-              textCapitalization: TextCapitalization.sentences,
-              onChanged: (value) {
-                setState(() => _draft.meetingPoint = value);
-              },
-            ),
-          ],
 
           const RoutbHint(
             'El trayecto se calcula y publica con base en el barrio y las paradas.',
-            margin: EdgeInsets.only(top: 18),
+            margin: EdgeInsets.only(top: 14),
           ),
         ],
       ),
@@ -418,18 +445,21 @@ class _StepButton extends StatelessWidget {
       button: true,
       label: semanticLabel,
       child: Material(
-        color: palette.surface,
-        borderRadius: BorderRadius.circular(16),
+        color: palette.brandSurface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(color: palette.brand.withValues(alpha: 0.25)),
+        ),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           child: SizedBox(
             width: 48,
             height: 48,
             child: Center(
               child: Text(
                 label,
-                style: RoutbText.headline(22, color: palette.brand),
+                style: RoutbText.headline(18, color: palette.onBrandSurface),
               ),
             ),
           ),

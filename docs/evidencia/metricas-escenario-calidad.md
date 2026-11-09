@@ -198,3 +198,19 @@ Ambas mediciones se hicieron el 26 de septiembre de 2026 sobre `GET https://as-2
 - **Instrumentación de código:** middleware en [`backend/app/main.py`](/backend/app/main.py).
 - **Decisiones relacionadas:** [ADR 0003](../adr/0003-control-atomico-de-cupos.md), [ADR 0005](../adr/0005-render-plataforma-de-despliegue.md) y [ADR 0006](../adr/0006-base-de-datos-supabase.md).
 - **Evidencia de ejecución en la nube:** [Verificación de disponibilidad externa](../evidencia/despliegue-externo.md).
+
+---
+
+## 7. Actualización Semana 14 (Dokploy)
+
+La medición vigente se realizó el 2026-11-08 contra el despliegue en Dokploy
+(`https://routb.iscoutb.dev/trips/`) con 100 peticiones × 3 repeticiones y un
+calentamiento previo. El p95 más alto fue **631,76 ms**, por debajo del umbral de
+3.990 ms: **CUMPLE**. Se complementó con una medición local de 5 viajes sembrados
+(p95 más alto 2.564,52 ms: **CUMPLE**).
+
+El procedimiento, el entorno, los resultados por ronda y los JSON crudos están
+en [medición del escenario de rendimiento (Semana 14)](medicion-semana14.md). La
+diferencia con la medición de Render de este documento es metodológica: la
+Semana 14 usa `httpx` con conexión persistente, mientras que la línea base usó un
+proceso `curl` por petición.

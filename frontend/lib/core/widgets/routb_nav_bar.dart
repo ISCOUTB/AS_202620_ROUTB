@@ -46,21 +46,27 @@ class RoutbNavBar extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: palette.card,
-        border: Border(top: BorderSide(color: palette.line)),
+        border: Border(
+          top: BorderSide(color: palette.line.withValues(alpha: 0.85)),
+        ),
+        boxShadow: palette.cardShadow,
       ),
       child: SafeArea(
         top: false,
         child: SizedBox(
-          height: 64,
-          child: Row(
-            children: [
-              for (var index = 0; index < items.length; index++)
-                _RoutbNavTab(
-                  item: items[index],
-                  selected: index == selectedIndex,
-                  onTap: () => onSelected(index),
-                ),
-            ],
+          height: 66,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              children: [
+                for (var index = 0; index < items.length; index++)
+                  _RoutbNavTab(
+                    item: items[index],
+                    selected: index == selectedIndex,
+                    onTap: () => onSelected(index),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -82,7 +88,7 @@ class _RoutbNavTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final color = selected ? palette.brand : palette.muted;
+    final color = selected ? palette.onBrandSurface : palette.muted;
     final badge = item.badge;
     return Expanded(
       child: Semantics(
@@ -91,13 +97,21 @@ class _RoutbNavTab extends StatelessWidget {
         label: badge > 0 ? '${item.label}, $badge activos' : item.label,
         child: InkWell(
           onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
           child: Center(
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 160),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
               decoration: BoxDecoration(
                 color: selected ? palette.brandSurface : Colors.transparent,
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(16),
+                border: selected
+                    ? Border.all(
+                        color: palette.brand.withValues(alpha: 0.28),
+                        width: 1,
+                      )
+                    : null,
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -105,7 +119,7 @@ class _RoutbNavTab extends StatelessWidget {
                   Stack(
                     clipBehavior: Clip.none,
                     children: [
-                      Icon(item.icon, size: 20, color: color),
+                      Icon(item.icon, size: 19, color: color),
                       if (badge > 0)
                         Positioned(
                           right: -8,
@@ -120,7 +134,11 @@ class _RoutbNavTab extends StatelessWidget {
                             child: Text(
                               badge > 9 ? '9+' : '$badge',
                               textAlign: TextAlign.center,
-                              style: RoutbText.copy(9, color: palette.onMint),
+                              style: RoutbText.copy(
+                                9,
+                                color: palette.onMint,
+                                weight: FontWeight.w700,
+                              ),
                             ),
                           ),
                         ),
