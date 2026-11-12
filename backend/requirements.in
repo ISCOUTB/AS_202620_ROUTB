@@ -3,11 +3,11 @@ bcrypt==5.0.0
 fastapi==0.141.1
 httpx==0.28.1
 psycopg2-binary==2.9.13
-pydantic==2.13.5
+pydantic==2.14.3
 PyJWT==2.15.0
 pytest==9.0.3
 python-dotenv==1.2.3
 sqlalchemy==2.0.54
 uvicorn==0.41.0
-geoalchemy2==0.20.0
+geoalchemy2==0.21.0
 firebase-admin==6.5.0  # latest stable version
