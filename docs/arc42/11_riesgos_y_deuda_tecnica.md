@@ -100,8 +100,9 @@ se presentan como si fueran la misma cosa.
 ### 11.4.1 Revisión entre pares
 
 Al cierre de la Semana 14 no se recibieron señalamientos formales del taller de
-revisión entre pares (`arqsw:workshop-pares`) en el repositorio ni en los canales
-del equipo. El 2026-11-08 se revisaron los issues y pull requests del repositorio:
+revisión entre pares (`arqsw:workshop-pares`) en el repositorio ni en la
+información disponible al cierre. El 2026-11-08 se revisaron los issues y pull
+requests del repositorio:
 no hay comentarios humanos de revisión de otros equipos; los únicos comentarios
 son de automatizaciones (Dependabot y SonarCloud). Para no inventar hallazgos ni
 omitir el requisito, el equipo **asume** explícitamente esa ausencia como un
