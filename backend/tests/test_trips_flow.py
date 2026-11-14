@@ -1,4 +1,5 @@
 from datetime import timedelta
+from typing import NamedTuple
 
 from fastapi.testclient import TestClient
 from unittest.mock import patch
@@ -30,6 +31,104 @@ def _create_driver_with_consent(db_session, phone: str) -> tuple[User, str]:
     db_session.refresh(driver)
     token = create_access_token(driver.id, driver.role)
     return driver, token
+
+
+class _TripScenario(NamedTuple):
+    """Datos de un escenario con dos conductores y tres pasajeros."""
+
+    driver_id: int
+    driver_token: str
+    other_driver_token: str
+    user_ids: list[int]
+    token_accepted: str
+    token_pending: str
+    token_external: str
+
+
+_FAKE_ROUTE = {
+    "distance_m": 2500,
+    "duration_s": 300,
+    "geometry": [[-75.55, 10.42], [-75.50, 10.40]],
+    "degraded": False,
+    "source": "osrm",
+}
+
+
+def _create_consented_passenger(
+    db_session, phone: str, *, last_name: str
+) -> User:
+    """Crea un pasajero con consentimiento de ubicación."""
+    from app.core.timezone import colombia_now
+
+    passenger = User(
+        name="Pasajero",
+        last_name=last_name,
+        phone=phone,
+        hashed_password="hash",
+        role="passenger",
+        location_consent_at=colombia_now(),
+    )
+    db_session.add(passenger)
+    db_session.commit()
+    db_session.refresh(passenger)
+    return passenger
+
+
+def _create_trip_scenario(
+    db_session, phones: tuple[str, str, str, str, str]
+) -> _TripScenario:
+    """Crea dos conductores y tres pasajeros con consentimiento."""
+    driver, driver_token = _create_driver_with_consent(db_session, phones[0])
+    other_driver, other_driver_token = _create_driver_with_consent(
+        db_session, phones[1]
+    )
+    accepted = _create_consented_passenger(
+        db_session, phones[2], last_name="Aceptado"
+    )
+    pending = _create_consented_passenger(
+        db_session, phones[3], last_name="Pendiente"
+    )
+    external = _create_consented_passenger(
+        db_session, phones[4], last_name="Externo"
+    )
+    return _TripScenario(
+        driver_id=driver.id,
+        driver_token=driver_token,
+        other_driver_token=other_driver_token,
+        user_ids=[
+            driver.id,
+            other_driver.id,
+            accepted.id,
+            pending.id,
+            external.id,
+        ],
+        token_accepted=create_access_token(accepted.id, accepted.role),
+        token_pending=create_access_token(pending.id, pending.role),
+        token_external=create_access_token(external.id, external.role),
+    )
+
+
+def _create_route_trip(driver_token: str) -> int:
+    """Crea un viaje from_campus hacia Manga; requiere el parche de OSRM activo."""
+    resp = client.post(
+        "/trips/",
+        headers={"Authorization": f"Bearer {driver_token}"},
+        json={
+            "origin": "UTB Campus",
+            "destination": "Barrio Manga",
+            "total_seats": 4,
+            "departure_time": "11:59 PM",
+            "departure_date": str(colombia_today()),
+            "direction": "from_campus",
+            "driver_point": {
+                "lat": 10.40,
+                "lng": -75.50,
+                "address_text": "Avenida El Lago, Manga",
+            },
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    return resp.json()["id"]
 
 
 def test_flujo_completo_viajes_y_solicitudes():
@@ -691,82 +790,30 @@ def test_cancel_vs_accept_concurrent():
 
 def test_my_trips_incluye_paradas_al_conductor_y_no_filtra_paradas_a_pasajeros():
     """El conductor dueño recibe solicitudes con paradas en my-trips; otros pasajeros no ven paradas ajenas."""
-    from app.core.timezone import colombia_now
     from app.modules.trips.infrastructure.models import Trip
 
     with SessionLocal() as db:
-        driver, driver_token = _create_driver_with_consent(db, "3110004001")
-        other_driver, other_driver_token = _create_driver_with_consent(db, "3110004002")
-        pass_accepted = User(
-            name="Laura",
-            last_name="Confirmada",
-            phone="3110004003",
-            hashed_password="hash",
-            role="passenger",
-            location_consent_at=colombia_now(),
+        scenario = _create_trip_scenario(
+            db,
+            (
+                "3110004001",
+                "3110004002",
+                "3110004003",
+                "3110004004",
+                "3110004005",
+            ),
         )
-        pass_pending = User(
-            name="Diego",
-            last_name="Pendiente",
-            phone="3110004004",
-            hashed_password="hash",
-            role="passenger",
-            location_consent_at=colombia_now(),
-        )
-        pass_external = User(
-            name="Sofia",
-            last_name="Ajena",
-            phone="3110004005",
-            hashed_password="hash",
-            role="passenger",
-            location_consent_at=colombia_now(),
-        )
-        db.add_all([pass_accepted, pass_pending, pass_external])
-        db.commit()
-        for u in (pass_accepted, pass_pending, pass_external):
-            db.refresh(u)
-
-        driver_id = driver.id
-        user_ids = [
-            driver.id,
-            other_driver.id,
-            pass_accepted.id,
-            pass_pending.id,
-            pass_external.id,
-        ]
-        token_accepted = create_access_token(pass_accepted.id, pass_accepted.role)
-        token_pending = create_access_token(pass_pending.id, pass_pending.role)
-        token_external = create_access_token(pass_external.id, pass_external.role)
-
-    _fake_route = {
-        "distance_m": 2500,
-        "duration_s": 300,
-        "geometry": [[-75.55, 10.42], [-75.50, 10.40]],
-        "degraded": False,
-        "source": "osrm",
-    }
+    driver_id = scenario.driver_id
+    driver_token = scenario.driver_token
+    other_driver_token = scenario.other_driver_token
+    user_ids = scenario.user_ids
+    token_accepted = scenario.token_accepted
+    token_pending = scenario.token_pending
+    token_external = scenario.token_external
 
     try:
-        with patch("app.shared.routing.service._call_osrm", return_value=_fake_route):
-            create_resp = client.post(
-                "/trips/",
-                headers={"Authorization": f"Bearer {driver_token}"},
-                json={
-                    "origin": "UTB Campus",
-                    "destination": "Barrio Manga",
-                    "total_seats": 4,
-                    "departure_time": "11:59 PM",
-                    "departure_date": str(colombia_today()),
-                    "direction": "from_campus",
-                    "driver_point": {
-                        "lat": 10.40,
-                        "lng": -75.50,
-                        "address_text": "Avenida El Lago, Manga",
-                    },
-                },
-            )
-            assert create_resp.status_code == 201, create_resp.text
-            trip_id = create_resp.json()["id"]
+        with patch("app.shared.routing.service._call_osrm", return_value=_FAKE_ROUTE):
+            trip_id = _create_route_trip(driver_token)
 
             req_accepted = client.post(
                 f"/requests/trips/{trip_id}",
@@ -1028,60 +1075,26 @@ def test_conductor_registra_vehiculo_valida_placa_colombiana_y_permisos():
 
 def test_vehicle_info_solo_se_expone_al_pasajero_con_solicitud_accepted():
     """vehicle_info solo es visible para el pasajero con solicitud accepted; nunca en listados públicos, sugerencias ni solicitudes pendientes."""
-    from app.core.timezone import colombia_now
     from app.modules.trips.infrastructure.models import Trip
 
     with SessionLocal() as db:
-        driver, driver_token = _create_driver_with_consent(db, "3110005011")
-        other_driver, other_driver_token = _create_driver_with_consent(db, "3110005012")
-        pass_accepted = User(
-            name="Camila",
-            last_name="Aceptada",
-            phone="3110005013",
-            hashed_password="hash",
-            role="passenger",
-            location_consent_at=colombia_now(),
+        scenario = _create_trip_scenario(
+            db,
+            (
+                "3110005011",
+                "3110005012",
+                "3110005013",
+                "3110005014",
+                "3110005015",
+            ),
         )
-        pass_pending = User(
-            name="Mateo",
-            last_name="Pendiente",
-            phone="3110005014",
-            hashed_password="hash",
-            role="passenger",
-            location_consent_at=colombia_now(),
-        )
-        pass_external = User(
-            name="Valeria",
-            last_name="Externa",
-            phone="3110005015",
-            hashed_password="hash",
-            role="passenger",
-            location_consent_at=colombia_now(),
-        )
-        db.add_all([pass_accepted, pass_pending, pass_external])
-        db.commit()
-        for u in (pass_accepted, pass_pending, pass_external):
-            db.refresh(u)
-
-        driver_id = driver.id
-        user_ids = [
-            driver.id,
-            other_driver.id,
-            pass_accepted.id,
-            pass_pending.id,
-            pass_external.id,
-        ]
-        token_accepted = create_access_token(pass_accepted.id, pass_accepted.role)
-        token_pending = create_access_token(pass_pending.id, pass_pending.role)
-        token_external = create_access_token(pass_external.id, pass_external.role)
-
-    _fake_route = {
-        "distance_m": 2500,
-        "duration_s": 300,
-        "geometry": [[-75.55, 10.42], [-75.50, 10.40]],
-        "degraded": False,
-        "source": "osrm",
-    }
+    driver_id = scenario.driver_id
+    driver_token = scenario.driver_token
+    other_driver_token = scenario.other_driver_token
+    user_ids = scenario.user_ids
+    token_accepted = scenario.token_accepted
+    token_pending = scenario.token_pending
+    token_external = scenario.token_external
 
     try:
         # Conductor registra su vehículo
@@ -1096,26 +1109,8 @@ def test_vehicle_info_solo_se_expone_al_pasajero_con_solicitud_accepted():
         )
         assert veh_resp.status_code == 200, veh_resp.text
 
-        with patch("app.shared.routing.service._call_osrm", return_value=_fake_route):
-            create_resp = client.post(
-                "/trips/",
-                headers={"Authorization": f"Bearer {driver_token}"},
-                json={
-                    "origin": "UTB Campus",
-                    "destination": "Barrio Manga",
-                    "total_seats": 4,
-                    "departure_time": "11:59 PM",
-                    "departure_date": str(colombia_today()),
-                    "direction": "from_campus",
-                    "driver_point": {
-                        "lat": 10.40,
-                        "lng": -75.50,
-                        "address_text": "Avenida El Lago, Manga",
-                    },
-                },
-            )
-            assert create_resp.status_code == 201, create_resp.text
-            trip_id = create_resp.json()["id"]
+        with patch("app.shared.routing.service._call_osrm", return_value=_FAKE_ROUTE):
+            trip_id = _create_route_trip(driver_token)
 
             # Dos pasajeros solicitan cupo (ambos empiezan en pending)
             req_accepted_resp = client.post(

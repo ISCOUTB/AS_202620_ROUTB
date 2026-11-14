@@ -285,8 +285,8 @@ def test_la_push_se_despacha_despues_del_commit():
         _limpiar(passenger_id, driver_id)
 
 
-def test_send_push_async_safe_usa_sesion_propia_y_absorbe_errores():
-    """La tarea de fondo cierra su sesión aunque FCM lance una excepción."""
+def test_send_push_async_safe_usa_sesion_propia_y_absorbe_errores(caplog):
+    """La tarea de fondo cierra su sesión y registra solo el tipo de error."""
     from types import SimpleNamespace
 
     from app.modules.notifications.application import dispatch
@@ -297,16 +297,22 @@ def test_send_push_async_safe_usa_sesion_propia_y_absorbe_errores():
         "get_tokens_for_user",
         return_value=[SimpleNamespace(device_token="fcm_token_seguro")],
     ), patch.object(dispatch, "send_push", side_effect=RuntimeError("FCM caído")):
-        dispatch.send_push_async_safe(
-            dispatch.PendingPush(
-                user_id=1,
-                title="Prueba",
-                body="Cuerpo",
-                data={"event": "prueba"},
+        with caplog.at_level("ERROR"):
+            dispatch.send_push_async_safe(
+                dispatch.PendingPush(
+                    user_id=1,
+                    title="Prueba",
+                    body="Cuerpo",
+                    data={"event": "prueba"},
+                )
             )
-        )
 
     session.close.assert_called_once()
+    registros = [r for r in caplog.records if r.name == dispatch.__name__]
+    assert len(registros) == 1
+    assert "RuntimeError" in registros[0].getMessage()
+    assert "FCM caído" not in registros[0].getMessage()
+    assert registros[0].exc_info is None
 
 
 def test_no_se_registran_tokens_en_logs():
