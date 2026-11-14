@@ -86,4 +86,5 @@ class MyRequestResponse(BaseModel):
     trip_status: str
     driver_name: str | None = None
     driver_phone: str | None = None
+    vehicle_info: str | None = None
     stops: list[RequestStopResponse] = []

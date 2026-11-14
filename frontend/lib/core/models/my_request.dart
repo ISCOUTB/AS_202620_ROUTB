@@ -31,6 +31,7 @@ class MyRequest {
     required this.createdAt,
     this.driverName,
     this.driverPhone,
+    this.vehicleInfo,
     this.canWithdraw = true,
     this.stops = const <TripRequestStop>[],
   });
@@ -83,6 +84,9 @@ class MyRequest {
   /// Teléfono del conductor, para poder localizarlo el día del viaje.
   final String? driverPhone;
 
+  /// Ficha del vehículo (modelo, color y placa), solo con cupo confirmado.
+  final String? vehicleInfo;
+
   /// `false` si esta solicitud no se puede retirar desde la app.
   ///
   /// Pasa cuando el backend todavía no expone `DELETE /requests/{id}` y el
@@ -118,6 +122,7 @@ class MyRequest {
           DateTime.fromMillisecondsSinceEpoch(0),
       driverName: (json['driver_name'] as String?)?.trim(),
       driverPhone: (json['driver_phone'] as String?)?.trim(),
+      vehicleInfo: (json['vehicle_info'] as String?)?.trim(),
       stops: rawStops == null
           ? const <TripRequestStop>[]
           : rawStops
@@ -199,6 +204,9 @@ class MyRequest {
   /// `true` si hay teléfono para mostrar.
   bool get hasDriverPhone => (driverPhone ?? '').trim().isNotEmpty;
 
+  /// `true` si el conductor registró vehículo y ya se puede mostrar.
+  bool get hasVehicleInfo => (vehicleInfo ?? '').trim().isNotEmpty;
+
   /// Iniciales del conductor para el avatar.
   String get driverInitials => initialsOf(driverName ?? '');
 
@@ -235,6 +243,7 @@ class MyRequest {
     createdAt: createdAt,
     driverName: driverName,
     driverPhone: driverPhone,
+    vehicleInfo: vehicleInfo,
     canWithdraw: canWithdraw ?? this.canWithdraw,
   );
 

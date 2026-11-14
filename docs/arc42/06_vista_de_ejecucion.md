@@ -8,9 +8,9 @@ Capa de Red: los datos ya validados se serializan y se transmiten al backend a t
 
 Capa de API / Enrutamiento (FastAPI): el backend valida la estructura y el tipo de los datos recibidos contra un esquema estricto, rechazando cualquier solicitud que no cumpla el contrato antes de continuar.
 
-Capa de Servicio (lógica de negocio): se verifica que el teléfono no esté registrado previamente y la contraseña se hashea de forma segura, de modo que el valor original nunca se almacena.
+Capa de Servicio (lógica de negocio): se verifica que el teléfono no esté registrado previamente y la contraseña se hashea de forma segura, de modo que el valor original nunca se almacena. Esa lectura es solo una respuesta temprana: la unicidad la garantiza el índice `uq_users_phone` (migración 011, ADR 0024).
 
-Capa de Persistencia (PostgreSQL / Supabase): el nuevo usuario se inserta en la base de datos dentro de una transacción atómica, garantizando consistencia ante fallos.
+Capa de Persistencia (PostgreSQL / Supabase): el nuevo usuario se inserta en la base de datos dentro de una transacción atómica. Si otra petición concurrente insertó el mismo teléfono, PostgreSQL rechaza la fila y el caso de uso responde HTTP 409 sin crear un segundo usuario.
 
 Cierre del flujo: el backend confirma la creación del usuario y el cliente redirige al estudiante hacia la pantalla principal, impidiendo el regreso al formulario ya completado.
 
@@ -109,7 +109,7 @@ Capa de API / Enrutamiento (FastAPI): el backend valida el token, identifica al 
 
 Capa de Persistencia (PostgreSQL): la solicitud pendiente no descuenta cupos. Cuando el conductor la acepta, el backend ejecuta una transición condicional (`UPDATE … WHERE status = 'pending'`) y, en la misma transacción, descuenta los asientos con `UPDATE … WHERE available_seats >= seat_count`. Si no alcanzan los cupos, la transacción se revierte y responde 409 sin descuento parcial; si otro proceso ganó la carrera, la solicitud se relee y se responde 404 o 409 según su estado. Al aceptar, las demás solicitudes pendientes del pasajero para el mismo día y sentido pasan a `cancelled`.
 
-Cierre del flujo: si la aceptación es exitosa, el pasajero recibe la notificación y la app muestra la solicitud confirmada; si no hay cupos, el conductor ve el conflicto y la solicitud sigue pendiente. La actualización de la ruta con las paradas aceptadas es best-effort y no revierte la aceptación.
+Cierre del flujo: si la aceptación es exitosa, la respuesta HTTP se envía en cuanto la transacción queda confirmada y el aviso al pasajero se programa con `BackgroundTasks`, fuera del ciclo de la petición (ADR 0025); si no hay cupos, el conductor ve el conflicto y la solicitud sigue pendiente. La actualización de la ruta con las paradas aceptadas es best-effort y no revierte la aceptación.
 
 ### Diagrama de secuencia
 

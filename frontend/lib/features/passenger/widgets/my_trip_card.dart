@@ -6,6 +6,7 @@ import '../../../core/theme/routb_text.dart';
 import '../../../core/widgets/routb_card.dart';
 import '../../../core/widgets/routb_field.dart';
 import '../../../core/widgets/routb_seats.dart';
+import '../../../core/widgets/routb_vehicle_badge.dart';
 
 /// Píldora con el estado de la solicitud: confirmada, en espera o cancelada.
 class MyTripStatusPill extends StatelessWidget {
@@ -122,6 +123,10 @@ class MyTripCard extends StatelessWidget {
                     ),
                   ],
                 ),
+                if (request.hasVehicleInfo) ...[
+                  const SizedBox(height: 6),
+                  RoutbVehicleBadge(info: request.vehicleInfo!, dense: true),
+                ],
               ],
             ),
           ),

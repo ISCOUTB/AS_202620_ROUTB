@@ -44,4 +44,7 @@ def current_user(
         "location_consent_at": user.location_consent_at.isoformat()
         if user.location_consent_at
         else None,
+        "vehicle_model": user.vehicle_model,
+        "vehicle_plate": user.vehicle_plate,
+        "vehicle_color": user.vehicle_color,
     }

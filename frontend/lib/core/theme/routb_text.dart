@@ -21,15 +21,14 @@ abstract final class RoutbText {
     double size, {
     required Color color,
     double height = 1.15,
-  }) =>
-      TextStyle(
-        fontFamily: display,
-        fontSize: size,
-        fontWeight: FontWeight.w800,
-        color: color,
-        height: height,
-        letterSpacing: -0.4,
-      );
+  }) => TextStyle(
+    fontFamily: display,
+    fontSize: size,
+    fontWeight: FontWeight.w800,
+    color: color,
+    height: height,
+    letterSpacing: -0.4,
+  );
 
   /// Estilo de párrafo de tamaño libre.
   ///
@@ -40,14 +39,13 @@ abstract final class RoutbText {
     required Color color,
     FontWeight weight = FontWeight.w500,
     double height = 1.35,
-  }) =>
-      TextStyle(
-        fontFamily: body,
-        fontSize: size,
-        fontWeight: weight,
-        color: color,
-        height: height,
-      );
+  }) => TextStyle(
+    fontFamily: body,
+    fontSize: size,
+    fontWeight: weight,
+    color: color,
+    height: height,
+  );
 
   /// Roles del [TextTheme] derivados de los tamaños que usa el diseño.
   ///
@@ -55,20 +53,20 @@ abstract final class RoutbText {
   /// alias para que los widgets de Material que los usan a solas también
   /// hereden la tipografía de ROUTB.
   static TextTheme textTheme(Color ink, Color muted) => TextTheme(
-        displayLarge: headline(32, color: ink, height: 1),
-        displayMedium: headline(28, color: ink, height: 1.1),
-        displaySmall: headline(22, color: ink, height: 1.2),
-        headlineLarge: headline(28, color: ink, height: 1.1),
-        headlineMedium: headline(22, color: ink, height: 1.2),
-        headlineSmall: headline(18, color: ink),
-        titleLarge: headline(18, color: ink),
-        titleMedium: headline(16, color: ink),
-        titleSmall: headline(15, color: ink),
-        labelLarge: headline(14, color: ink),
-        bodyLarge: copy(14, color: ink),
-        bodyMedium: copy(13, color: ink),
-        bodySmall: copy(12, color: muted),
-        labelMedium: copy(13, color: ink, weight: FontWeight.w700),
-        labelSmall: copy(11, color: ink, weight: FontWeight.w700),
-      );
+    displayLarge: headline(32, color: ink, height: 1),
+    displayMedium: headline(28, color: ink, height: 1.1),
+    displaySmall: headline(22, color: ink, height: 1.2),
+    headlineLarge: headline(28, color: ink, height: 1.1),
+    headlineMedium: headline(22, color: ink, height: 1.2),
+    headlineSmall: headline(18, color: ink),
+    titleLarge: headline(18, color: ink),
+    titleMedium: headline(16, color: ink),
+    titleSmall: headline(15, color: ink),
+    labelLarge: headline(14, color: ink),
+    bodyLarge: copy(14, color: ink),
+    bodyMedium: copy(13, color: ink),
+    bodySmall: copy(12, color: muted),
+    labelMedium: copy(13, color: ink, weight: FontWeight.w700),
+    labelSmall: copy(11, color: ink, weight: FontWeight.w700),
+  );
 }

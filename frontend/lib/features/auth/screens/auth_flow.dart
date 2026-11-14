@@ -16,6 +16,7 @@ import '../../../core/widgets/routb_field.dart';
 import '../../../core/widgets/routb_logo.dart';
 import '../../../core/widgets/routb_toast.dart';
 import '../data/auth_repository.dart';
+import '../data/auth_validation.dart';
 
 /// Orden de las vistas del acceso.
 enum AuthStep { login, role, register }
@@ -82,13 +83,13 @@ class _AuthFlowState extends State<AuthFlow> {
   }
 
   bool get _canLogin =>
-      _phone.text.trim().isNotEmpty && _password.text.isNotEmpty;
+      validatePhone(_phone.text) == null && _password.text.isNotEmpty;
 
   bool get _canRegister =>
-      _name.text.trim().isNotEmpty &&
-      _lastName.text.trim().isNotEmpty &&
-      _registerPhone.text.trim().isNotEmpty &&
-      _registerPassword.text.isNotEmpty &&
+      validateName(_name.text, 'nombre') == null &&
+      validateName(_lastName.text, 'apellido') == null &&
+      validatePhone(_registerPhone.text) == null &&
+      validateNewPassword(_registerPassword.text) == null &&
       _termsAccepted;
 
   Future<void> _goTo(AuthStep step) async {
@@ -165,10 +166,8 @@ class _AuthFlowState extends State<AuthFlow> {
     setState(() => _busy = true);
 
     try {
-      final account = await RoutbScopeDependencies.of(context).auth.login(
-            phone: _phone.text,
-            password: _password.text,
-          );
+      final account = await RoutbScopeDependencies.of(context).auth
+          .login(phone: _phone.text, password: _password.text);
       await _enterMode(account: account, message: 'Bienvenido de vuelta');
     } on Exception catch (error, stack) {
       logFailure('el ingreso', error, stack);
@@ -184,12 +183,12 @@ class _AuthFlowState extends State<AuthFlow> {
 
     try {
       final account = await RoutbScopeDependencies.of(context).auth.register(
-            name: _name.text,
-            lastName: _lastName.text,
-            phone: _registerPhone.text,
-            password: _registerPassword.text,
-            role: _role,
-          );
+        name: _name.text,
+        lastName: _lastName.text,
+        phone: _registerPhone.text,
+        password: _registerPassword.text,
+        role: _role,
+      );
       await _enterMode(
         account: account,
         message: 'Cuenta creada. ¡Bienvenido, ${account.name}!',
@@ -213,9 +212,9 @@ class _AuthFlowState extends State<AuthFlow> {
     RoutbToast.show(context, message);
     await Future<void>.delayed(delay);
     if (!mounted) return;
-    Navigator.of(context).pushReplacement(
-      RoutbFadeRoute<void>(child: ModeRoute(account: account)),
-    );
+    Navigator.of(
+      context,
+    ).pushReplacement(RoutbFadeRoute<void>(child: ModeRoute(account: account)));
   }
 
   void _fail(String message) {
@@ -345,6 +344,9 @@ class _LoginStep extends StatelessWidget {
                   icon: Icons.phone_rounded,
                   prefixText: '+57',
                   controller: phone,
+                  errorText: phone.text.trim().isEmpty
+                      ? null
+                      : validatePhone(phone.text),
                   keyboardType: TextInputType.phone,
                   inputFormatters: <TextInputFormatter>[
                     FilteringTextInputFormatter.digitsOnly,
@@ -494,12 +496,20 @@ class _RoleTile extends StatelessWidget {
                       const SizedBox(height: 3),
                       Text(
                         role.tagline,
-                        style: RoutbText.copy(12.5, color: palette.muted, height: 1.35),
+                        style: RoutbText.copy(
+                          12.5,
+                          color: palette.muted,
+                          height: 1.35,
+                        ),
                       ),
                     ],
                   ),
                 ),
-                Icon(Icons.chevron_right_rounded, color: palette.brand, size: 20),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: palette.brand,
+                  size: 20,
+                ),
               ],
             ),
           ),
@@ -569,6 +579,9 @@ class _RegisterStep extends StatelessWidget {
                   hint: 'Nombre',
                   icon: Icons.person_outline_rounded,
                   controller: name,
+                  errorText: name.text.trim().isEmpty
+                      ? null
+                      : validateName(name.text, 'nombre'),
                   textCapitalization: TextCapitalization.words,
                   textInputAction: TextInputAction.next,
                 ),
@@ -577,6 +590,9 @@ class _RegisterStep extends StatelessWidget {
                   hint: 'Apellido',
                   icon: Icons.person_outline_rounded,
                   controller: lastName,
+                  errorText: lastName.text.trim().isEmpty
+                      ? null
+                      : validateName(lastName.text, 'apellido'),
                   textCapitalization: TextCapitalization.words,
                   textInputAction: TextInputAction.next,
                 ),
@@ -586,6 +602,9 @@ class _RegisterStep extends StatelessWidget {
                   icon: Icons.phone_rounded,
                   prefixText: '+57',
                   controller: phone,
+                  errorText: phone.text.trim().isEmpty
+                      ? null
+                      : validatePhone(phone.text),
                   keyboardType: TextInputType.phone,
                   inputFormatters: <TextInputFormatter>[
                     FilteringTextInputFormatter.digitsOnly,
@@ -598,6 +617,9 @@ class _RegisterStep extends StatelessWidget {
                   hint: 'Contraseña',
                   icon: Icons.lock_rounded,
                   controller: password,
+                  errorText: password.text.isEmpty
+                      ? null
+                      : validateNewPassword(password.text),
                   obscureToggle: true,
                   textInputAction: TextInputAction.done,
                 ),

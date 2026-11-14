@@ -36,7 +36,7 @@ def get_passenger_requests(db: Session, passenger_id: int) -> list[TripRequest]:
     expire_stale_requests(db)
     return (
         db.query(TripRequest)
-        .options(joinedload(TripRequest.trip))
+        .options(joinedload(TripRequest.trip).joinedload(Trip.driver))
         .filter(TripRequest.passenger_id == passenger_id)
         .order_by(TripRequest.created_at.desc(), TripRequest.id.desc())
         .all()
@@ -51,8 +51,9 @@ def get_consolidated_stops_for_request(
     - Si la solicitud está confirmada (status == 'accepted'), devuelve todas
       las paradas de las solicitudes aceptadas en el viaje, ordenadas por
       stop_seq (y id).
-    - Si la solicitud está pendiente (status == 'pending'), devuelve las
-      paradas confirmadas del viaje más las paradas propuestas en la solicitud.
+    - Si la solicitud está pendiente (status == 'pending'), devuelve solo las
+      paradas propias. Las paradas de otras solicitudes aceptadas no se
+      exponen hasta que la solicitud quede confirmada (TASK-05).
     - Para solicitudes canceladas, rechazadas o vencidas, devuelve las
       paradas originales solicitadas.
     """
@@ -73,18 +74,9 @@ def get_consolidated_stops_for_request(
         return confirmed if confirmed else list(request.stops)
 
     if request.status == "pending":
-        confirmed = (
-            db.query(RequestStop)
-            .join(TripRequest, TripRequest.id == RequestStop.request_id)
-            .filter(
-                TripRequest.trip_id == request.trip_id,
-                TripRequest.status == "accepted",
-            )
-            .order_by(RequestStop.stop_seq.asc().nulls_last(), RequestStop.id.asc())
-            .all()
-        )
-        confirmed_ids = {s.id for s in confirmed}
-        pending_stops = [s for s in request.stops if s.id not in confirmed_ids]
-        return confirmed + pending_stops
+        # Privacidad (TASK-05): el pasajero aún no confirmado no debe ver las
+        # direcciones exactas de las paradas de otros pasajeros. El conductor
+        # dueño las recibe por GET /trips/my-trips; aquí solo van las propias.
+        return list(request.stops)
 
     return list(request.stops)

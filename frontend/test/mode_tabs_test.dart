@@ -286,6 +286,74 @@ void main() {
         await _settle(tester);
       }
     });
+
+    testWidgets('carga rutas y paradas sin bucle N+1 a /requests/trips/{id}', (
+      tester,
+    ) async {
+      final calledUrls = <String>[];
+      final client = MockClient((request) async {
+        calledUrls.add(
+          '${request.method} ${request.url.path}${request.url.hasQuery ? '?${request.url.query}' : ''}',
+        );
+        if (request.method == 'GET' && request.url.path == '/trips/my-trips') {
+          if (request.url.queryParameters['scope'] == 'history') {
+            return http.Response('[]', 200, headers: _json);
+          }
+          return http.Response(
+            jsonEncode(<Map<String, dynamic>>[
+              <String, dynamic>{
+                ..._tripJson(id: 10, origin: 'Manga', destination: 'UTB'),
+                'requests': <Map<String, dynamic>>[
+                  <String, dynamic>{
+                    'id': 501,
+                    'trip_id': 10,
+                    'passenger_id': 88,
+                    'seat_count': 2,
+                    'passenger_name': 'Camila Soto',
+                    'passenger_phone': '3001112233',
+                    'status': 'pending',
+                    'created_at': '2026-10-01T08:00:00',
+                    'stops': <Map<String, dynamic>>[
+                      <String, dynamic>{
+                        'id': 901,
+                        'seats': 2,
+                        'place_type': 'door',
+                        'address_text': 'Calle Real # 20-10, Manga',
+                      },
+                    ],
+                  },
+                ],
+              },
+              _tripJson(id: 11, origin: 'Centro', destination: 'UTB'),
+            ]),
+            200,
+            headers: _json,
+          );
+        }
+        return http.Response('{"detail":"Not Found"}', 404, headers: _json);
+      });
+
+      final dependencies = _dependencies(client);
+      addTearDown(dependencies.dispose);
+
+      await tester.pumpWidget(
+        _app(dependencies, DriverScreen(account: _driver)),
+      );
+      await _settle(tester);
+
+      expect(
+        calledUrls,
+        equals(<String>[
+          'GET /trips/my-trips',
+          'GET /trips/my-trips?scope=history',
+        ]),
+      );
+      expect(find.text('Camila Soto'), findsOneWidget);
+      expect(
+        find.text('Calle Real # 20-10, Manga · 2 personas'),
+        findsOneWidget,
+      );
+    });
   });
 
   group('Modo pasajero', () {

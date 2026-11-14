@@ -413,10 +413,7 @@ class RoutbStatusPill extends StatelessWidget {
       decoration: BoxDecoration(
         color: background,
         borderRadius: BorderRadius.circular(RoutbTheme.radiusPill),
-        border: Border.all(
-          color: foreground.withValues(alpha: 0.22),
-          width: 1,
-        ),
+        border: Border.all(color: foreground.withValues(alpha: 0.22), width: 1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

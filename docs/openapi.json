@@ -85,6 +85,53 @@
         ]
       }
     },
+    "/users/me/vehicle": {
+      "patch": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Registrar o actualizar vehículo del conductor",
+        "description": "Registra o actualiza el modelo, color y placa del vehículo del conductor.",
+        "operationId": "update_my_vehicle_users_me_vehicle_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VehicleUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/trips/": {
       "post": {
         "tags": [
@@ -1040,8 +1087,9 @@
         "properties": {
           "phone": {
             "type": "string",
-            "minLength": 1,
-            "title": "Phone"
+            "pattern": "^(?:\\+?57)?3\\d{9}$",
+            "title": "Phone",
+            "description": "Celular colombiano de 10 dígitos. Acepta los formatos 3XXXXXXXXX, 573XXXXXXXXX y +573XXXXXXXXX después de retirar espacios y guiones."
           },
           "password": {
             "type": "string",
@@ -1149,6 +1197,17 @@
               }
             ],
             "title": "Driver Phone"
+          },
+          "vehicle_info": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vehicle Info"
           },
           "stops": {
             "items": {
@@ -1587,6 +1646,57 @@
         ],
         "title": "TripRequestResponse"
       },
+      "TripRequestStopSummary": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "seats": {
+            "type": "integer",
+            "title": "Seats"
+          },
+          "place_type": {
+            "type": "string",
+            "title": "Place Type"
+          },
+          "address_text": {
+            "type": "string",
+            "title": "Address Text"
+          },
+          "stop_seq": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop Seq"
+          },
+          "eta_estimated": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eta Estimated"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "seats",
+          "place_type",
+          "address_text"
+        ],
+        "title": "TripRequestStopSummary"
+      },
       "TripRequestSummary": {
         "properties": {
           "id": {
@@ -1636,6 +1746,24 @@
             "type": "string",
             "format": "date-time",
             "title": "Created At"
+          },
+          "vehicle_info": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vehicle Info"
+          },
+          "stops": {
+            "items": {
+              "$ref": "#/components/schemas/TripRequestStopSummary"
+            },
+            "type": "array",
+            "title": "Stops"
           }
         },
         "type": "object",
@@ -1730,6 +1858,17 @@
             ],
             "title": "Driver Name"
           },
+          "vehicle_info": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vehicle Info"
+          },
           "my_request_status": {
             "anyOf": [
               {
@@ -1763,23 +1902,28 @@
         "properties": {
           "name": {
             "type": "string",
-            "minLength": 1,
+            "maxLength": 50,
+            "minLength": 2,
             "title": "Name"
           },
           "last_name": {
             "type": "string",
-            "minLength": 1,
+            "maxLength": 50,
+            "minLength": 2,
             "title": "Last Name"
           },
           "phone": {
             "type": "string",
-            "minLength": 1,
-            "title": "Phone"
+            "pattern": "^(?:\\+?57)?3\\d{9}$",
+            "title": "Phone",
+            "description": "Celular colombiano de 10 dígitos. Acepta los formatos 3XXXXXXXXX, 573XXXXXXXXX y +573XXXXXXXXX después de retirar espacios y guiones."
           },
           "password": {
             "type": "string",
-            "minLength": 1,
-            "title": "Password"
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Password",
+            "description": "Contraseña de al menos 8 caracteres"
           },
           "role": {
             "type": "string",
@@ -1837,6 +1981,39 @@
               }
             ],
             "title": "Location Consent At"
+          },
+          "vehicle_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vehicle Model"
+          },
+          "vehicle_plate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vehicle Plate"
+          },
+          "vehicle_color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vehicle Color"
           }
         },
         "type": "object",
@@ -1888,6 +2065,51 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "VehicleUpdate": {
+        "properties": {
+          "vehicle_model": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vehicle Model",
+            "description": "Marca y línea del vehículo (ej. Chevrolet Spark)"
+          },
+          "vehicle_plate": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 10
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vehicle Plate",
+            "description": "Placa colombiana de automóvil (ej. XYZ-123)"
+          },
+          "vehicle_color": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 30
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vehicle Color",
+            "description": "Color del vehículo (ej. Gris)"
+          }
+        },
+        "type": "object",
+        "title": "VehicleUpdate"
       }
     },
     "securitySchemes": {

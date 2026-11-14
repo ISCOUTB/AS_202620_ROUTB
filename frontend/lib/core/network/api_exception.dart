@@ -49,14 +49,14 @@ class ApiException implements Exception {
       'ApiException(${statusCode ?? 'sin respuesta'}): $message';
 
   static String _messageFor(int statusCode) => switch (statusCode) {
-        400 => 'La solicitud no es válida.',
-        401 => 'Tu sesión expiró. Ingresa de nuevo.',
-        403 => 'No tienes permiso para esta acción.',
-        404 => 'No encontramos ese recurso.',
-        409 => 'La acción no se pudo completar.',
-        >= 500 => 'El servidor está teniendo problemas. Intenta en un momento.',
-        _ => 'No se pudo completar la solicitud.',
-      };
+    400 => 'La solicitud no es válida.',
+    401 => 'Tu sesión expiró. Ingresa de nuevo.',
+    403 => 'No tienes permiso para esta acción.',
+    404 => 'No encontramos ese recurso.',
+    409 => 'La acción no se pudo completar.',
+    >= 500 => 'El servidor está teniendo problemas. Intenta en un momento.',
+    _ => 'No se pudo completar la solicitud.',
+  };
 
   /// Extrae `detail` de un cuerpo de FastAPI.
   ///

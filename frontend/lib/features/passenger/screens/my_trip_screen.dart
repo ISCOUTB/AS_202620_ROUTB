@@ -13,6 +13,7 @@ import '../../../core/widgets/routb_card.dart';
 import '../../../core/widgets/routb_route.dart';
 import '../../../core/widgets/routb_seats.dart';
 import '../../../core/widgets/routb_toast.dart';
+import '../../../core/widgets/routb_vehicle_badge.dart';
 import '../../../core/widgets/route_map.dart';
 import '../widgets/my_trip_card.dart';
 
@@ -330,6 +331,15 @@ class _MyTripScreenState extends State<MyTripScreen> {
                                 ),
                             ],
                           ),
+                          if (_request.hasVehicleInfo) ...[
+                            const SizedBox(height: 12),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: RoutbVehicleBadge(
+                                info: _request.vehicleInfo!,
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),

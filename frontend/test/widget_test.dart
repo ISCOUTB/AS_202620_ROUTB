@@ -489,5 +489,23 @@ void main() {
       await tester.pump();
       expect(find.text('Nuevo'), findsNothing);
     });
+    testWidgets('muestra la ficha del vehículo cuando la API la entrega', (
+      tester,
+    ) async {
+      final trip = Trip.fromJson(<String, dynamic>{
+        'id': 3,
+        'origin': 'Centro',
+        'destination': 'UTB',
+        'total_seats': 4,
+        'available_seats': 2,
+        'departure_time': '7:00 AM',
+        'driver_name': 'Luis Chofer',
+        'vehicle_info': 'Chevrolet Spark · Gris (XYZ-123)',
+      });
+
+      await tester.pumpWidget(card(trip));
+      await tester.pump();
+      expect(find.textContaining('Chevrolet Spark'), findsOneWidget);
+    });
   });
 }

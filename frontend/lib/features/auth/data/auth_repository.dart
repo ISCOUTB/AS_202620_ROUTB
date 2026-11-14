@@ -111,6 +111,31 @@ class AuthRepository {
     await _api.delete('/users/me/location-consent');
   }
 
+  /// `PATCH /users/me/vehicle`
+  ///
+  /// Registra, actualiza o limpia el vehículo del conductor. Los tres campos
+  /// nulos borran los datos ya guardados. Devuelve el perfil actualizado.
+  Future<UserProfile> updateVehicle({
+    String? model,
+    String? plate,
+    String? color,
+  }) async {
+    final response = await _api.patch(
+      '/users/me/vehicle',
+      body: <String, Object?>{
+        'vehicle_model': model?.trim(),
+        'vehicle_plate': plate?.trim(),
+        'vehicle_color': color?.trim(),
+      },
+    );
+    if (response is! Map<String, dynamic>) {
+      throw const ApiException(
+        'El servidor no devolvió el perfil actualizado.',
+      );
+    }
+    return UserProfile.fromJson(response);
+  }
+
   /// Devuelve la cuenta guardada en el dispositivo si sigue siendo válida en
   /// el backend, o `null` si no hay o si el token ya expiró.
   Future<Account?> restore() async {

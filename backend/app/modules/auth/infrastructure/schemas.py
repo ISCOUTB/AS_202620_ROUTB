@@ -1,8 +1,10 @@
 from pydantic import BaseModel, Field
 
+from app.shared.phone import PhoneNumber
+
 
 class LoginRequest(BaseModel):
-    phone: str = Field(..., min_length=1)
+    phone: PhoneNumber
     password: str = Field(..., min_length=1)
 
 

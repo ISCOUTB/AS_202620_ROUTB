@@ -283,3 +283,146 @@ def test_requests_me_consolida_todas_las_paradas_confirmadas_del_viaje():
         assert len(b_stops) == 2
     finally:
         _limpiar(pass_b_id, pass_a_id, driver_id)
+
+
+def test_requests_me_pending_no_expone_paradas_de_otros_pasajeros():
+    """Una solicitud pendiente solo ve sus paradas, no las de pasajeros aceptados."""
+    driver_id, driver_token = _crear_usuario("3300000021", "driver")
+    pass_a_id, pass_a_token = _crear_usuario("3300000022", "passenger")
+    pass_b_id, pass_b_token = _crear_usuario("3300000023", "passenger")
+
+    try:
+        trip_id = _crear_viaje(driver_token, total_seats=4, direction="from_campus")
+
+        stop_a = {
+            **_stop(1, 10.41, -75.53),
+            "address_text": "Calle Privada Aceptada #10-20",
+        }
+        r1 = client.post(
+            f"/requests/trips/{trip_id}",
+            headers={"Authorization": f"Bearer {pass_a_token}"},
+            json={"seat_count": 1, "stops": [stop_a]},
+        )
+        assert r1.status_code == 201
+        req_a_id = r1.json()["id"]
+        assert client.patch(
+            f"/requests/{req_a_id}/accept",
+            headers={"Authorization": f"Bearer {driver_token}"},
+        ).status_code == 200
+
+        stop_b = {
+            **_stop(1, 10.42, -75.52),
+            "address_text": "Calle Propia Pendiente #30-40",
+        }
+        r2 = client.post(
+            f"/requests/trips/{trip_id}",
+            headers={"Authorization": f"Bearer {pass_b_token}"},
+            json={"seat_count": 1, "stops": [stop_b]},
+        )
+        assert r2.status_code == 201
+
+        me_b = client.get(
+            "/requests/me",
+            headers={"Authorization": f"Bearer {pass_b_token}"},
+        )
+        assert me_b.status_code == 200
+        request_b = next(r for r in me_b.json() if r["trip_id"] == trip_id)
+        assert request_b["status"] == "pending"
+        assert [s["address_text"] for s in request_b["stops"]] == [
+            "Calle Propia Pendiente #30-40"
+        ]
+        assert all(
+            "Calle Privada Aceptada" not in s["address_text"]
+            for s in request_b["stops"]
+        )
+    finally:
+        _limpiar(pass_b_id, pass_a_id, driver_id)
+
+
+def test_aceptar_solicitud_recalcula_ruta_del_viaje_y_eta():
+    """Al aceptar una solicitud en un viaje con geometría, set_trip_route actualiza trips y se calculan stop_seq y eta_estimated."""
+    from unittest.mock import patch
+
+    from app.core.timezone import colombia_now, colombia_today
+    from app.modules.trips.infrastructure.models import Trip
+    from app.modules.users.infrastructure.models import User
+    from tests.helpers import FUTURE_TIME as _FUTURE_TIME
+
+    driver_id, driver_token = _crear_usuario("3300000019", "driver")
+    pass_id, pass_token = _crear_usuario("3300000020", "passenger")
+
+    try:
+        with SessionLocal() as db:
+            driver = db.get(User, driver_id)
+            driver.location_consent_at = colombia_now()
+            db.commit()
+
+        initial_route = {
+            "distance_m": 2500,
+            "duration_s": 300,
+            "geometry": [[-75.55, 10.42], [-75.50, 10.40]],
+            "degraded": False,
+            "source": "osrm",
+        }
+        recalculated_route = {
+            "distance_m": 4200,
+            "duration_s": 600,
+            "geometry": [[-75.55, 10.42], [-75.53, 10.41], [-75.51, 10.405], [-75.50, 10.40]],
+            "degraded": False,
+            "source": "osrm",
+        }
+
+        with patch("app.shared.routing.service._call_osrm", return_value=initial_route):
+            trip_resp = client.post(
+                "/trips/",
+                headers={"Authorization": f"Bearer {driver_token}"},
+                json={
+                    "origin": "UTB Campus",
+                    "destination": "Manga",
+                    "total_seats": 4,
+                    "departure_time": _FUTURE_TIME,
+                    "departure_date": str(colombia_today()),
+                    "direction": "from_campus",
+                    "driver_point": {
+                        "lat": 10.40,
+                        "lng": -75.50,
+                        "address_text": "Avenida El Lago, Manga",
+                    },
+                },
+            )
+        assert trip_resp.status_code == 201
+        trip_id = trip_resp.json()["id"]
+
+        req_resp = client.post(
+            f"/requests/trips/{trip_id}",
+            headers={"Authorization": f"Bearer {pass_token}"},
+            json={
+                "seat_count": 2,
+                "stops": [
+                    _stop(1, 10.41, -75.53),
+                    _stop(1, 10.405, -75.51),
+                ],
+            },
+        )
+        assert req_resp.status_code == 201
+        req_id = req_resp.json()["id"]
+
+        with patch("app.shared.routing.service._call_osrm", return_value=recalculated_route):
+            accept_resp = client.patch(
+                f"/requests/{req_id}/accept",
+                headers={"Authorization": f"Bearer {driver_token}"},
+            )
+        assert accept_resp.status_code == 200
+        accepted_stops = accept_resp.json()["stops"]
+        assert len(accepted_stops) == 2
+        assert [s["stop_seq"] for s in accepted_stops] == [1, 2]
+        assert all(s["eta_estimated"] is not None for s in accepted_stops)
+
+        with SessionLocal() as db:
+            trip_row = db.get(Trip, trip_id)
+            assert trip_row is not None
+            assert trip_row.route_distance_m == 4200
+            assert trip_row.route_duration_s == 600
+            assert trip_row.route_source == "osrm"
+    finally:
+        _limpiar(pass_id, driver_id)

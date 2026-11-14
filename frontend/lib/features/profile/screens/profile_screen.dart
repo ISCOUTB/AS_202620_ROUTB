@@ -16,6 +16,7 @@ import '../../../core/widgets/routb_seats.dart';
 import '../../../core/widgets/routb_toast.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../auth/screens/auth_flow.dart';
+import '../widgets/vehicle_sheet.dart';
 
 /// Modos de pantalla que ofrece la pestaña de perfil, en su orden.
 const List<({String label, ThemeMode mode})> _screenModes =
@@ -161,6 +162,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return confirmed ?? false;
   }
 
+  Future<void> _editVehicle(UserProfile profile) async {
+    final updated = await showVehicleSheet(
+      context: context,
+      profile: profile,
+      auth: _auth,
+    );
+    if (updated == null || !mounted) return;
+    setState(() => _profile = updated);
+    RoutbToast.show(
+      context,
+      updated.hasVehicle ? 'Vehículo actualizado' : 'Vehículo retirado',
+    );
+  }
+
   Future<void> _logout() async {
     final dependencies = RoutbScopeDependencies.of(context);
     await dependencies.push.logout();
@@ -227,6 +242,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _screenModeCard(),
           const SizedBox(height: 14),
           _locationCard(profile),
+          if (profile.role == UserRole.driver) ...[
+            const SizedBox(height: 14),
+            _vehicleCard(profile),
+          ],
           const SizedBox(height: 14),
           const RoutbHint(
             'La edición de tus datos y el cambio de contraseña llegarán en una '
@@ -266,6 +285,95 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _vehicleCard(UserProfile profile) {
+    final palette = context.palette;
+    final hasVehicle = profile.hasVehicle;
+
+    return RoutbCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          RoutbCardHeader(
+            title: 'Vehículo',
+            icon: Icons.directions_car_filled_rounded,
+            trailing: RoutbStatusPill(
+              label: hasVehicle ? 'Registrado' : 'Sin registrar',
+              background: hasVehicle
+                  ? palette.mintSurface
+                  : palette.amberSurface,
+              foreground: hasVehicle
+                  ? palette.onMintSurface
+                  : palette.onAmberSurface,
+            ),
+          ),
+          if (hasVehicle) ...[
+            Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: palette.brandSurface,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.directions_car_filled_rounded,
+                    size: 19,
+                    color: palette.brand,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        profile.vehicleLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: RoutbText.headline(15, color: palette.ink),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Visible solo para pasajeros con cupo confirmado',
+                        maxLines: 2,
+                        style: RoutbText.copy(12, color: palette.muted),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: RoutbTextAction(
+                label: 'Editar vehículo',
+                icon: Icons.edit_outlined,
+                onPressed: () => _editVehicle(profile),
+              ),
+            ),
+          ] else ...[
+            Text(
+              'Registra el modelo, el color y la placa para que tus pasajeros '
+              'reconozcan el carro al llegar al punto de encuentro.',
+              style: RoutbText.copy(12.5, color: palette.muted, height: 1.4),
+            ),
+            const SizedBox(height: 14),
+            RoutbButton(
+              label: 'Registrar vehículo',
+              icon: Icons.add_rounded,
+              variant: RoutbButtonVariant.secondary,
+              height: 44,
+              onPressed: () => _editVehicle(profile),
+            ),
+          ],
         ],
       ),
     );

@@ -186,11 +186,7 @@ class RoutbPalette extends ThemeExtension<RoutbPalette> {
         offset: Offset(0, 8),
         spreadRadius: -6,
       ),
-      BoxShadow(
-        color: Color(0x0A0A2540),
-        blurRadius: 6,
-        offset: Offset(0, 2),
-      ),
+      BoxShadow(color: Color(0x0A0A2540), blurRadius: 6, offset: Offset(0, 2)),
     ],
     raisedShadow: <BoxShadow>[
       BoxShadow(

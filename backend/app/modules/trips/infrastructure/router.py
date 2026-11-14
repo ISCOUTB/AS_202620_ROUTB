@@ -1,10 +1,11 @@
 from datetime import date
 from typing import Annotated, Literal
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.modules.auth.infrastructure.security import get_current_user, get_optional_current_user
+from app.modules.notifications.application.dispatch import send_push_async_safe
 from app.modules.trips.application.cancel_trip import cancel_trip as cancel_trip_use_case
 from app.modules.trips.application.create_trip import create_trip as create_trip_use_case
 from app.modules.trips.application.get_trips import (
@@ -15,6 +16,7 @@ from app.modules.trips.application.get_trips import (
 from app.modules.trips.domain.exceptions import TripNotAuthorizedError, TripNotFoundError
 from app.modules.trips.infrastructure import schemas
 from app.modules.users.application import UserIdentity
+from app.shared.vehicle import format_vehicle_info
 
 router = APIRouter()
 
@@ -23,32 +25,71 @@ def _current_user_request_status(trip, current_user_id: int | None) -> str | Non
     if current_user_id is None or not hasattr(trip, "requests") or not trip.requests:
         return None
 
-    for request in trip.requests:
-        if request.passenger_id == current_user_id:
-            return request.status
-    return None
+    user_requests = [
+        request
+        for request in trip.requests
+        if request.passenger_id == current_user_id
+    ]
+    if not user_requests:
+        return None
+    for active_status in ("accepted", "pending"):
+        for request in user_requests:
+            if request.status == active_status:
+                return active_status
+    return max(user_requests, key=lambda request: request.id).status
 
 
-def _to_response(trip, current_user_id: int | None = None) -> schemas.TripResponse:
+def _to_stop_summary(stop, request_status: str) -> schemas.TripRequestStopSummary:
+    is_pending = request_status == "pending"
+    return schemas.TripRequestStopSummary(
+        id=stop.id,
+        seats=stop.seats,
+        place_type=stop.place_type,
+        address_text=stop.address_text,
+        stop_seq=None if is_pending else getattr(stop, "stop_seq", None),
+        eta_estimated=None if is_pending else getattr(stop, "eta_estimated", None),
+    )
+
+
+def _to_response(
+    trip,
+    current_user_id: int | None = None,
+    *,
+    is_public_list: bool = False,
+) -> schemas.TripResponse:
     driver_name = f"{trip.driver.name} {trip.driver.last_name}" if trip.driver else None
+    is_owner_driver = (
+        current_user_id is not None and trip.driver_id == current_user_id
+    )
+    my_request_status = _current_user_request_status(trip, current_user_id)
+    vehicle_info = (
+        format_vehicle_info(trip.driver)
+        if not is_public_list and my_request_status == "accepted"
+        else None
+    )
 
     trip_requests = []
-    for request in getattr(trip, "requests", []):
-        passenger = request.passenger
-        trip_requests.append(
-            schemas.TripRequestSummary(
-                id=request.id,
-                trip_id=request.trip_id,
-                passenger_id=request.passenger_id,
-                seat_count=getattr(request, "seat_count", 1),
-                passenger_name=(
-                    f"{passenger.name} {passenger.last_name}" if passenger else None
-                ),
-                passenger_phone=passenger.phone if passenger else None,
-                status=request.status,
-                created_at=request.created_at,
+    if is_owner_driver:
+        for request in getattr(trip, "requests", []):
+            passenger = request.passenger
+            trip_requests.append(
+                schemas.TripRequestSummary(
+                    id=request.id,
+                    trip_id=request.trip_id,
+                    passenger_id=request.passenger_id,
+                    seat_count=getattr(request, "seat_count", 1),
+                    passenger_name=(
+                        f"{passenger.name} {passenger.last_name}" if passenger else None
+                    ),
+                    passenger_phone=passenger.phone if passenger else None,
+                    status=request.status,
+                    created_at=request.created_at,
+                    stops=[
+                        _to_stop_summary(stop, request.status)
+                        for stop in getattr(request, "stops", [])
+                    ],
+                )
             )
-        )
 
     return schemas.TripResponse(
         id=trip.id,
@@ -63,8 +104,9 @@ def _to_response(trip, current_user_id: int | None = None) -> schemas.TripRespon
         direction=trip.direction,
         driver_id=trip.driver_id,
         driver_name=driver_name,
+        vehicle_info=vehicle_info,
         requests=trip_requests,
-        my_request_status=_current_user_request_status(trip, current_user_id),
+        my_request_status=my_request_status,
     )
 
 
@@ -93,7 +135,7 @@ def create_trip(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(exc),
         )
-    return _to_response(created)
+    return _to_response(created, current_user_id=current_user.id)
 
 
 @router.get("/", response_model=list[schemas.TripResponse])
@@ -111,7 +153,10 @@ def get_active_trips(
         departure_date=departure_date,
     )
     current_user_id = current_user.id if current_user else None
-    return [_to_response(t, current_user_id=current_user_id) for t in trips]
+    return [
+        _to_response(t, current_user_id=current_user_id, is_public_list=True)
+        for t in trips
+    ]
 
 
 @router.get("/my-trips", response_model=list[schemas.TripResponse])
@@ -124,7 +169,7 @@ def get_my_trips(
     ] = "active",
 ):
     trips = get_driver_trips_use_case(db, driver_id=current_user.id, scope=scope)
-    return [_to_response(t) for t in trips]
+    return [_to_response(t, current_user_id=current_user.id) for t in trips]
 
 
 @router.get("/{trip_id}", response_model=schemas.TripResponse)
@@ -142,14 +187,17 @@ def get_trip(
 @router.patch("/{trip_id}/cancel", response_model=schemas.TripResponse)
 def cancel_trip(
     trip_id: int,
+    background_tasks: BackgroundTasks,
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[UserIdentity, Depends(get_current_user)],
 ):
     try:
-        trip = cancel_trip_use_case(db, trip_id, driver_id=current_user.id)
+        trip, pending = cancel_trip_use_case(db, trip_id, driver_id=current_user.id)
     except (TripNotFoundError, TripNotAuthorizedError):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Viaje no encontrado o no autorizado",
         )
+    for push in pending:
+        background_tasks.add_task(send_push_async_safe, push)
     return _to_response(trip, current_user_id=current_user.id)

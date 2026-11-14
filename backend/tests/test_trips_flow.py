@@ -445,3 +445,807 @@ def test_my_trips_scope_filtra_activas_historial_y_todas():
             if user:
                 db.delete(user)
             db.commit()
+
+
+def test_cancel_trip_cascades_to_requests_and_notifies():
+    """Cancelar un viaje pasa sus solicitudes activas a `cancelled` y avisa a los aceptados."""
+    from app.modules.notifications.infrastructure.models import DeviceToken
+    from app.modules.requests.infrastructure.models import TripRequest
+    from app.modules.trips.infrastructure.models import Trip
+
+    with SessionLocal() as db:
+        driver = User(
+            name="Carlos",
+            last_name="Cancela",
+            phone="3110003001",
+            hashed_password="hash",
+            role="driver",
+        )
+        accepted_a = User(
+            name="Ana",
+            last_name="Aceptada",
+            phone="3110003002",
+            hashed_password="hash",
+            role="passenger",
+        )
+        accepted_b = User(
+            name="Beto",
+            last_name="Aceptado",
+            phone="3110003003",
+            hashed_password="hash",
+            role="passenger",
+        )
+        pending = User(
+            name="Celi",
+            last_name="Pendiente",
+            phone="3110003004",
+            hashed_password="hash",
+            role="passenger",
+        )
+        db.add_all([driver, accepted_a, accepted_b, pending])
+        db.commit()
+        db.refresh(driver)
+        db.refresh(accepted_a)
+        db.refresh(accepted_b)
+        db.refresh(pending)
+
+        user_ids = [driver.id, accepted_a.id, accepted_b.id, pending.id]
+        passenger_ids = [accepted_a.id, accepted_b.id, pending.id]
+        driver_token = create_access_token(driver.id, driver.role)
+        passenger_tokens = {
+            u.id: create_access_token(u.id, u.role)
+            for u in (accepted_a, accepted_b, pending)
+        }
+        db.add_all(
+            [
+                DeviceToken(user_id=accepted_a.id, device_token="token-cascada-a", platform="android"),
+                DeviceToken(user_id=accepted_b.id, device_token="token-cascada-b", platform="android"),
+                DeviceToken(user_id=pending.id, device_token="token-cascada-p", platform="android"),
+            ]
+        )
+        db.commit()
+
+    trip_id = None
+    try:
+        create_resp = client.post(
+            "/trips/",
+            headers={"Authorization": f"Bearer {driver_token}"},
+            json={
+                "origin": "Centro",
+                "destination": "UTB",
+                "total_seats": 4,
+                "departure_time": "11:59 PM",
+                "departure_date": str(colombia_today()),
+            },
+        )
+        assert create_resp.status_code == 201
+        trip_id = create_resp.json()["id"]
+
+        # 2 solicitudes aceptadas y 1 pendiente.
+        request_ids = {}
+        for passenger_id in passenger_ids:
+            resp = client.post(
+                f"/requests/trips/{trip_id}",
+                headers={"Authorization": f"Bearer {passenger_tokens[passenger_id]}"},
+            )
+            assert resp.status_code == 201, resp.text
+            request_ids[passenger_id] = resp.json()["id"]
+
+        for passenger_id in passenger_ids[:2]:
+            resp = client.patch(
+                f"/requests/{request_ids[passenger_id]}/accept",
+                headers={"Authorization": f"Bearer {driver_token}"},
+            )
+            assert resp.status_code == 200, resp.text
+
+        with patch("app.modules.notifications.application.dispatch.send_push") as mock_push:
+            cancel_resp = client.patch(
+                f"/trips/{trip_id}/cancel",
+                headers={"Authorization": f"Bearer {driver_token}"},
+            )
+        assert cancel_resp.status_code == 200
+        assert cancel_resp.json()["status"] == "cancelled"
+
+        # Todas las solicitudes asociadas quedan canceladas.
+        with SessionLocal() as db:
+            statuses = dict(
+                db.query(TripRequest.id, TripRequest.status)
+                .filter(TripRequest.trip_id == trip_id)
+                .all()
+            )
+        assert statuses == {rid: "cancelled" for rid in request_ids.values()}
+
+        # El pasajero lo ve reflejado en GET /requests/me.
+        me_resp = client.get(
+            "/requests/me",
+            headers={"Authorization": f"Bearer {passenger_tokens[passenger_ids[0]]}"},
+        )
+        assert me_resp.status_code == 200
+        mine = next(r for r in me_resp.json() if r["trip_id"] == trip_id)
+        assert mine["status"] == "cancelled"
+        assert mine["trip_status"] == "cancelled"
+
+        # Se intentó despachar push solo a los pasajeros con solicitud aceptada.
+        assert mock_push.call_count == 2
+        notified = {token for call in mock_push.call_args_list for token in call.args[0]}
+        assert notified == {"token-cascada-a", "token-cascada-b"}
+        for call in mock_push.call_args_list:
+            assert call.kwargs["title"] == "Viaje cancelado"
+            assert "UTB" in call.kwargs["body"]
+            assert call.kwargs["data"]["event"] == "trip_cancelled"
+    finally:
+        with SessionLocal() as db:
+            db.query(DeviceToken).filter(
+                DeviceToken.device_token.like("token-cascada-%")
+            ).delete(synchronize_session=False)
+            trip = db.get(Trip, trip_id)
+            if trip:
+                db.delete(trip)
+            for uid in user_ids:
+                user = db.get(User, uid)
+                if user:
+                    db.delete(user)
+            db.commit()
+
+
+def test_cancel_vs_accept_concurrent():
+    """Carrera cancelar/aceptar: el viaje queda cancelado sin solicitudes activas."""
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+
+    from app.modules.requests.infrastructure.models import TripRequest
+    from app.modules.trips.infrastructure.models import Trip
+
+    with SessionLocal() as db:
+        driver = User(
+            name="Raul",
+            last_name="Racing",
+            phone="3110003011",
+            hashed_password="hash",
+            role="driver",
+        )
+        passenger = User(
+            name="Pau",
+            last_name="Racing",
+            phone="3110003012",
+            hashed_password="hash",
+            role="passenger",
+        )
+        db.add_all([driver, passenger])
+        db.commit()
+        db.refresh(driver)
+        db.refresh(passenger)
+        driver_id = driver.id
+        passenger_id = passenger.id
+        driver_token = create_access_token(driver.id, driver.role)
+        passenger_token = create_access_token(passenger.id, passenger.role)
+
+    driver_headers = {"Authorization": f"Bearer {driver_token}"}
+    intentos = 5
+    try:
+        for _ in range(intentos):
+            create_resp = client.post(
+                "/trips/",
+                headers=driver_headers,
+                json={
+                    "origin": "Manga",
+                    "destination": "UTB",
+                    "total_seats": 2,
+                    "departure_time": "11:59 PM",
+                    "departure_date": str(colombia_today()),
+                },
+            )
+            assert create_resp.status_code == 201
+            trip_id = create_resp.json()["id"]
+
+            req_resp = client.post(
+                f"/requests/trips/{trip_id}",
+                headers={"Authorization": f"Bearer {passenger_token}"},
+            )
+            assert req_resp.status_code == 201, req_resp.text
+            request_id = req_resp.json()["id"]
+
+            barrier = threading.Barrier(2, timeout=10)
+
+            def _cancelar():
+                barrier.wait()
+                return client.patch(f"/trips/{trip_id}/cancel", headers=driver_headers)
+
+            def _aceptar():
+                barrier.wait()
+                return client.patch(
+                    f"/requests/{request_id}/accept", headers=driver_headers
+                )
+
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                cancel_future = executor.submit(_cancelar)
+                accept_future = executor.submit(_aceptar)
+                cancel_resp = cancel_future.result()
+                accept_resp = accept_future.result()
+
+            # La cancelación siempre prospera; la aceptación gana o pierde limpiamente.
+            assert cancel_resp.status_code == 200, cancel_resp.text
+            assert cancel_resp.json()["status"] == "cancelled"
+            assert accept_resp.status_code in (200, 409), accept_resp.text
+
+            # Sin estados incompatibles: viaje cancelado y solicitud cancelada.
+            with SessionLocal() as db:
+                assert db.get(Trip, trip_id).status == "cancelled"
+                assert db.get(TripRequest, request_id).status == "cancelled"
+
+            with SessionLocal() as db:
+                trip = db.get(Trip, trip_id)
+                if trip:
+                    db.delete(trip)
+                db.commit()
+    finally:
+        with SessionLocal() as db:
+            for trip in db.query(Trip).filter(Trip.driver_id == driver_id).all():
+                db.delete(trip)
+            for uid in (passenger_id, driver_id):
+                user = db.get(User, uid)
+                if user:
+                    db.delete(user)
+            db.commit()
+
+
+def test_my_trips_incluye_paradas_al_conductor_y_no_filtra_paradas_a_pasajeros():
+    """El conductor dueño recibe solicitudes con paradas en my-trips; otros pasajeros no ven paradas ajenas."""
+    from app.core.timezone import colombia_now
+    from app.modules.trips.infrastructure.models import Trip
+
+    with SessionLocal() as db:
+        driver, driver_token = _create_driver_with_consent(db, "3110004001")
+        other_driver, other_driver_token = _create_driver_with_consent(db, "3110004002")
+        pass_accepted = User(
+            name="Laura",
+            last_name="Confirmada",
+            phone="3110004003",
+            hashed_password="hash",
+            role="passenger",
+            location_consent_at=colombia_now(),
+        )
+        pass_pending = User(
+            name="Diego",
+            last_name="Pendiente",
+            phone="3110004004",
+            hashed_password="hash",
+            role="passenger",
+            location_consent_at=colombia_now(),
+        )
+        pass_external = User(
+            name="Sofia",
+            last_name="Ajena",
+            phone="3110004005",
+            hashed_password="hash",
+            role="passenger",
+            location_consent_at=colombia_now(),
+        )
+        db.add_all([pass_accepted, pass_pending, pass_external])
+        db.commit()
+        for u in (pass_accepted, pass_pending, pass_external):
+            db.refresh(u)
+
+        driver_id = driver.id
+        user_ids = [
+            driver.id,
+            other_driver.id,
+            pass_accepted.id,
+            pass_pending.id,
+            pass_external.id,
+        ]
+        token_accepted = create_access_token(pass_accepted.id, pass_accepted.role)
+        token_pending = create_access_token(pass_pending.id, pass_pending.role)
+        token_external = create_access_token(pass_external.id, pass_external.role)
+
+    _fake_route = {
+        "distance_m": 2500,
+        "duration_s": 300,
+        "geometry": [[-75.55, 10.42], [-75.50, 10.40]],
+        "degraded": False,
+        "source": "osrm",
+    }
+
+    try:
+        with patch("app.shared.routing.service._call_osrm", return_value=_fake_route):
+            create_resp = client.post(
+                "/trips/",
+                headers={"Authorization": f"Bearer {driver_token}"},
+                json={
+                    "origin": "UTB Campus",
+                    "destination": "Barrio Manga",
+                    "total_seats": 4,
+                    "departure_time": "11:59 PM",
+                    "departure_date": str(colombia_today()),
+                    "direction": "from_campus",
+                    "driver_point": {
+                        "lat": 10.40,
+                        "lng": -75.50,
+                        "address_text": "Avenida El Lago, Manga",
+                    },
+                },
+            )
+            assert create_resp.status_code == 201, create_resp.text
+            trip_id = create_resp.json()["id"]
+
+            req_accepted = client.post(
+                f"/requests/trips/{trip_id}",
+                headers={"Authorization": f"Bearer {token_accepted}"},
+                json={
+                    "seat_count": 1,
+                    "stops": [
+                        {
+                            "seats": 1,
+                            "place_type": "door",
+                            "lat": 10.41,
+                            "lng": -75.52,
+                            "address_text": "Calle Privada Confirmada #10-20, Manga",
+                        }
+                    ],
+                },
+            )
+            assert req_accepted.status_code == 201, req_accepted.text
+            req_accepted_id = req_accepted.json()["id"]
+
+            accept_resp = client.patch(
+                f"/requests/{req_accepted_id}/accept",
+                headers={"Authorization": f"Bearer {driver_token}"},
+            )
+            assert accept_resp.status_code == 200, accept_resp.text
+
+            req_pending = client.post(
+                f"/requests/trips/{trip_id}",
+                headers={"Authorization": f"Bearer {token_pending}"},
+                json={
+                    "seat_count": 2,
+                    "stops": [
+                        {
+                            "seats": 2,
+                            "place_type": "meeting_point",
+                            "lat": 10.42,
+                            "lng": -75.53,
+                            "address_text": "Barrio Pie de la Popa",
+                        }
+                    ],
+                },
+            )
+            assert req_pending.status_code == 201, req_pending.text
+            req_pending_id = req_pending.json()["id"]
+
+        # 1. El conductor propietario recibe solicitudes y paradas directamente en GET /trips/my-trips
+        my_trips_resp = client.get(
+            "/trips/my-trips",
+            headers={"Authorization": f"Bearer {driver_token}"},
+        )
+        assert my_trips_resp.status_code == 200
+        my_trip = next(t for t in my_trips_resp.json() if t["id"] == trip_id)
+        reqs_by_id = {r["id"]: r for r in my_trip["requests"]}
+        assert set(reqs_by_id.keys()) == {req_accepted_id, req_pending_id}
+
+        accepted_stops = reqs_by_id[req_accepted_id]["stops"]
+        assert len(accepted_stops) == 1
+        assert accepted_stops[0]["address_text"] == "Calle Privada Confirmada #10-20, Manga"
+        assert accepted_stops[0]["seats"] == 1
+        assert accepted_stops[0]["place_type"] == "door"
+        assert "stop_geom" not in accepted_stops[0]
+
+        pending_stops = reqs_by_id[req_pending_id]["stops"]
+        assert len(pending_stops) == 1
+        assert pending_stops[0]["address_text"] == "Barrio Pie de la Popa"
+        assert pending_stops[0]["seats"] == 2
+        assert pending_stops[0]["place_type"] == "meeting_point"
+        assert pending_stops[0]["stop_seq"] is None
+        assert pending_stops[0]["eta_estimated"] is None
+        assert "stop_geom" not in pending_stops[0]
+
+        # 2. Pasajero con solicitud pending, pasajero aceptado, pasajero ajeno, otro conductor y anónimo
+        # no reciben paradas ni solicitudes de otras personas en GET /trips/ ni en GET /trips/{trip_id}.
+        for token, expected_status in (
+            (token_pending, "pending"),
+            (token_accepted, "accepted"),
+            (token_external, None),
+            (other_driver_token, None),
+            (None, None),
+        ):
+            headers = {"Authorization": f"Bearer {token}"} if token else {}
+
+            list_resp = client.get("/trips/", headers=headers)
+            assert list_resp.status_code == 200
+            listed_trip = next(t for t in list_resp.json() if t["id"] == trip_id)
+            assert listed_trip["requests"] == []
+            assert listed_trip["my_request_status"] == expected_status
+
+            detail_resp = client.get(f"/trips/{trip_id}", headers=headers)
+            assert detail_resp.status_code == 200
+            detail_trip = detail_resp.json()
+            assert detail_trip["requests"] == []
+            assert detail_trip["my_request_status"] == expected_status
+    finally:
+        with SessionLocal() as db:
+            for trip in db.query(Trip).filter(Trip.driver_id == driver_id).all():
+                db.delete(trip)
+            for uid in user_ids:
+                user = db.get(User, uid)
+                if user:
+                    db.delete(user)
+            db.commit()
+
+
+def test_conductor_registra_vehiculo_valida_placa_colombiana_y_permisos():
+    """El endpoint /users/me/vehicle valida placa colombiana, exige rol conductor y permite limpiar."""
+    with SessionLocal() as db:
+        driver = User(
+            name="Mario",
+            last_name="Conductor",
+            phone="3110005001",
+            hashed_password="hash",
+            role="driver",
+        )
+        passenger = User(
+            name="Elena",
+            last_name="Pasajera",
+            phone="3110005002",
+            hashed_password="hash",
+            role="passenger",
+        )
+        db.add_all([driver, passenger])
+        db.commit()
+        db.refresh(driver)
+        db.refresh(passenger)
+        user_ids = [driver.id, passenger.id]
+        driver_token = create_access_token(driver.id, driver.role)
+        passenger_token = create_access_token(passenger.id, passenger.role)
+
+    driver_headers = {"Authorization": f"Bearer {driver_token}"}
+    passenger_headers = {"Authorization": f"Bearer {passenger_token}"}
+
+    try:
+        # 1. Sin token: 401
+        assert client.patch(
+            "/users/me/vehicle",
+            json={
+                "vehicle_model": "Chevrolet Spark",
+                "vehicle_plate": "XYZ-123",
+                "vehicle_color": "Gris",
+            },
+        ).status_code == 401
+
+        # 2. Pasajero no puede registrar vehículo: 403
+        forbidden = client.patch(
+            "/users/me/vehicle",
+            headers=passenger_headers,
+            json={
+                "vehicle_model": "Chevrolet Spark",
+                "vehicle_plate": "XYZ-123",
+                "vehicle_color": "Gris",
+            },
+        )
+        assert forbidden.status_code == 403
+
+        # 3. Placas inválidas o datos incompletos devuelven 422
+        for invalid_payload in (
+            {
+                "vehicle_model": "Chevrolet Spark",
+                "vehicle_plate": "123-XYZ",
+                "vehicle_color": "Gris",
+            },
+            {
+                "vehicle_model": "Chevrolet Spark",
+                "vehicle_plate": "AB-123",
+                "vehicle_color": "Gris",
+            },
+            {
+                "vehicle_model": "Chevrolet Spark",
+                "vehicle_plate": "ABCD-123",
+                "vehicle_color": "Gris",
+            },
+            {
+                "vehicle_model": "Chevrolet Spark",
+                "vehicle_plate": "ABC-12D",
+                "vehicle_color": "Gris",
+            },
+            {
+                "vehicle_model": "Chevrolet Spark",
+                "vehicle_plate": "ABC-12",
+                "vehicle_color": "Gris",
+            },
+            {
+                "vehicle_model": "Chevrolet Spark",
+                "vehicle_plate": None,
+                "vehicle_color": "Gris",
+            },
+            {
+                "vehicle_model": None,
+                "vehicle_plate": "XYZ-123",
+                "vehicle_color": "Gris",
+            },
+        ):
+            bad_resp = client.patch(
+                "/users/me/vehicle",
+                headers=driver_headers,
+                json=invalid_payload,
+            )
+            assert bad_resp.status_code == 422, f"{invalid_payload}: {bad_resp.text}"
+
+        # 4. Registro válido normaliza la placa colombiana (ej. "xyz 123" -> "XYZ-123")
+        ok_resp = client.patch(
+            "/users/me/vehicle",
+            headers=driver_headers,
+            json={
+                "vehicle_model": "  Chevrolet Spark  ",
+                "vehicle_plate": "xyz 123",
+                "vehicle_color": "  Gris  ",
+            },
+        )
+        assert ok_resp.status_code == 200, ok_resp.text
+        body = ok_resp.json()
+        assert body["vehicle_model"] == "Chevrolet Spark"
+        assert body["vehicle_plate"] == "XYZ-123"
+        assert body["vehicle_color"] == "Gris"
+
+        # 5. La app transporta automóviles: la placa de motocicleta (ABC-12D) se rechaza
+        moto_resp = client.patch(
+            "/users/me/vehicle",
+            headers=driver_headers,
+            json={
+                "vehicle_model": "Yamaha FZ",
+                "vehicle_plate": "abc12d",
+                "vehicle_color": "Negra",
+            },
+        )
+        assert moto_resp.status_code == 422, moto_resp.text
+
+        # 6. GET /auth/me conserva el vehículo de automóvil y no el intento de moto
+        me_resp = client.get("/auth/me", headers=driver_headers)
+        assert me_resp.status_code == 200
+        me_data = me_resp.json()
+        assert me_data["vehicle_model"] == "Chevrolet Spark"
+        assert me_data["vehicle_plate"] == "XYZ-123"
+        assert me_data["vehicle_color"] == "Gris"
+
+        # 7. Enviar campos vacíos/nulos limpia el vehículo
+        clear_resp = client.patch(
+            "/users/me/vehicle",
+            headers=driver_headers,
+            json={
+                "vehicle_model": None,
+                "vehicle_plate": None,
+                "vehicle_color": None,
+            },
+        )
+        assert clear_resp.status_code == 200
+        assert clear_resp.json()["vehicle_model"] is None
+        assert clear_resp.json()["vehicle_plate"] is None
+        assert clear_resp.json()["vehicle_color"] is None
+    finally:
+        with SessionLocal() as db:
+            for uid in user_ids:
+                user = db.get(User, uid)
+                if user:
+                    db.delete(user)
+            db.commit()
+
+
+def test_vehicle_info_solo_se_expone_al_pasajero_con_solicitud_accepted():
+    """vehicle_info solo es visible para el pasajero con solicitud accepted; nunca en listados públicos, sugerencias ni solicitudes pendientes."""
+    from app.core.timezone import colombia_now
+    from app.modules.trips.infrastructure.models import Trip
+
+    with SessionLocal() as db:
+        driver, driver_token = _create_driver_with_consent(db, "3110005011")
+        other_driver, other_driver_token = _create_driver_with_consent(db, "3110005012")
+        pass_accepted = User(
+            name="Camila",
+            last_name="Aceptada",
+            phone="3110005013",
+            hashed_password="hash",
+            role="passenger",
+            location_consent_at=colombia_now(),
+        )
+        pass_pending = User(
+            name="Mateo",
+            last_name="Pendiente",
+            phone="3110005014",
+            hashed_password="hash",
+            role="passenger",
+            location_consent_at=colombia_now(),
+        )
+        pass_external = User(
+            name="Valeria",
+            last_name="Externa",
+            phone="3110005015",
+            hashed_password="hash",
+            role="passenger",
+            location_consent_at=colombia_now(),
+        )
+        db.add_all([pass_accepted, pass_pending, pass_external])
+        db.commit()
+        for u in (pass_accepted, pass_pending, pass_external):
+            db.refresh(u)
+
+        driver_id = driver.id
+        user_ids = [
+            driver.id,
+            other_driver.id,
+            pass_accepted.id,
+            pass_pending.id,
+            pass_external.id,
+        ]
+        token_accepted = create_access_token(pass_accepted.id, pass_accepted.role)
+        token_pending = create_access_token(pass_pending.id, pass_pending.role)
+        token_external = create_access_token(pass_external.id, pass_external.role)
+
+    _fake_route = {
+        "distance_m": 2500,
+        "duration_s": 300,
+        "geometry": [[-75.55, 10.42], [-75.50, 10.40]],
+        "degraded": False,
+        "source": "osrm",
+    }
+
+    try:
+        # Conductor registra su vehículo
+        veh_resp = client.patch(
+            "/users/me/vehicle",
+            headers={"Authorization": f"Bearer {driver_token}"},
+            json={
+                "vehicle_model": "Chevrolet Spark",
+                "vehicle_plate": "xyz-123",
+                "vehicle_color": "Gris",
+            },
+        )
+        assert veh_resp.status_code == 200, veh_resp.text
+
+        with patch("app.shared.routing.service._call_osrm", return_value=_fake_route):
+            create_resp = client.post(
+                "/trips/",
+                headers={"Authorization": f"Bearer {driver_token}"},
+                json={
+                    "origin": "UTB Campus",
+                    "destination": "Barrio Manga",
+                    "total_seats": 4,
+                    "departure_time": "11:59 PM",
+                    "departure_date": str(colombia_today()),
+                    "direction": "from_campus",
+                    "driver_point": {
+                        "lat": 10.40,
+                        "lng": -75.50,
+                        "address_text": "Avenida El Lago, Manga",
+                    },
+                },
+            )
+            assert create_resp.status_code == 201, create_resp.text
+            trip_id = create_resp.json()["id"]
+
+            # Dos pasajeros solicitan cupo (ambos empiezan en pending)
+            req_accepted_resp = client.post(
+                f"/requests/trips/{trip_id}",
+                headers={"Authorization": f"Bearer {token_accepted}"},
+                json={
+                    "seat_count": 1,
+                    "stops": [
+                        {
+                            "seats": 1,
+                            "place_type": "door",
+                            "lat": 10.41,
+                            "lng": -75.52,
+                            "address_text": "Calle de la pasajera aceptada #10-20",
+                        }
+                    ],
+                },
+            )
+            assert req_accepted_resp.status_code == 201, req_accepted_resp.text
+            req_accepted_id = req_accepted_resp.json()["id"]
+
+            req_pending_resp = client.post(
+                f"/requests/trips/{trip_id}",
+                headers={"Authorization": f"Bearer {token_pending}"},
+                json={
+                    "seat_count": 1,
+                    "stops": [
+                        {
+                            "seats": 1,
+                            "place_type": "door",
+                            "lat": 10.42,
+                            "lng": -75.53,
+                            "address_text": "Calle del pasajero pendiente #30-40",
+                        }
+                    ],
+                },
+            )
+            assert req_pending_resp.status_code == 201, req_pending_resp.text
+
+            # Mientras la solicitud está en pending, GET /requests/me NO expone vehicle_info
+            me_before = client.get(
+                "/requests/me",
+                headers={"Authorization": f"Bearer {token_accepted}"},
+            )
+            assert me_before.status_code == 200
+            mine_pending = next(r for r in me_before.json() if r["trip_id"] == trip_id)
+            assert mine_pending["status"] == "pending"
+            assert mine_pending["vehicle_info"] is None
+
+            # Conductor acepta solo a pass_accepted
+            accept_resp = client.patch(
+                f"/requests/{req_accepted_id}/accept",
+                headers={"Authorization": f"Bearer {driver_token}"},
+            )
+            assert accept_resp.status_code == 200
+
+        expected_vehicle = "Chevrolet Spark · Gris (XYZ-123)"
+
+        # 1. Pasajero con solicitud accepted SÍ recibe vehicle_info en GET /requests/me y GET /trips/{trip_id}
+        me_accepted = client.get(
+            "/requests/me",
+            headers={"Authorization": f"Bearer {token_accepted}"},
+        )
+        assert me_accepted.status_code == 200
+        mine_accepted = next(r for r in me_accepted.json() if r["trip_id"] == trip_id)
+        assert mine_accepted["status"] == "accepted"
+        assert mine_accepted["vehicle_info"] == expected_vehicle
+
+        detail_accepted = client.get(
+            f"/trips/{trip_id}",
+            headers={"Authorization": f"Bearer {token_accepted}"},
+        )
+        assert detail_accepted.status_code == 200
+        assert detail_accepted.json()["vehicle_info"] == expected_vehicle
+
+        # 2. Pasajero con solicitud pending NO recibe vehicle_info en GET /requests/me ni en GET /trips/{trip_id}
+        me_still_pending = client.get(
+            "/requests/me",
+            headers={"Authorization": f"Bearer {token_pending}"},
+        )
+        assert me_still_pending.status_code == 200
+        mine_still_pending = next(
+            r for r in me_still_pending.json() if r["trip_id"] == trip_id
+        )
+        assert mine_still_pending["status"] == "pending"
+        assert mine_still_pending["vehicle_info"] is None
+
+        detail_pending = client.get(
+            f"/trips/{trip_id}",
+            headers={"Authorization": f"Bearer {token_pending}"},
+        )
+        assert detail_pending.status_code == 200
+        assert detail_pending.json()["vehicle_info"] is None
+
+        # 3. Listado público GET /trips/ NUNCA incluye vehicle_info (ni anónimo, ni ajeno, ni pendiente, ni aceptado)
+        for token in (None, token_external, other_driver_token, token_pending, token_accepted):
+            headers = {"Authorization": f"Bearer {token}"} if token else {}
+            list_resp = client.get("/trips/", headers=headers)
+            assert list_resp.status_code == 200
+            listed_trip = next(t for t in list_resp.json() if t["id"] == trip_id)
+            assert listed_trip["vehicle_info"] is None
+
+        # 4. Detalle GET /trips/{trip_id} para anónimo, pasajero ajeno u otro conductor NO expone vehicle_info
+        for token in (None, token_external, other_driver_token):
+            headers = {"Authorization": f"Bearer {token}"} if token else {}
+            detail_resp = client.get(f"/trips/{trip_id}", headers=headers)
+            assert detail_resp.status_code == 200
+            assert detail_resp.json()["vehicle_info"] is None
+
+        # 5. Sugerencias GET /matching/suggestions NUNCA incluyen vehicle_info ni la placa
+        sugg_resp = client.get(
+            "/matching/suggestions",
+            headers={"Authorization": f"Bearer {token_external}"},
+            params={
+                "direction": "from_campus",
+                "points": "10.41,-75.52",
+                "date": str(colombia_today()),
+                "time": "11:59 PM",
+            },
+        )
+        assert sugg_resp.status_code == 200
+        for item in sugg_resp.json():
+            assert "vehicle_info" not in item
+            assert "XYZ-123" not in str(item)
+    finally:
+        with SessionLocal() as db:
+            for trip in db.query(Trip).filter(Trip.driver_id == driver_id).all():
+                db.delete(trip)
+            for uid in user_ids:
+                user = db.get(User, uid)
+                if user:
+                    db.delete(user)
+            db.commit()

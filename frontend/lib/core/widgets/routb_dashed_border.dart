@@ -86,10 +86,7 @@ class _DashedRoundedRectPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final path = Path()
       ..addRRect(
-        RRect.fromRectAndRadius(
-          Offset.zero & size,
-          borderRadius.topLeft,
-        ),
+        RRect.fromRectAndRadius(Offset.zero & size, borderRadius.topLeft),
       );
 
     final paint = Paint()

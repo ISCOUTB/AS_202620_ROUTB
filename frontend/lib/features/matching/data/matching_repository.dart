@@ -19,10 +19,9 @@ class MatchingRepository {
       '/matching/suggestions',
       query: <String, String?>{
         'direction': direction,
-        'points': points
-            .map((point) => '${point.lat},${point.lng}')
-            .join(';'),
-        'date': '${date.year.toString().padLeft(4, '0')}-'
+        'points': points.map((point) => '${point.lat},${point.lng}').join(';'),
+        'date':
+            '${date.year.toString().padLeft(4, '0')}-'
             '${date.month.toString().padLeft(2, '0')}-'
             '${date.day.toString().padLeft(2, '0')}',
         'time': time,

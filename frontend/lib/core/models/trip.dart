@@ -27,6 +27,7 @@ class Trip {
     required this.requests,
     this.driverId,
     this.driverName,
+    this.vehicleInfo,
     this.myRequestStatus,
     this.direction,
   });
@@ -68,6 +69,12 @@ class Trip {
   /// Nombre del conductor, como lo arma el backend con nombre y apellido.
   final String? driverName;
 
+  /// Ficha del vehículo (modelo, color y placa) del conductor.
+  ///
+  /// El backend solo la envía al pasajero con solicitud aceptada; en el
+  /// listado público siempre llega nula.
+  final String? vehicleInfo;
+
   /// Estado de la solicitud de la persona que está mirando, o `null` si no ha
   /// solicitado cupo. Solo lo devuelve `GET /trips/` cuando hay token.
   final SeatRequestStatus? myRequestStatus;
@@ -105,6 +112,7 @@ class Trip {
       status: TripStatus.fromWire(json['status'] as String?),
       driverId: json['driver_id'] as int?,
       driverName: (json['driver_name'] as String?)?.trim(),
+      vehicleInfo: (json['vehicle_info'] as String?)?.trim(),
       // Sin el campo no hay solicitud propia: hay que distinguir «no ha
       // solicitado» de «solicitó y está en espera».
       myRequestStatus: rawMyRequest == null
@@ -280,6 +288,9 @@ class Trip {
   /// `true` si hay nombre de conductor que mostrar.
   bool get hasDriverName => (driverName ?? '').trim().isNotEmpty;
 
+  /// `true` si la API entregó la ficha del vehículo.
+  bool get hasVehicleInfo => (vehicleInfo ?? '').trim().isNotEmpty;
+
   /// Copia con los campos indicados sustituidos.
   Trip copyWith({
     int? availableSeats,
@@ -302,6 +313,7 @@ class Trip {
     status: status ?? this.status,
     driverId: driverId,
     driverName: driverName,
+    vehicleInfo: vehicleInfo,
     myRequestStatus: myRequestStatus ?? this.myRequestStatus,
     direction: direction ?? this.direction,
     requests: requests ?? this.requests,
@@ -321,6 +333,7 @@ class Trip {
       other.status == status &&
       other.driverId == driverId &&
       other.driverName == driverName &&
+      other.vehicleInfo == vehicleInfo &&
       other.myRequestStatus == myRequestStatus;
 
   @override
@@ -336,6 +349,7 @@ class Trip {
     status,
     driverId,
     driverName,
+    vehicleInfo,
     myRequestStatus,
   );
 }

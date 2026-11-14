@@ -30,22 +30,34 @@ const Account _driver = Account(
 );
 
 /// Perfil tal como lo devuelve `GET /auth/me`.
-Map<String, dynamic> _profileJson({String? consentAt}) => <String, dynamic>{
+Map<String, dynamic> _profileJson({
+  String? consentAt,
+  String role = 'driver',
+  String? vehicleModel,
+  String? vehiclePlate,
+  String? vehicleColor,
+}) => <String, dynamic>{
   'id': 7,
   'name': 'Sebastián',
   'last_name': 'Ríos',
   'phone': '3001234567',
-  'role': 'driver',
+  'role': role,
   'location_consent_at': consentAt,
+  'vehicle_model': vehicleModel,
+  'vehicle_plate': vehiclePlate,
+  'vehicle_color': vehicleColor,
 };
 
 /// Servidor de mentira con el perfil en memoria: la autorización de ubicación
-/// cambia con el `POST` y el `DELETE` igual que en el backend.
+/// cambia con el `POST` y el `DELETE` igual que en el backend, y el vehículo
+/// con el `PATCH`.
 class _FakeApi {
   _FakeApi(this.profile, {this.meStatus = 200});
 
   Map<String, dynamic> profile;
   final int meStatus;
+  int vehicleCalls = 0;
+  Map<String, dynamic>? lastVehicleBody;
 
   late final http.Client client = MockClient((request) async {
     final path = request.url.path;
@@ -62,6 +74,13 @@ class _FakeApi {
     if (request.method == 'DELETE' && path == '/users/me/location-consent') {
       profile = <String, dynamic>{...profile, 'location_consent_at': null};
       return http.Response('', 204);
+    }
+    if (request.method == 'PATCH' && path == '/users/me/vehicle') {
+      vehicleCalls++;
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      lastVehicleBody = body;
+      profile = <String, dynamic>{...profile, ...body};
+      return http.Response(jsonEncode(profile), 200, headers: _json);
     }
     return http.Response('{"detail":"Not Found"}', 404, headers: _json);
   });
@@ -106,6 +125,12 @@ Future<void> _drainToast(WidgetTester tester) async {
 /// Baja hasta el final de la lista del perfil para alcanzar el botón de salir.
 Future<void> _scrollToLogout(WidgetTester tester) async {
   await tester.drag(find.byType(ListView), const Offset(0, -400));
+  await _settle(tester);
+}
+
+/// Baja hasta la tarjeta del vehículo del conductor.
+Future<void> _scrollToVehicle(WidgetTester tester) async {
+  await tester.drag(find.byType(ListView), const Offset(0, -300));
   await _settle(tester);
 }
 
@@ -240,6 +265,141 @@ void main() {
       await _settle(tester);
 
       expect(find.text('Reintentar'), findsOneWidget);
+    });
+
+    testWidgets('el conductor registra su vehículo desde el perfil', (
+      tester,
+    ) async {
+      final api = _FakeApi(_profileJson());
+      final dependencies = _dependencies(api);
+      addTearDown(dependencies.dispose);
+
+      await tester.pumpWidget(
+        _app(dependencies, Scaffold(body: ProfileScreen(account: _driver))),
+      );
+      await _settle(tester);
+      await _scrollToVehicle(tester);
+
+      expect(find.text('Vehículo'), findsOneWidget);
+      expect(find.text('Sin registrar'), findsOneWidget);
+
+      await tester.tap(find.text('Registrar vehículo'));
+      await _settle(tester);
+
+      final fields = find.byType(TextField);
+      await tester.enterText(fields.at(0), 'Chevrolet Spark');
+      await tester.enterText(fields.at(1), 'xyz 123');
+      await tester.enterText(fields.at(2), 'Gris');
+      await tester.pump();
+
+      await tester.tap(find.text('Guardar vehículo'));
+      await _settle(tester);
+
+      expect(api.vehicleCalls, 1);
+      expect(api.lastVehicleBody?['vehicle_plate'], 'XYZ-123');
+      expect(find.text('Chevrolet Spark · Gris (XYZ-123)'), findsOneWidget);
+      expect(find.text('Registrado'), findsOneWidget);
+      await _drainToast(tester);
+    });
+
+    testWidgets('una placa inválida no llega al backend', (tester) async {
+      final api = _FakeApi(_profileJson());
+      final dependencies = _dependencies(api);
+      addTearDown(dependencies.dispose);
+
+      await tester.pumpWidget(
+        _app(dependencies, Scaffold(body: ProfileScreen(account: _driver))),
+      );
+      await _settle(tester);
+      await _scrollToVehicle(tester);
+
+      await tester.tap(find.text('Registrar vehículo'));
+      await _settle(tester);
+
+      final fields = find.byType(TextField);
+      await tester.enterText(fields.at(0), 'Chevrolet Spark');
+      await tester.enterText(fields.at(1), '123');
+      await tester.enterText(fields.at(2), 'Gris');
+      await tester.pump();
+
+      await tester.tap(find.text('Guardar vehículo'));
+      await _settle(tester);
+
+      expect(api.vehicleCalls, 0);
+      expect(find.textContaining('placa colombiana válida'), findsOneWidget);
+
+      // Cerrar la hoja para que no quede abierta al terminar la prueba.
+      await tester.tap(find.bySemanticsLabel('Cerrar'));
+      await _settle(tester);
+    });
+
+    testWidgets('editar el vehículo permite quitarlo con confirmación', (
+      tester,
+    ) async {
+      final api = _FakeApi(
+        _profileJson(
+          vehicleModel: 'Chevrolet Spark',
+          vehiclePlate: 'XYZ-123',
+          vehicleColor: 'Gris',
+        ),
+      );
+      final dependencies = _dependencies(api);
+      addTearDown(dependencies.dispose);
+
+      await tester.pumpWidget(
+        _app(dependencies, Scaffold(body: ProfileScreen(account: _driver))),
+      );
+      await _settle(tester);
+      await _scrollToVehicle(tester);
+
+      expect(find.text('Chevrolet Spark · Gris (XYZ-123)'), findsOneWidget);
+
+      await tester.tap(find.text('Editar vehículo'));
+      await _settle(tester);
+      await tester.drag(
+        find.byType(SingleChildScrollView).last,
+        const Offset(0, -160),
+      );
+      await _settle(tester);
+      await tester.tap(find.text('Quitar vehículo'));
+      await _settle(tester);
+      expect(find.text('¿Quitar el vehículo?'), findsOneWidget);
+
+      await tester.tap(find.text('Quitar'));
+      await _settle(tester);
+
+      expect(api.vehicleCalls, 1);
+      expect(api.lastVehicleBody?['vehicle_plate'], isNull);
+      expect(find.text('Sin registrar'), findsOneWidget);
+      expect(find.text('Registrar vehículo'), findsOneWidget);
+      await _drainToast(tester);
+    });
+
+    testWidgets('el pasajero no ve la tarjeta del vehículo', (tester) async {
+      final dependencies = _dependencies(
+        _FakeApi(_profileJson(role: 'passenger')),
+      );
+      addTearDown(dependencies.dispose);
+
+      await tester.pumpWidget(
+        _app(
+          dependencies,
+          Scaffold(
+            body: ProfileScreen(
+              account: const Account(
+                token: 't',
+                name: 'Ana',
+                role: UserRole.passenger,
+              ),
+            ),
+          ),
+        ),
+      );
+      await _settle(tester);
+      await _scrollToVehicle(tester);
+
+      expect(find.text('Vehículo'), findsNothing);
+      expect(find.text('Registrar vehículo'), findsNothing);
     });
   });
 }

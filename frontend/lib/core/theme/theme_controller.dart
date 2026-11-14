@@ -36,9 +36,8 @@ class ThemeController extends ChangeNotifier {
 
   /// Alterna entre claro y oscuro a partir de la luminosidad que se está
   /// mostrando ahora.
-  Future<void> toggle(Brightness current) => setMode(
-        current == Brightness.dark ? ThemeMode.light : ThemeMode.dark,
-      );
+  Future<void> toggle(Brightness current) =>
+      setMode(current == Brightness.dark ? ThemeMode.light : ThemeMode.dark);
 }
 
 /// Publica el [ThemeController] en el árbol de widgets.

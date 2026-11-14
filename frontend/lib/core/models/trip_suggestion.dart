@@ -17,20 +17,20 @@ class TripSuggestion {
   });
 
   factory TripSuggestion.fromJson(Map<String, dynamic> json) => TripSuggestion(
-        tripId: json['trip_id'] as int,
-        driverName: json['driver_name'] as String? ?? 'Conductor',
-        origin: json['origin'] as String? ?? '',
-        destination: json['destination'] as String? ?? '',
-        direction: json['direction'] as String? ?? 'to_campus',
-        departureDate: DateTime.parse(json['departure_date'] as String),
-        departureTime: json['departure_time'] as String? ?? '',
-        availableSeats: json['available_seats'] as int? ?? 0,
-        etaPickup: DateTime.tryParse(json['eta_pickup'] as String? ?? ''),
-        detourMinutes: (json['detour_minutes'] as num? ?? 0).toDouble(),
-        walkDistanceM: (json['walk_distance_m'] as num? ?? 0).toDouble(),
-        score: (json['score'] as num? ?? 1).toDouble(),
-        degraded: json['degraded'] as bool? ?? false,
-      );
+    tripId: json['trip_id'] as int,
+    driverName: json['driver_name'] as String? ?? 'Conductor',
+    origin: json['origin'] as String? ?? '',
+    destination: json['destination'] as String? ?? '',
+    direction: json['direction'] as String? ?? 'to_campus',
+    departureDate: DateTime.parse(json['departure_date'] as String),
+    departureTime: json['departure_time'] as String? ?? '',
+    availableSeats: json['available_seats'] as int? ?? 0,
+    etaPickup: DateTime.tryParse(json['eta_pickup'] as String? ?? ''),
+    detourMinutes: (json['detour_minutes'] as num? ?? 0).toDouble(),
+    walkDistanceM: (json['walk_distance_m'] as num? ?? 0).toDouble(),
+    score: (json['score'] as num? ?? 1).toDouble(),
+    degraded: json['degraded'] as bool? ?? false,
+  );
 
   final int tripId;
   final String driverName;

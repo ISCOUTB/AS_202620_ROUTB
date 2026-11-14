@@ -161,7 +161,7 @@ def test_fallo_fcm_no_revierte_la_transaccion_rest():
 
         # Parchear send_push para que lance excepción
         with patch(
-            "app.modules.requests.application.create_request.send_push",
+            "app.modules.notifications.application.dispatch.send_push",
             side_effect=Exception("FCM caído"),
         ):
             resp = client.post(
@@ -197,7 +197,7 @@ def test_notificacion_al_pasajero_al_aceptar():
             return len(tokens)
 
         with patch(
-            "app.modules.requests.application.manage_request.send_push",
+            "app.modules.notifications.application.dispatch.send_push",
             side_effect=_mock_send_push,
         ):
             resp = client.patch(
@@ -209,6 +209,104 @@ def test_notificacion_al_pasajero_al_aceptar():
         assert any("fcm_passenger_token_accept" in c["tokens"] for c in sent_calls)
     finally:
         _limpiar(passenger_id, driver_id)
+
+
+def test_rechazo_notifica_al_pasajero():
+    """Rechazar una solicitud programa el aviso al pasajero fuera del HTTP."""
+    driver_id, driver_token = _crear_usuario("3400000010", "driver")
+    passenger_id, passenger_token = _crear_usuario("3400000011", "passenger")
+
+    try:
+        _registrar_token(passenger_token, "fcm_passenger_token_reject")
+        trip_id = _crear_viaje(driver_token)
+        created = client.post(
+            f"/requests/trips/{trip_id}",
+            headers={"Authorization": f"Bearer {passenger_token}"},
+        )
+        assert created.status_code == 201
+
+        sent_calls = []
+
+        def _mock_send_push(tokens, title, body, data=None, db=None):
+            sent_calls.append({"tokens": tokens, "data": data})
+            return len(tokens)
+
+        with patch(
+            "app.modules.notifications.application.dispatch.send_push",
+            side_effect=_mock_send_push,
+        ):
+            resp = client.patch(
+                f"/requests/{created.json()['id']}/reject",
+                headers={"Authorization": f"Bearer {driver_token}"},
+            )
+
+        assert resp.status_code == 200
+        assert any("fcm_passenger_token_reject" in c["tokens"] for c in sent_calls)
+        assert sent_calls[0]["data"]["event"] == "request_rejected"
+    finally:
+        _limpiar(passenger_id, driver_id)
+
+
+def test_la_push_se_despacha_despues_del_commit():
+    """La tarea de fondo ve la solicitud ya confirmada en otra sesión."""
+    driver_id, driver_token = _crear_usuario("3400000012", "driver")
+    passenger_id, passenger_token = _crear_usuario("3400000013", "passenger")
+
+    try:
+        _registrar_token(passenger_token, "fcm_commit_visible")
+        trip_id = _crear_viaje(driver_token)
+        created = client.post(
+            f"/requests/trips/{trip_id}",
+            headers={"Authorization": f"Bearer {passenger_token}"},
+        )
+        assert created.status_code == 201
+        request_id = created.json()["id"]
+
+        estados_vistos = []
+
+        def _mock_send_push(tokens, title, body, data=None, db=None):
+            with SessionLocal() as otra_sesion:
+                fila = otra_sesion.get(TripRequest, request_id)
+                estados_vistos.append(fila.status if fila else None)
+            return len(tokens)
+
+        with patch(
+            "app.modules.notifications.application.dispatch.send_push",
+            side_effect=_mock_send_push,
+        ):
+            resp = client.patch(
+                f"/requests/{request_id}/accept",
+                headers={"Authorization": f"Bearer {driver_token}"},
+            )
+
+        assert resp.status_code == 200
+        assert estados_vistos == ["accepted"]
+    finally:
+        _limpiar(passenger_id, driver_id)
+
+
+def test_send_push_async_safe_usa_sesion_propia_y_absorbe_errores():
+    """La tarea de fondo cierra su sesión aunque FCM lance una excepción."""
+    from types import SimpleNamespace
+
+    from app.modules.notifications.application import dispatch
+
+    session = MagicMock()
+    with patch.object(dispatch, "SessionLocal", return_value=session), patch.object(
+        dispatch,
+        "get_tokens_for_user",
+        return_value=[SimpleNamespace(device_token="fcm_token_seguro")],
+    ), patch.object(dispatch, "send_push", side_effect=RuntimeError("FCM caído")):
+        dispatch.send_push_async_safe(
+            dispatch.PendingPush(
+                user_id=1,
+                title="Prueba",
+                body="Cuerpo",
+                data={"event": "prueba"},
+            )
+        )
+
+    session.close.assert_called_once()
 
 
 def test_no_se_registran_tokens_en_logs():

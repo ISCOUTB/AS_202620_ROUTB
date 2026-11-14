@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -53,6 +54,7 @@ Map<String, dynamic> _tripJson({String? myStatus}) => <String, dynamic>{
 Map<String, dynamic> _myRequestJson({
   String status = 'accepted',
   String tripStatus = 'active',
+  String? vehicleInfo,
 }) => <String, dynamic>{
   'id': 7,
   'status': status,
@@ -66,6 +68,7 @@ Map<String, dynamic> _myRequestJson({
   'trip_status': tripStatus,
   'driver_name': 'Luis Chofer',
   'driver_phone': '3015550002',
+  'vehicle_info': vehicleInfo,
 };
 
 /// Respuestas de la API para las rutas que usa el modo pasajero.
@@ -101,7 +104,6 @@ List<({String path, Object body, int status})> _routes({
 RoutbDependencies _dependencies(
   List<({String path, Object body, int status})> routes,
 ) {
-  final session = SessionStore();
   final client = MockClient((request) async {
     final path = request.url.path;
     for (final route in routes) {
@@ -115,7 +117,12 @@ RoutbDependencies _dependencies(
     }
     return http.Response('{"detail":"Not Found"}', 404);
   });
+  return _dependenciesFrom(client);
+}
 
+/// Monta las dependencias sobre un cliente ya construido.
+RoutbDependencies _dependenciesFrom(http.Client client) {
+  final session = SessionStore();
   final api = ApiClient(session, client: client);
   return RoutbDependencies(
     session: session,
@@ -127,9 +134,59 @@ RoutbDependencies _dependencies(
   );
 }
 
+/// API mínima del pasajero que cuenta las consultas a `/requests/me` y permite
+/// cambiar el estado de la solicitud entre sondeos.
+class _PollingApi {
+  _PollingApi({this.status = 'pending'});
+
+  /// Estado que devolverá el siguiente `GET /requests/me`.
+  String status;
+  int myRequestsCalls = 0;
+
+  late final http.Client client = MockClient((request) async {
+    final path = request.url.path;
+    if (request.method == 'GET' && path == '/trips/') {
+      return http.Response(
+        '[]',
+        200,
+        headers: <String, String>{'content-type': 'application/json'},
+      );
+    }
+    if (request.method == 'GET' && path == '/requests/me') {
+      myRequestsCalls++;
+      return http.Response(
+        jsonEncode(<Map<String, dynamic>>[_myRequestJson(status: status)]),
+        200,
+        headers: <String, String>{'content-type': 'application/json'},
+      );
+    }
+    return http.Response('{"detail":"Not Found"}', 404);
+  });
+}
+
+/// Envía un cambio de ciclo de vida como lo haría el sistema operativo.
+Future<void> _setLifecycleState(
+  WidgetTester tester,
+  AppLifecycleState state,
+) async {
+  final message = const StringCodec().encodeMessage(state.toString());
+  await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .handlePlatformMessage(SystemChannels.lifecycle.name, message, (_) {});
+}
+
 /// Monta [child] con el tema de ROUTB dentro de una pantalla de móvil.
 Widget _app(Widget child) =>
     MaterialApp(theme: RoutbTheme.light(), home: child);
+
+/// Monta el modo pasajero con las dependencias dadas.
+Widget _passengerApp(RoutbDependencies dependencies) => _app(
+  RoutbScopeDependencies(
+    dependencies: dependencies,
+    child: const PassengerScreen(
+      account: Account(token: 't', name: 'Ana', role: UserRole.passenger),
+    ),
+  ),
+);
 
 /// Fija el tamaño de pantalla y devuelve el tamaño logical del dispositivo.
 Future<Size> _usePhone(WidgetTester tester, Size size) async {
@@ -281,6 +338,72 @@ void main() {
       expect(find.textContaining('No hay viajes para'), findsOneWidget);
     });
 
+    testWidgets('la tarjeta de mi viaje muestra el vehículo confirmado', (
+      tester,
+    ) async {
+      await _usePhone(tester, const Size(360, 640));
+      const vehicle = 'Chevrolet Spark · Gris (XYZ-123)';
+      final dependencies = _dependencies(
+        _routes(
+          trips: const <Map<String, dynamic>>[],
+          myRequests: <Map<String, dynamic>>[
+            _myRequestJson(vehicleInfo: vehicle),
+          ],
+        ),
+      );
+      addTearDown(dependencies.dispose);
+
+      await tester.pumpWidget(
+        _app(
+          RoutbScopeDependencies(
+            dependencies: dependencies,
+            child: PassengerScreen(
+              account: const Account(
+                token: 't',
+                name: 'Ana',
+                role: UserRole.passenger,
+              ),
+            ),
+          ),
+        ),
+      );
+      await _settle(tester);
+
+      expect(find.textContaining(vehicle), findsOneWidget);
+    });
+
+    testWidgets('sin ficha del vehículo la tarjeta no inventa datos', (
+      tester,
+    ) async {
+      await _usePhone(tester, const Size(360, 640));
+      final dependencies = _dependencies(
+        _routes(
+          trips: const <Map<String, dynamic>>[],
+          myRequests: <Map<String, dynamic>>[_myRequestJson()],
+        ),
+      );
+      addTearDown(dependencies.dispose);
+
+      await tester.pumpWidget(
+        _app(
+          RoutbScopeDependencies(
+            dependencies: dependencies,
+            child: PassengerScreen(
+              account: const Account(
+                token: 't',
+                name: 'Ana',
+                role: UserRole.passenger,
+              ),
+            ),
+          ),
+        ),
+      );
+      await _settle(tester);
+
+      expect(find.textContaining('Chevrolet'), findsNothing);
+      expect(find.textContaining('XYZ-'), findsNothing);
+    });
+
     testWidgets('la tarjeta desaparece cuando la solicitud ya no está viva', (
       tester,
     ) async {
@@ -353,6 +476,101 @@ void main() {
     });
   });
 
+  group('Sondeo de rescate del pasajero', () {
+    // `testWidgets` corre bajo el reloj virtual de `fakeAsync`: avanzar con
+    // `tester.pump(Duration)` dispara el `Timer` sin esperas reales.
+    testWidgets(
+      'consulta cada 15 s solo mientras hay una solicitud pendiente',
+      (tester) async {
+        await _usePhone(tester, const Size(360, 640));
+        final api = _PollingApi();
+        final dependencies = _dependenciesFrom(api.client);
+        addTearDown(dependencies.dispose);
+
+        await tester.pumpWidget(_passengerApp(dependencies));
+        await _settle(tester);
+
+        // La carga inicial consulta una vez /requests/me.
+        expect(api.myRequestsCalls, 1);
+        expect(find.text('Solicitud enviada'), findsOneWidget);
+
+        // Antes de los 15 segundos no hay ráfagas de peticiones.
+        await tester.pump(const Duration(seconds: 14));
+        expect(api.myRequestsCalls, 1);
+
+        // El conductor acepta y el siguiente sondeo lo refleja sin tocar nada.
+        api.status = 'accepted';
+        await tester.pump(const Duration(seconds: 1));
+        await _settle(tester);
+
+        expect(api.myRequestsCalls, 2);
+        expect(find.text('Cupo confirmado'), findsOneWidget);
+
+        // Ya no queda nada pendiente: el temporizador se detuvo.
+        await tester.pump(const Duration(seconds: 45));
+        expect(api.myRequestsCalls, 2);
+      },
+    );
+
+    testWidgets('no consulta si la solicitud ya no está pendiente', (
+      tester,
+    ) async {
+      await _usePhone(tester, const Size(360, 640));
+      final api = _PollingApi(status: 'accepted');
+      final dependencies = _dependenciesFrom(api.client);
+      addTearDown(dependencies.dispose);
+
+      await tester.pumpWidget(_passengerApp(dependencies));
+      await _settle(tester);
+      expect(api.myRequestsCalls, 1);
+
+      await tester.pump(const Duration(minutes: 2));
+      expect(api.myRequestsCalls, 1);
+    });
+
+    testWidgets('se pausa en segundo plano y se reanuda al volver', (
+      tester,
+    ) async {
+      await _usePhone(tester, const Size(360, 640));
+      final api = _PollingApi();
+      final dependencies = _dependenciesFrom(api.client);
+      addTearDown(dependencies.dispose);
+      addTearDown(() => _setLifecycleState(tester, AppLifecycleState.resumed));
+
+      await tester.pumpWidget(_passengerApp(dependencies));
+      await _settle(tester);
+      expect(api.myRequestsCalls, 1);
+
+      await _setLifecycleState(tester, AppLifecycleState.paused);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 45));
+      expect(api.myRequestsCalls, 1);
+
+      await _setLifecycleState(tester, AppLifecycleState.resumed);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 15));
+      await _settle(tester);
+      expect(api.myRequestsCalls, 2);
+    });
+
+    testWidgets('dispose cancela el temporizador', (tester) async {
+      await _usePhone(tester, const Size(360, 640));
+      final api = _PollingApi();
+      final dependencies = _dependenciesFrom(api.client);
+      addTearDown(dependencies.dispose);
+
+      await tester.pumpWidget(_passengerApp(dependencies));
+      await _settle(tester);
+      expect(api.myRequestsCalls, 1);
+
+      // Al salir de la pantalla el `State` se destruye y no debe quedar poll.
+      await tester.pumpWidget(_app(const SizedBox()));
+      await tester.pump(const Duration(minutes: 1));
+
+      expect(api.myRequestsCalls, 1);
+    });
+  });
+
   group('MiTripScreen', () {
     testWidgets('muestra el trayecto, el conductor y el botón de cancelar', (
       tester,
@@ -392,6 +610,40 @@ void main() {
         expect(find.text('Cancelar'), findsOneWidget, reason: '$size');
       }
     });
+
+    testWidgets(
+      'muestra el vehículo del conductor cuando el cupo está confirmado',
+      (tester) async {
+        await _usePhone(tester, const Size(360, 640));
+        final dependencies = _dependencies(_routes());
+        addTearDown(dependencies.dispose);
+
+        await tester.pumpWidget(
+          _app(
+            RoutbScopeDependencies(
+              dependencies: dependencies,
+              child: MyTripScreen(
+                request: MyRequest.fromJson(
+                  _myRequestJson(
+                    vehicleInfo: 'Chevrolet Spark · Gris (XYZ-123)',
+                  ),
+                ),
+                onWithdrawn: () {},
+              ),
+            ),
+          ),
+        );
+        await _settle(tester);
+
+        await tester.drag(find.byType(ListView), const Offset(0, -300));
+        await _settle(tester);
+
+        expect(
+          find.textContaining('Chevrolet Spark · Gris (XYZ-123)'),
+          findsOneWidget,
+        );
+      },
+    );
 
     testWidgets('cancelar pide confirmación y avisa al padre', (tester) async {
       await _usePhone(tester, const Size(360, 640));

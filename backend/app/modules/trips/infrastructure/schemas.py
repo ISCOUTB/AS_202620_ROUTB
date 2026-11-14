@@ -44,6 +44,17 @@ class TripCreate(BaseModel):
         return normalized
 
 
+class TripRequestStopSummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    seats: int
+    place_type: str
+    address_text: str
+    stop_seq: int | None = None
+    eta_estimated: datetime | None = None
+
+
 class TripRequestSummary(BaseModel):
     id: int
     trip_id: int
@@ -53,6 +64,8 @@ class TripRequestSummary(BaseModel):
     passenger_phone: str | None = None
     status: str
     created_at: datetime
+    vehicle_info: str | None = None
+    stops: list[TripRequestStopSummary] = Field(default_factory=list)
 
 
 class TripResponse(BaseModel):
@@ -70,5 +83,6 @@ class TripResponse(BaseModel):
     direction: str | None = None
     driver_id: int | None = None
     driver_name: str | None = None
+    vehicle_info: str | None = None
     my_request_status: str | None = None
     requests: list[TripRequestSummary] = Field(default_factory=list)

@@ -17,6 +17,9 @@ class UserProfile {
     required this.phone,
     required this.role,
     this.locationConsentAt,
+    this.vehicleModel,
+    this.vehiclePlate,
+    this.vehicleColor,
   });
 
   /// Identificador de la cuenta.
@@ -38,6 +41,15 @@ class UserProfile {
   /// otorgado.
   final DateTime? locationConsentAt;
 
+  /// Marca y línea del vehículo, solo para conductores.
+  final String? vehicleModel;
+
+  /// Placa colombiana del vehículo, ya normalizada por el backend.
+  final String? vehiclePlate;
+
+  /// Color del vehículo.
+  final String? vehicleColor;
+
   /// Nombre completo para el encabezado y el avatar.
   String get fullName => '$name $lastName'.trim();
 
@@ -54,6 +66,33 @@ class UserProfile {
   String get consentLabel =>
       hasLocationConsent ? 'Autorizado' : 'Sin autorizar';
 
+  /// `true` si el conductor ya registró su vehículo.
+  bool get hasVehicle => (vehiclePlate ?? '').trim().isNotEmpty;
+
+  /// Ficha corta del vehículo para la tarjeta del perfil.
+  String get vehicleLabel {
+    final model = (vehicleModel ?? '').trim();
+    final color = (vehicleColor ?? '').trim();
+    final plate = (vehiclePlate ?? '').trim();
+    final head = [model, color].where((part) => part.isNotEmpty).join(' · ');
+    if (head.isNotEmpty && plate.isNotEmpty) return '$head ($plate)';
+    return head.isNotEmpty ? head : plate;
+  }
+
+  /// Copia con los datos del vehículo sustituidos.
+  UserProfile withVehicle({String? model, String? plate, String? color}) =>
+      UserProfile(
+        id: id,
+        name: name,
+        lastName: lastName,
+        phone: phone,
+        role: role,
+        locationConsentAt: locationConsentAt,
+        vehicleModel: model,
+        vehiclePlate: plate,
+        vehicleColor: color,
+      );
+
   /// Copia con el consentimiento de ubicación sustituido.
   ///
   /// La usa el perfil al autorizar o revocar: el endpoint acaba de confirmar
@@ -66,6 +105,9 @@ class UserProfile {
     phone: phone,
     role: role,
     locationConsentAt: at,
+    vehicleModel: vehicleModel,
+    vehiclePlate: vehiclePlate,
+    vehicleColor: vehicleColor,
   );
 
   /// Lee el perfil que devuelve `GET /auth/me`.
@@ -82,6 +124,9 @@ class UserProfile {
       locationConsentAt: rawConsent == null
           ? null
           : DateTime.tryParse(rawConsent)?.toLocal(),
+      vehicleModel: (json['vehicle_model'] as String?)?.trim(),
+      vehiclePlate: (json['vehicle_plate'] as String?)?.trim(),
+      vehicleColor: (json['vehicle_color'] as String?)?.trim(),
     );
   }
 }

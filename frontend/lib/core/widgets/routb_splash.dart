@@ -5,7 +5,7 @@ import 'routb_logo.dart';
 
 /// Pantalla de arranque.
 ///
-/// Se ve mientras la app resuelve si hay sesión guardada: el lockup entra con
+/// Se ve mientras la app resuelve si hay sesión guardada: la marca entra con
 /// escala y fundido y debajo gira el indicador. Si el sistema pide reducir el
 /// movimiento, el logo aparece ya en su sitio.
 class SplashView extends StatefulWidget {
@@ -30,9 +30,7 @@ class _SplashViewState extends State<SplashView>
   late final Animation<double> _scale = Tween<double>(
     begin: 0.78,
     end: 1,
-  ).animate(
-    CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
-  );
+  ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
 
   @override
   void didChangeDependencies() {
@@ -69,7 +67,7 @@ class _SplashViewState extends State<SplashView>
                       ? RoutbLogoVariant.onHero
                       : RoutbLogoVariant.onSurface,
                   width: 118,
-                  height: 128,
+                  height: 118,
                 ),
                 const SizedBox(height: 28),
                 SizedBox(

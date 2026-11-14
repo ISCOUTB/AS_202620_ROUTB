@@ -14,11 +14,14 @@ class UserIdentity:
     phone: str
     role: str
     location_consent_at: datetime | None
+    vehicle_model: str | None = None
+    vehicle_plate: str | None = None
+    vehicle_color: str | None = None
 
 
 @dataclass(frozen=True)
 class UserCredentials(UserIdentity):
-    hashed_password: str
+    hashed_password: str = ""
 
 
 def get_user_by_phone(db: Session, phone: str) -> UserCredentials | None:
@@ -28,6 +31,9 @@ def get_user_by_phone(db: Session, phone: str) -> UserCredentials | None:
     return UserCredentials(
         id=user.id, name=user.name, last_name=user.last_name, phone=user.phone,
         role=user.role, location_consent_at=user.location_consent_at,
+        vehicle_model=user.vehicle_model,
+        vehicle_plate=user.vehicle_plate,
+        vehicle_color=user.vehicle_color,
         hashed_password=user.hashed_password,
     )
 
@@ -39,4 +45,7 @@ def get_user_by_id(db: Session, user_id: int) -> UserIdentity | None:
     return UserIdentity(
         id=user.id, name=user.name, last_name=user.last_name, phone=user.phone,
         role=user.role, location_consent_at=user.location_consent_at,
+        vehicle_model=user.vehicle_model,
+        vehicle_plate=user.vehicle_plate,
+        vehicle_color=user.vehicle_color,
     )
