@@ -291,24 +291,32 @@ def test_send_push_async_safe_usa_sesion_propia_y_absorbe_errores(caplog):
 
     from app.modules.notifications.application import dispatch
 
+    logger = dispatch.logger
+    estaba_deshabilitado = logger.disabled
+    logger.disabled = False
     session = MagicMock()
-    with patch.object(dispatch, "SessionLocal", return_value=session), patch.object(
-        dispatch,
-        "get_tokens_for_user",
-        return_value=[SimpleNamespace(device_token="fcm_token_seguro")],
-    ), patch.object(dispatch, "send_push", side_effect=RuntimeError("FCM caído")):
-        with caplog.at_level("ERROR"):
-            dispatch.send_push_async_safe(
-                dispatch.PendingPush(
-                    user_id=1,
-                    title="Prueba",
-                    body="Cuerpo",
-                    data={"event": "prueba"},
+    try:
+        with patch.object(
+            dispatch, "SessionLocal", return_value=session
+        ), patch.object(
+            dispatch,
+            "get_tokens_for_user",
+            return_value=[SimpleNamespace(device_token="fcm_token_seguro")],
+        ), patch.object(dispatch, "send_push", side_effect=RuntimeError("FCM caído")):
+            with caplog.at_level("ERROR"):
+                dispatch.send_push_async_safe(
+                    dispatch.PendingPush(
+                        user_id=1,
+                        title="Prueba",
+                        body="Cuerpo",
+                        data={"event": "prueba"},
+                    )
                 )
-            )
+    finally:
+        logger.disabled = estaba_deshabilitado
 
     session.close.assert_called_once()
-    registros = [r for r in caplog.records if r.name == dispatch.__name__]
+    registros = [r for r in caplog.records if r.name == logger.name]
     assert len(registros) == 1
     assert "RuntimeError" in registros[0].getMessage()
     assert "FCM caído" not in registros[0].getMessage()
