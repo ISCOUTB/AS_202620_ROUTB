@@ -102,5 +102,56 @@ void main() {
       expect(limpio.hasVehicle, isFalse);
       expect(limpio.fullName, 'Sebastián Ríos');
     });
+
+    test('lee los datos del vehículo del conductor', () {
+      final profile = UserProfile.fromJson(<String, dynamic>{
+        'id': 7,
+        'name': 'Sebastián',
+        'last_name': 'Ríos',
+        'phone': '3001234567',
+        'role': 'driver',
+        'vehicle_model': ' Chevrolet Spark ',
+        'vehicle_plate': 'XYZ-123',
+        'vehicle_color': 'Gris',
+      });
+
+      expect(profile.hasVehicle, isTrue);
+      expect(profile.vehicleModel, 'Chevrolet Spark');
+      expect(profile.vehiclePlate, 'XYZ-123');
+      expect(profile.vehicleColor, 'Gris');
+      expect(profile.vehicleLabel, 'Chevrolet Spark · Gris (XYZ-123)');
+    });
+
+    test('sin vehículo la ficha queda vacía', () {
+      final profile = UserProfile.fromJson(<String, dynamic>{
+        'id': 7,
+        'role': 'driver',
+      });
+
+      expect(profile.hasVehicle, isFalse);
+      expect(profile.vehicleLabel, isEmpty);
+    });
+
+    test('withVehicle conserva los demás datos y permite limpiar', () {
+      final profile = UserProfile.fromJson(<String, dynamic>{
+        'id': 7,
+        'name': 'Sebastián',
+        'last_name': 'Ríos',
+        'phone': '3001234567',
+        'role': 'driver',
+      });
+
+      final conVehiculo = profile.withVehicle(
+        model: 'Chevrolet Spark',
+        plate: 'XYZ-123',
+        color: 'Gris',
+      );
+      expect(conVehiculo.fullName, 'Sebastián Ríos');
+      expect(conVehiculo.vehicleLabel, 'Chevrolet Spark · Gris (XYZ-123)');
+
+      final limpio = conVehiculo.withVehicle();
+      expect(limpio.hasVehicle, isFalse);
+      expect(limpio.fullName, 'Sebastián Ríos');
+    });
   });
 }
