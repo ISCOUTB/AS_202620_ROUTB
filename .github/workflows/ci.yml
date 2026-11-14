@@ -53,7 +53,7 @@ jobs:
           alembic downgrade -1
           alembic upgrade head
         env:
-          DATABASE_URL_TEST: postgresql://routb:routb_test@localhost:5432/routb_test
+          DATABASE_URL_TEST: postgresql+psycopg2://routb:routb_test@localhost:5432/routb_test
           TESTING: "1"
 
       - name: Ejecutar pruebas unitarias y de contrato OpenAPI
@@ -63,7 +63,7 @@ jobs:
           pytest -v -s 2>&1 | tee backend-test-output.log
           grep -E 'OSRM .* N=50 p95=' backend-test-output.log >> "$GITHUB_STEP_SUMMARY" || true
         env:
-          DATABASE_URL_TEST: postgresql://routb:routb_test@localhost:5432/routb_test
+          DATABASE_URL_TEST: postgresql+psycopg2://routb:routb_test@localhost:5432/routb_test
           TESTING: "1"
           JWT_SECRET_KEY: ci-test-secret-key
           JWT_ALGORITHM: HS256
@@ -73,7 +73,7 @@ jobs:
         working-directory: backend
         run: pytest tests/test_openapi_contract.py -v
         env:
-          DATABASE_URL_TEST: postgresql://routb:routb_test@localhost:5432/routb_test
+          DATABASE_URL_TEST: postgresql+psycopg2://routb:routb_test@localhost:5432/routb_test
           TESTING: "1"
           JWT_SECRET_KEY: ci-test-secret-key
           JWT_ALGORITHM: HS256
