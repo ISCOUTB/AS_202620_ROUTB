@@ -45,6 +45,7 @@ def send_push_async_safe(pending: PendingPush) -> None:
     cuando FCM no está configurado o falla.
     """
     db = None
+    error_type: str | None = None
     try:
         db = SessionLocal()
         tokens = get_tokens_for_user(db, pending.user_id)
@@ -59,12 +60,15 @@ def send_push_async_safe(pending: PendingPush) -> None:
         )
     except Exception as exc:  # noqa: BLE001 - una push nunca debe tumbar la tarea
         # Se registra el tipo, no el mensaje: una excepción de FCM podría
-        # incluir el token del dispositivo.
-        logger.error(
-            "No se pudo despachar la notificación push event=%s error_type=%s",
-            pending.data.get("event", "unknown"),
-            type(exc).__name__,
-        )
+        # incluir el token del dispositivo. Por eso el log va fuera del
+        # ``except`` y sin traceback (Sonar S8572).
+        error_type = type(exc).__name__
     finally:
         if db is not None:
             db.close()
+    if error_type is not None:
+        logger.error(
+            "No se pudo despachar la notificación push event=%s error_type=%s",
+            pending.data.get("event", "unknown"),
+            error_type,
+        )

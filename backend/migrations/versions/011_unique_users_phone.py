@@ -31,8 +31,8 @@ depends_on = None
 # Misma regla que app.shared.phone.normalize_phone. Se copia aqui para que
 # reejecutar esta migracion no dependa de cambios futuros del normalizador.
 _SEPARATORS = re.compile(r"[\s\-]+")
-_TEN_DIGITS = re.compile(r"^3[0-9]{9}$")
-_WITH_COUNTRY = re.compile(r"^(?:\+57|57)(3[0-9]{9})$")
+_TEN_DIGITS = re.compile(r"^3\d{9}$")
+_WITH_COUNTRY = re.compile(r"^(?:\+57|57)(3\d{9})$")
 
 _MAX_DETALLE = 20
 

@@ -95,7 +95,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: frontend
-        run: flutter pub get
+        run: flutter pub get --enforce-lockfile
 
       - name: Verify code formatting
         working-directory: frontend
