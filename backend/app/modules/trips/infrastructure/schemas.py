@@ -4,6 +4,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.core.timezone import colombia_today
+from app.shared.schemas import RoutePoint
 
 
 def _colombia_today() -> date:
@@ -86,3 +87,10 @@ class TripResponse(BaseModel):
     vehicle_info: str | None = None
     my_request_status: str | None = None
     requests: list[TripRequestSummary] = Field(default_factory=list)
+    route_points: list[RoutePoint] = Field(
+        default_factory=list,
+        description=(
+            "Puntos (lat, lng) de la ruta calculada por el backend. "
+            "Vacío en viajes sin geometría."
+        ),
+    )

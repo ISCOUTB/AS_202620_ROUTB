@@ -57,7 +57,7 @@ def test_login_devuelve_jwt():
 
 
 def test_auth_me_devuelve_perfil_completo():
-    """El perfil de solo lectura incluye apellido y estado del consentimiento."""
+    """El perfil de solo lectura incluye nombre, apellido y rol."""
     token = client.post(
         "/auth/login",
         json={"phone": "3001234567", "password": "PasswordSegura123!"},
@@ -73,7 +73,7 @@ def test_auth_me_devuelve_perfil_completo():
     assert data["last_name"] == "Pérez"
     assert data["phone"] == "3001234567"
     assert data["role"] == "driver"
-    assert data["location_consent_at"] is None
+    assert "location_consent_at" not in data
 
 
 def _payload(phone: str, name: str = "Ana") -> dict:

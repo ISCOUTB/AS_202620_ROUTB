@@ -10,6 +10,7 @@ import '../../../core/network/google_maps_service.dart';
 import '../../../core/theme/routb_palette.dart';
 import '../../../core/theme/routb_text.dart';
 import '../../../core/theme/routb_theme.dart';
+import '../../../core/widgets/eta_label.dart';
 import '../../../core/widgets/routb_button.dart';
 import '../../../core/widgets/routb_dashed_border.dart';
 import '../../../core/widgets/routb_field.dart';
@@ -85,15 +86,6 @@ class RequestTile extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: RoutbText.copy(12, color: palette.muted),
                     ),
-                    if (request.hasPhone) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        'Tel: ${request.passengerPhone}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: RoutbText.copy(12, color: palette.muted),
-                      ),
-                    ],
                     const SizedBox(height: 2),
                     Text(
                       '${trip.routeLabel} · ${trip.departureDateLabel} ${trip.departureLabel}',
@@ -109,6 +101,14 @@ class RequestTile extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: RoutbText.copy(12, color: palette.ink),
                       ),
+                      if (stop.etaEstimated != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: EtaLabel(
+                            eta: stop.etaEstimated!,
+                            compact: true,
+                          ),
+                        ),
                       DetourBadge(trip: trip, stopAddress: stop.addressText),
                     ],
                     if (onTapPreview != null)
@@ -271,6 +271,9 @@ class RouteCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
     final phase = trip.phaseAt(DateTime.now());
+    // Una entrada por cupo confirmado, para que una reserva grupal ocupe las
+    // plazas que realmente reservó.
+    final confirmedInitials = _confirmedSeatInitials(trip);
 
     final (Color pillBackground, Color pillForeground) = switch (phase) {
       TripPhase.onCourse => (palette.mintSurface, palette.onMintSurface),
@@ -461,6 +464,45 @@ class RouteCard extends StatelessWidget {
                           ),
                         ],
                       ),
+                      if (confirmedInitials.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.people_alt_rounded,
+                              size: 14,
+                              color: palette.brand,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                '${confirmedInitials.length} de '
+                                '${trip.totalSeats} cupos confirmados',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: RoutbText.copy(
+                                  12,
+                                  color: palette.ink,
+                                  weight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            for (
+                              var i = 0;
+                              i < confirmedInitials.length && i < 4;
+                              i++
+                            )
+                              Padding(
+                                padding: EdgeInsets.only(left: i == 0 ? 6 : 4),
+                                child: InitialsAvatar(
+                                  name: confirmedInitials[i],
+                                  initials: confirmedInitials[i],
+                                  size: 20,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),

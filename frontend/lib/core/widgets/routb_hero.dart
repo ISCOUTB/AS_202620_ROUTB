@@ -1,177 +1,29 @@
 import 'package:flutter/material.dart';
 
-import '../models/user_role.dart';
 import '../theme/routb_palette.dart';
 import '../theme/routb_text.dart';
 import '../theme/routb_theme.dart';
 import '../theme/theme_controller.dart';
-import 'routb_logo.dart';
 
-/// Barra superior del hero: logo, saludo y acciones.
+/// Barra superior del hero: saludo.
 ///
-/// Es la misma en los dos modos; lo que cambia es la etiqueta de modo y el
-/// gesto de saludo.
+/// Es la misma en los dos modos; solo cambia el gesto de saludo.
 class HeroBar extends StatelessWidget {
-  const HeroBar({
-    required this.role,
-    required this.userName,
-    required this.onLogout,
-    required this.isDarkBackground,
-    this.wave = false,
-    super.key,
-  });
-
-  /// Perfil de quien entró.
-  final UserRole role;
+  const HeroBar({required this.userName, this.wave = false, super.key});
 
   /// Nombre de la persona.
   final String userName;
-
-  /// Acción de cerrar sesión.
-  final VoidCallback onLogout;
-
-  /// `true` si el hero se pinta en tema oscuro.
-  final bool isDarkBackground;
 
   /// Añade el gesto de saludo tras el nombre.
   final bool wave;
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.palette;
-    final roleAccent = role == UserRole.driver
-        ? const Color(0xFF60A5FA)
-        : palette.mint;
-
-    return Row(
-      children: [
-        Container(
-          width: 46,
-          height: 46,
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: const Color(0x1FFFFFFF),
-            borderRadius: BorderRadius.circular(15),
-            border: Border.all(color: const Color(0x33FFFFFF)),
-          ),
-          child: RoutbLogo(
-            variant: isDarkBackground
-                ? RoutbLogoVariant.onHero
-                : RoutbLogoVariant.onSurface,
-            semanticLabel: 'Símbolo de ROUTB',
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0x1FFFFFFF),
-                  borderRadius: BorderRadius.circular(99),
-                  border: Border.all(color: const Color(0x26FFFFFF)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: roleAccent,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 5),
-                    Flexible(
-                      child: Text(
-                        role.modeLabel,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: RoutbText.copy(
-                          11,
-                          color: const Color(0xE6FFFFFF),
-                          weight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                wave ? 'Hola, $userName 👋' : 'Hola, $userName',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: RoutbText.headline(22, color: Colors.white),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 8),
-        HeroAction(label: 'Salir', icon: Icons.logout_rounded, onTap: onLogout),
-      ],
-    );
-  }
-}
-
-/// `.out`: acción de texto con icono, blanca sobre el hero.
-class HeroAction extends StatelessWidget {
-  const HeroAction({
-    required this.label,
-    required this.icon,
-    required this.onTap,
-    super.key,
-  });
-
-  /// Texto de la acción.
-  final String label;
-
-  /// Icono de la acción.
-  final IconData icon;
-
-  /// Acción al pulsar.
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final child = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 15, color: Colors.white),
-        const SizedBox(width: 5),
-        Text(
-          label,
-          style: RoutbText.copy(
-            12,
-            color: Colors.white,
-            weight: FontWeight.w700,
-          ),
-        ),
-      ],
-    );
-
-    return Semantics(
-      button: true,
-      label: label,
-      child: Material(
-        color: const Color(0x1FFFFFFF),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(99),
-          side: const BorderSide(color: Color(0x33FFFFFF)),
-        ),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(99),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: child,
-          ),
-        ),
-      ),
+    return Text(
+      wave ? 'Hola, $userName 👋' : 'Hola, $userName',
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: RoutbText.headline(22, color: Colors.white),
     );
   }
 }

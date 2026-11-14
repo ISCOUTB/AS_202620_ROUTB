@@ -230,10 +230,39 @@ void main() {
       );
     });
 
+    test('un viaje cuya hora ya pasó queda finalizado', () {
+      final now = DateTime(2026, 11, 14, 12, 0);
+      final trip = Trip.fromJson(
+        tripPayload(departure: '7:30 AM', departureDate: '2026-11-14'),
+      );
+
+      expect(trip.hasDeparted(now), isTrue);
+      expect(trip.bookingStateAt(now), SeatRequestState.departed);
+    });
+
+    test('un viaje futuro sigue disponible', () {
+      final now = DateTime(2026, 11, 14, 12, 0);
+      final trip = Trip.fromJson(
+        tripPayload(departure: '1:00 PM', departureDate: '2026-11-14'),
+      );
+
+      expect(trip.hasDeparted(now), isFalse);
+      expect(trip.bookingStateAt(now), SeatRequestState.available);
+    });
+
+    test('sin fecha no se puede afirmar que el viaje salió', () {
+      final now = DateTime(2026, 11, 14, 12, 0);
+      final trip = Trip.fromJson(tripPayload(departure: '7:30 AM'));
+
+      expect(trip.hasDeparted(now), isFalse);
+      expect(trip.bookingStateAt(now), SeatRequestState.available);
+    });
+
     test('solo el estado disponible admite pulsación', () {
       expect(SeatRequestState.available.isActionable, isTrue);
       expect(SeatRequestState.requested.isActionable, isFalse);
       expect(SeatRequestState.confirmed.isActionable, isFalse);
+      expect(SeatRequestState.departed.isActionable, isFalse);
       expect(SeatRequestState.full.isActionable, isFalse);
       expect(SeatRequestState.unavailable.isActionable, isFalse);
     });
@@ -404,9 +433,7 @@ void main() {
       expect(UserRole.passenger.wire, 'passenger');
     });
 
-    test('cada perfil tiene su título, su modo y su insignia', () {
-      expect(UserRole.driver.modeLabel, 'Modo conductor');
-      expect(UserRole.passenger.modeLabel, 'Modo pasajero');
+    test('cada perfil tiene su título y su insignia', () {
       expect(UserRole.driver.registrationLabel, 'Registro como conductor');
       expect(UserRole.passenger.registrationLabel, 'Registro como pasajero');
       expect(UserRole.passenger.title, 'Soy pasajero');

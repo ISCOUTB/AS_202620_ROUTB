@@ -223,11 +223,11 @@ class _AuthFlowState extends State<AuthFlow> {
   }
 }
 
-/// `.ah`: bloque de cabecera del acceso: logo, título y subtítulo.
+/// `.ah`: bloque de cabecera del acceso: marca, título y subtítulo.
 ///
-/// El interruptor de tema va siempre arriba a la derecha. El logo se puede
-/// centrar aunque el texto quede a la izquierda, que es como se ve en la
-/// pantalla de registro.
+/// El interruptor de tema va siempre arriba a la derecha. La marca se puede
+/// mostrar centrada aunque el texto quede a la izquierda, que es como se ve en
+/// el registro.
 class _AuthHeader extends StatelessWidget {
   const _AuthHeader({
     required this.title,
@@ -235,8 +235,7 @@ class _AuthHeader extends StatelessWidget {
     this.onBack,
     this.trailing,
     this.alignment = CrossAxisAlignment.center,
-    this.centerLogo = true,
-    this.logoWidth = 118,
+    this.logoWidth,
   });
 
   final String title;
@@ -245,11 +244,8 @@ class _AuthHeader extends StatelessWidget {
   final Widget? trailing;
   final CrossAxisAlignment alignment;
 
-  /// `true` centra el símbolo de ROUTB.
-  final bool centerLogo;
-
-  /// Ancho del símbolo.
-  final double logoWidth;
+  /// Ancho del símbolo. Si se omite no se muestra la marca.
+  final double? logoWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -277,16 +273,18 @@ class _AuthHeader extends StatelessWidget {
             ],
           ),
           SizedBox(height: onBack != null ? 18 : 0),
-          Align(
-            alignment: centerLogo ? Alignment.center : Alignment.centerLeft,
-            child: RoutbLogo(
-              variant: RoutbLogoVariant.onSurface.forBackground(
-                context.isDarkMode,
+          if (logoWidth != null) ...[
+            Align(
+              alignment: Alignment.center,
+              child: RoutbLogo(
+                variant: RoutbLogoVariant.onSurface.forBackground(
+                  context.isDarkMode,
+                ),
+                width: logoWidth,
               ),
-              width: logoWidth,
             ),
-          ),
-          const SizedBox(height: 14),
+            const SizedBox(height: 16),
+          ],
           Text(
             title,
             textAlign: isCentered ? TextAlign.center : TextAlign.start,
@@ -332,6 +330,7 @@ class _LoginStep extends StatelessWidget {
         _AuthHeader(
           title: 'Iniciar sesión',
           subtitle: 'Continúa tu viaje con ROUTB',
+          logoWidth: 112,
           trailing: _ThemeToggle(onToggle: onToggleTheme),
         ),
         Padding(
@@ -407,10 +406,9 @@ class _RoleStep extends StatelessWidget {
           title: '¿Cómo vas a viajar?',
           subtitle: 'Elige tu perfil para continuar',
           alignment: CrossAxisAlignment.start,
+          logoWidth: 84,
           onBack: onBack,
           trailing: _ThemeToggle(onToggle: onToggleTheme),
-          centerLogo: true,
-          logoWidth: 84,
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(14, 26, 14, 0),
@@ -558,10 +556,9 @@ class _RegisterStep extends StatelessWidget {
           title: 'Crear cuenta',
           subtitle: 'Únete a la comunidad universitaria de ROUTB',
           alignment: CrossAxisAlignment.start,
+          logoWidth: 80,
           onBack: onBack,
           trailing: _ThemeToggle(onToggle: onToggleTheme),
-          centerLogo: true,
-          logoWidth: 84,
         ),
         Align(
           alignment: Alignment.centerLeft,

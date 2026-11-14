@@ -23,6 +23,9 @@ def _crear_conductor(telefono: str):
             phone=telefono,
             hashed_password="hash",
             role="driver",
+            vehicle_model="Chevrolet Spark",
+            vehicle_plate="XYZ-123",
+            vehicle_color="Gris",
         )
         db.add(user)
         db.commit()
@@ -299,6 +302,42 @@ def test_solicitud_pendiente_vencida_al_leer_y_no_se_puede_aceptar():
         )
         assert accepted.status_code == 409
         assert accepted.json()["detail"] == "request_expired"
+    finally:
+        _limpiar(passenger_id, driver_id)
+
+
+def test_no_se_crea_solicitud_para_un_viaje_que_ya_salio():
+    """El backend rechaza solicitudes nuevas cuando la hora de salida ya pasó."""
+    driver_id, driver_token = _crear_conductor("3120000032")
+    passenger_id, passenger_token = _crear_pasajero("3120000033")
+
+    try:
+        trip_id = _viaje(driver_token, total_seats=2)
+
+        with SessionLocal() as db:
+            trip = db.get(Trip, trip_id)
+            trip.departure_at = colombia_now() - timedelta(minutes=1)
+            db.commit()
+
+        response = client.post(
+            f"/requests/trips/{trip_id}",
+            headers={"Authorization": f"Bearer {passenger_token}"},
+        )
+        assert response.status_code == 409
+        assert (
+            response.json()["detail"]
+            == "El viaje ya salió y no acepta solicitudes"
+        )
+
+        # No queda ni una solicitud vencida en el historial del pasajero.
+        propias = client.get(
+            "/requests/me", headers={"Authorization": f"Bearer {passenger_token}"}
+        )
+        assert propias.status_code == 200
+        assert propias.json() == []
+
+        # El viaje conserva sus cupos: la operación no llegó a reservar nada.
+        assert client.get(f"/trips/{trip_id}").json()["available_seats"] == 2
     finally:
         _limpiar(passenger_id, driver_id)
 

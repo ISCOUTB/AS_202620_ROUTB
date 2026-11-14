@@ -48,6 +48,13 @@ class RoutbDependencies {
   /// Señal para que las pantallas vuelvan a consultar solicitudes y viajes.
   final ValueNotifier<int> requestRefresh = ValueNotifier<int>(0);
 
+  /// Nombre visible de la persona, compartido entre el Perfil y los heroes.
+  ///
+  /// El Perfil lo actualiza al editar los datos personales; las pantallas de
+  /// cada modo lo escuchan para no seguir mostrando el nombre viejo hasta el
+  /// siguiente inicio de sesión.
+  final ValueNotifier<String?> profileName = ValueNotifier<String?>(null);
+
   /// Controlador del modo claro u oscuro.
   final ThemeController theme;
 
@@ -96,6 +103,8 @@ class RoutbDependencies {
   /// Cierra los recursos que consumen sistema.
   void dispose() {
     requestRefresh.dispose();
+    profileName.dispose();
+    push.dispose();
     theme.dispose();
   }
 }

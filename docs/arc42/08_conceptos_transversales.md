@@ -284,13 +284,13 @@ El control de autorización se ejecuta mediante dependencias de FastAPI inyectad
 
 ### 8.8.6 Protección de datos personales y ciclo de vida de geolocalización
 
-De conformidad con el [ADR 0011](../adr/0011-consentimiento-y-privacidad-de-ubicacion.md) y la Ley 1581 de 2012:
-- **Consentimiento informado previo:** El campo `location_consent_at` en `users` bloquea el registro o consulta de puntos geográficos exactos con `403 Forbidden` (`location_consent_required`) si no ha sido otorgado explícitamente.
-- **Revocabilidad inmediata:** El endpoint `DELETE /users/me/location-consent` revoca la autorización al instante, anula el timestamp y elimina físicamente las paradas asociadas en `request_stops`.
+De conformidad con el [ADR 0027](../adr/0027-retirar-consentimiento-propio-de-ubicacion.md), que reemplaza parcialmente el [ADR 0011](../adr/0011-consentimiento-y-privacidad-de-ubicacion.md), y la Ley 1581 de 2012:
+- **Permiso del sistema operativo:** El permiso de ubicación del dispositivo es el único control para usar coordenadas. ROUTB no mantiene un consentimiento propio, no expone `location_consent_at` y no bloquea con `403 location_consent_required`.
+- **Aviso y ajustes:** El Perfil muestra el estado de ubicación y notificaciones y ofrece abrir los ajustes del celular cuando están desactivados. Los flujos que necesitan ubicación avisan en el momento de usarla, sin pedir permisos al iniciar la app (G20).
 - **Ofuscación de coordenadas:** Antes de que el conductor acepte una solicitud, solo puede visualizar el barrio o dirección descriptiva (`address_text`), no la geometría precisa (`stop_geom`).
 - **Aislamiento de paradas entre pasajeros:** En `GET /requests/me`, una solicitud `pending` devuelve únicamente sus propias paradas. Las paradas de otras solicitudes solo se consolidan cuando la solicitud está `accepted`, de modo que un pasajero sin cupo confirmado no recibe direcciones exactas de otros pasajeros.
 - **Retención y purga periódica:** Se aplica retención máxima de 30 días para coordenadas de viajes completados y 7 días para caché de rutas, ejecutada automáticamente mediante el cron diario `.github/workflows/purge-location-data.yml` que invoca la función SQL `purge_location_data()`.
-- **Datos del vehículo:** modelo, color y placa son opcionales en `users` y solo se exponen al pasajero con solicitud `accepted` (`GET /requests/me` y `GET /trips/{trip_id}`). No aparecen en el listado público de viajes ni en las sugerencias de matching (ADR 0026).
+- **Datos del vehículo:** modelo, color y placa se guardan en `users` y solo se exponen al pasajero con solicitud `accepted` (`GET /requests/me` y `GET /trips/{trip_id}`). No aparecen en el listado público de viajes ni en las sugerencias de matching (ADR 0026). Las cuentas antiguas pueden tenerlos incompletos, pero publicar una ruta exige los tres datos (N2).
 
 ### 8.8.7 Seguridad en la cadena de suministro y auditoría continua
 

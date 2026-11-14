@@ -3,7 +3,8 @@ from datetime import date
 from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-from app.core.timezone import colombia_today
+from app.core.timezone import colombia_now, colombia_today
+from app.modules.trips.application.departure import trip_has_departed
 from app.modules.trips.infrastructure.models import Trip
 
 
@@ -28,7 +29,21 @@ def get_active_trips(
         query = query.filter(Trip.origin.ilike(f"%{origin.strip()}%"))
     if destination:
         query = query.filter(Trip.destination.ilike(f"%{destination.strip()}%"))
-    return query.order_by(Trip.id.desc()).all()
+
+    # Un viaje activo con cupo deja de ser ofertable en cuanto pasa su hora de
+    # salida. El filtro se hace aquí y no solo en SQL para cubrir los viajes
+    # legados que guardan la hora únicamente en `departure_time`.
+    now = colombia_now()
+    return [
+        trip
+        for trip in query.order_by(Trip.id.desc()).all()
+        if not trip_has_departed(
+            departure_at=trip.departure_at,
+            departure_date=trip.departure_date,
+            departure_time=trip.departure_time,
+            now=now,
+        )
+    ]
 
 
 def get_driver_trips(db: Session, driver_id: int, scope: str = "active") -> list[Trip]:

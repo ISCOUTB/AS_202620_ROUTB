@@ -3,11 +3,10 @@ import 'package:flutter/foundation.dart';
 import 'initials.dart';
 import 'user_role.dart';
 
-/// Perfil de solo lectura de la persona que entró, según `GET /auth/me`.
+/// Perfil de la persona que entró, según `GET /auth/me`.
 ///
-/// El backend todavía no permite editar estos datos ni cambiar la contraseña:
-/// la pantalla de Perfil solo los muestra, junto con el estado del
-/// consentimiento de ubicación.
+/// Nombre, apellido y teléfono se editan con `PATCH /users/me`; la contraseña
+/// se cambia con `PATCH /users/me/password`.
 @immutable
 class UserProfile {
   const UserProfile({
@@ -16,7 +15,6 @@ class UserProfile {
     required this.lastName,
     required this.phone,
     required this.role,
-    this.locationConsentAt,
     this.vehicleModel,
     this.vehiclePlate,
     this.vehicleColor,
@@ -37,10 +35,6 @@ class UserProfile {
   /// Rol con el que se registró; no se puede cambiar desde la app.
   final UserRole role;
 
-  /// Fecha en que otorgó el consentimiento de ubicación, o `null` si no lo ha
-  /// otorgado.
-  final DateTime? locationConsentAt;
-
   /// Marca y línea del vehículo, solo para conductores.
   final String? vehicleModel;
 
@@ -59,15 +53,24 @@ class UserProfile {
   /// Nombre del rol para la insignia: «Pasajero» o «Conductor».
   String get roleLabel => role == UserRole.driver ? 'Conductor' : 'Pasajero';
 
-  /// `true` si el consentimiento de ubicación está vigente.
-  bool get hasLocationConsent => locationConsentAt != null;
+  /// `true` si el conductor ya registró algún dato del vehículo.
+  bool get hasVehicle =>
+      (vehicleModel ?? '').trim().isNotEmpty ||
+      (vehiclePlate ?? '').trim().isNotEmpty ||
+      (vehicleColor ?? '').trim().isNotEmpty;
 
-  /// Estado del consentimiento de ubicación: «Autorizado» o «Sin autorizar».
-  String get consentLabel =>
-      hasLocationConsent ? 'Autorizado' : 'Sin autorizar';
+  /// `true` si modelo, placa y color están completos (requisito de N2).
+  bool get hasCompleteVehicle =>
+      (vehicleModel ?? '').trim().isNotEmpty &&
+      (vehiclePlate ?? '').trim().isNotEmpty &&
+      (vehicleColor ?? '').trim().isNotEmpty;
 
-  /// `true` si el conductor ya registró su vehículo.
-  bool get hasVehicle => (vehiclePlate ?? '').trim().isNotEmpty;
+  /// Campos del vehículo que faltan, para el estado «Pendiente» de la tarjeta.
+  List<String> get missingVehicleFields => <String>[
+    if ((vehicleModel ?? '').trim().isEmpty) 'modelo',
+    if ((vehicleColor ?? '').trim().isEmpty) 'color',
+    if ((vehiclePlate ?? '').trim().isEmpty) 'placa',
+  ];
 
   /// Ficha corta del vehículo para la tarjeta del perfil.
   String get vehicleLabel {
@@ -87,43 +90,19 @@ class UserProfile {
         lastName: lastName,
         phone: phone,
         role: role,
-        locationConsentAt: locationConsentAt,
         vehicleModel: model,
         vehiclePlate: plate,
         vehicleColor: color,
       );
 
-  /// Copia con el consentimiento de ubicación sustituido.
-  ///
-  /// La usa el perfil al autorizar o revocar: el endpoint acaba de confirmar
-  /// el cambio (204) y no hace falta volver a leer todo el perfil para
-  /// reflejarlo.
-  UserProfile withLocationConsent(DateTime? at) => UserProfile(
-    id: id,
-    name: name,
-    lastName: lastName,
-    phone: phone,
-    role: role,
-    locationConsentAt: at,
-    vehicleModel: vehicleModel,
-    vehiclePlate: vehiclePlate,
-    vehicleColor: vehicleColor,
-  );
-
   /// Lee el perfil que devuelve `GET /auth/me`.
   factory UserProfile.fromJson(Map<String, dynamic> json) {
-    final rawConsent = json['location_consent_at'] as String?;
     return UserProfile(
       id: json['id'] as int? ?? 0,
       name: (json['name'] as String?)?.trim() ?? '',
       lastName: (json['last_name'] as String?)?.trim() ?? '',
       phone: (json['phone'] as String?)?.trim() ?? '',
       role: UserRole.fromWire(json['role'] as String?),
-      // La fecha viaja con el desfase de Colombia; se pasa a la hora del
-      // dispositivo para mostrarla en el mismo huso que el resto de la app.
-      locationConsentAt: rawConsent == null
-          ? null
-          : DateTime.tryParse(rawConsent)?.toLocal(),
       vehicleModel: (json['vehicle_model'] as String?)?.trim(),
       vehiclePlate: (json['vehicle_plate'] as String?)?.trim(),
       vehicleColor: (json['vehicle_color'] as String?)?.trim(),

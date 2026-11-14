@@ -24,6 +24,7 @@ class TripCard extends StatelessWidget {
     this.onReserve,
     this.isNew = false,
     this.index = 0,
+    this.now,
     super.key,
   });
 
@@ -39,10 +40,19 @@ class TripCard extends StatelessWidget {
   /// Posición en la lista, para la entrada escalonada.
   final int index;
 
+  /// Reloj con el que se decide si el viaje ya salió.
+  ///
+  /// La pantalla lo comparte con la insignia «Nuevo»; en pruebas permite fijar
+  /// el instante sin depender del reloj real.
+  final DateTime? now;
+
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final state = trip.bookingState;
+    final state = trip.bookingStateAt(now ?? DateTime.now());
+    final lowSeats =
+        trip.status.isActive &&
+        (trip.availableSeats == 1 || trip.availableSeats == 2);
     final driverName = trip.hasDriverName
         ? trip.driverName!
         : 'Conductor ROUTB';
@@ -169,11 +179,39 @@ class TripCard extends StatelessWidget {
                       available: trip.availableSeats,
                     ),
                     const SizedBox(height: 5),
-                    Text(
-                      '${trip.availableSeats}/${trip.totalSeats} cupos libres',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: RoutbText.copy(12, color: palette.muted),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            '${trip.availableSeats}/${trip.totalSeats} cupos libres',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: RoutbText.copy(12, color: palette.muted),
+                          ),
+                        ),
+                        if (lowSeats) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: palette.amberSurface,
+                              borderRadius: BorderRadius.circular(99),
+                            ),
+                            child: Text(
+                              '¡Solo ${trip.availableSeats}!',
+                              maxLines: 1,
+                              style: RoutbText.copy(
+                                10.5,
+                                color: palette.onAmberSurface,
+                                weight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ),
@@ -222,6 +260,11 @@ class _ReserveButton extends StatelessWidget {
         palette.mintSurface,
         palette.onMintSurface,
       ),
+      SeatRequestState.departed => (
+        'Viaje finalizado',
+        palette.surface,
+        palette.muted,
+      ),
       SeatRequestState.full => ('Sin cupos', palette.surface, palette.muted),
       SeatRequestState.unavailable => (
         'No disponible',
@@ -236,6 +279,7 @@ class _ReserveButton extends StatelessWidget {
         'La solicitud está en espera. No se puede retirar desde la app.',
       SeatRequestState.confirmed =>
         'El conductor confirmó tu cupo en este viaje.',
+      SeatRequestState.departed => 'Este viaje ya salió. Busca otro horario.',
       SeatRequestState.full => 'Este viaje ya no tiene cupos disponibles.',
       SeatRequestState.unavailable => 'Este viaje ya no está activo.',
     };

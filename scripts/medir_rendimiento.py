@@ -17,8 +17,8 @@ código distinto de 200, la ronda se aborta para no mezclar errores con tiempos.
 
 Por seguridad, solo se miden URLs HTTP(S) cuyo host esté autorizado (por
 defecto, loopback) mediante ``--allow-host``, y el JSON de salida se escribe
-únicamente dentro de ``docs/evidencia/``. Las URLs con credenciales embebidas
-se rechazan.
+únicamente como archivo directo dentro de ``docs/evidencia/`` (sin
+subcarpetas). Las URLs con credenciales embebidas se rechazan.
 """
 
 from __future__ import annotations
@@ -28,6 +28,7 @@ import json
 import math
 import os
 import platform
+import re
 import statistics
 import sys
 import time
@@ -39,6 +40,7 @@ import httpx
 REPO_ROOT = Path(__file__).resolve().parent.parent
 EVIDENCE_DIR = REPO_ROOT / "docs" / "evidencia"
 DEFAULT_ALLOWED_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+_OUTPUT_NAME_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
 
 
 def _validate_target(
@@ -66,7 +68,7 @@ def _validate_target(
 
 
 def _validate_output_path(raw_path: str) -> Path:
-    """Confina la escritura a docs/evidencia y bloquea rutas de escape."""
+    """Confina la escritura a un archivo directo dentro de docs/evidencia."""
     evidence_dir = EVIDENCE_DIR.resolve()
     candidate = Path(raw_path)
     if not candidate.is_absolute():
@@ -76,6 +78,15 @@ def _validate_output_path(raw_path: str) -> Path:
     if resolved == evidence_dir or not resolved.is_relative_to(evidence_dir):
         raise ValueError(
             f"--output debe apuntar a un archivo dentro de {evidence_dir}"
+        )
+    if resolved.parent != evidence_dir:
+        raise ValueError(
+            f"--output debe ser un archivo directamente dentro de {evidence_dir}"
+        )
+    if _OUTPUT_NAME_RE.fullmatch(resolved.name) is None:
+        raise ValueError(
+            "--output debe tener un nombre de archivo simple: letras, "
+            "números, punto, guion o guion bajo"
         )
     return resolved
 
@@ -160,7 +171,10 @@ def main() -> int:
     parser.add_argument(
         "--output",
         required=True,
-        help="Archivo JSON dentro de docs/evidencia donde se guardan los resultados",
+        help=(
+            "Archivo JSON directamente dentro de docs/evidencia donde se "
+            "guardan los resultados"
+        ),
     )
     parser.add_argument(
         "--allow-host",
@@ -192,7 +206,16 @@ def main() -> int:
     try:
         target_url = _validate_target(args.url, allowed_hosts)
         warmup_target_url = _validate_target(warmup_url, allowed_hosts)
-        output_path = _validate_output_path(args.output)
+        validated_output = _validate_output_path(args.output)
+        # Se reconstruye la ruta del sink solo con la carpeta confiable y un
+        # nombre validado: Sonar no reconoce la contención a través de
+        # _validate_output_path y marca S8707 en write_text.
+        if _OUTPUT_NAME_RE.fullmatch(validated_output.name) is None:
+            raise ValueError(
+                "--output debe tener un nombre de archivo simple: letras, "
+                "números, punto, guion o guion bajo"
+            )
+        safe_output_path = EVIDENCE_DIR.resolve() / validated_output.name
     except ValueError as exc:
         parser.error(str(exc))
 
@@ -253,8 +276,8 @@ def main() -> int:
         },
     }
 
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(
+    safe_output_path.parent.mkdir(parents=True, exist_ok=True)
+    safe_output_path.write_text(
         json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
 
@@ -270,7 +293,7 @@ def main() -> int:
     print(f"p95 más alto de las rondas: {worst_p95} ms")
     print(f"Umbral: {args.threshold_ms} ms")
     print(f"Resultado: {conclusion}")
-    print(f"Resultados crudos: {output_path}")
+    print(f"Resultados crudos: {safe_output_path}")
 
     return 0 if conclusion == "CUMPLE" else 1
 

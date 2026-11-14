@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import '../app/dependencies.dart';
 import '../core/models/user_role.dart';
 import '../core/theme/routb_motion.dart';
-import '../core/widgets/location_consent_dialog.dart';
 import '../features/auth/data/auth_repository.dart';
 import '../features/driver/screens/driver_screen.dart';
 import '../features/passenger/screens/passenger_screen.dart';
@@ -162,12 +161,13 @@ class _ModeRouteState extends State<ModeRoute> {
     if (_checked) return;
     _checked = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _askForLocationConsent();
+      if (mounted) _startPushNotifications();
     });
   }
 
-  Future<void> _askForLocationConsent() async {
+  void _startPushNotifications() {
     final dependencies = RoutbScopeDependencies.of(context);
+    dependencies.profileName.value = widget.account.name;
     unawaited(
       dependencies.push.start(
         onNotification: () {
@@ -175,19 +175,6 @@ class _ModeRouteState extends State<ModeRoute> {
         },
       ),
     );
-    if (await dependencies.session.readLocationConsentPrompted()) return;
-    if (!mounted) return;
-
-    final accepted = await LocationConsentDialog.show(context);
-    await dependencies.session.saveLocationConsentPrompted();
-    if (!accepted || !mounted) return;
-
-    try {
-      await dependencies.auth.grantLocationConsent();
-    } on Exception catch (error, stack) {
-      debugPrint('ROUTB · no se pudo registrar el consentimiento: $error');
-      debugPrintStack(stackTrace: stack, label: 'consentimiento');
-    }
   }
 
   @override

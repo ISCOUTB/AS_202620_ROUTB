@@ -13,9 +13,14 @@ from app.modules.trips.application.get_trips import (
     get_driver_trips as get_driver_trips_use_case,
     get_trip as get_trip_use_case,
 )
-from app.modules.trips.domain.exceptions import TripNotAuthorizedError, TripNotFoundError
+from app.modules.trips.domain.exceptions import (
+    TripNotAuthorizedError,
+    TripNotFoundError,
+    VehicleRequiredError,
+)
 from app.modules.trips.infrastructure import schemas
 from app.modules.users.application import UserIdentity
+from app.shared.route_geometry import routes_for_trips
 from app.shared.vehicle import format_vehicle_info
 
 router = APIRouter()
@@ -56,6 +61,7 @@ def _to_response(
     current_user_id: int | None = None,
     *,
     is_public_list: bool = False,
+    route_points: list[schemas.RoutePoint] | None = None,
 ) -> schemas.TripResponse:
     driver_name = f"{trip.driver.name} {trip.driver.last_name}" if trip.driver else None
     is_owner_driver = (
@@ -81,7 +87,13 @@ def _to_response(
                     passenger_name=(
                         f"{passenger.name} {passenger.last_name}" if passenger else None
                     ),
-                    passenger_phone=passenger.phone if passenger else None,
+                    # El teléfono es dato personal: el conductor solo lo recibe
+                    # cuando el cupo quedó aceptado (decisión D3 del sprint).
+                    passenger_phone=(
+                        passenger.phone
+                        if passenger and request.status == "accepted"
+                        else None
+                    ),
                     status=request.status,
                     created_at=request.created_at,
                     stops=[
@@ -107,6 +119,7 @@ def _to_response(
         vehicle_info=vehicle_info,
         requests=trip_requests,
         my_request_status=my_request_status,
+        route_points=route_points or [],
     )
 
 
@@ -115,7 +128,7 @@ def _to_response(
     response_model=schemas.TripResponse,
     status_code=status.HTTP_201_CREATED,
     responses={
-        403: {"description": "location_consent_required"},
+        409: {"description": "vehicle_required"},
     },
 )
 def create_trip(
@@ -125,17 +138,22 @@ def create_trip(
 ):
     try:
         created = create_trip_use_case(db, trip, driver_id=current_user.id)
-    except PermissionError as exc:
+    except VehicleRequiredError:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=str(exc),
+            status_code=status.HTTP_409_CONFLICT,
+            detail="vehicle_required",
         )
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(exc),
         )
-    return _to_response(created, current_user_id=current_user.id)
+    routes = routes_for_trips(db, [created.id])
+    return _to_response(
+        created,
+        current_user_id=current_user.id,
+        route_points=routes.get(created.id, []),
+    )
 
 
 @router.get("/", response_model=list[schemas.TripResponse])
@@ -169,7 +187,15 @@ def get_my_trips(
     ] = "active",
 ):
     trips = get_driver_trips_use_case(db, driver_id=current_user.id, scope=scope)
-    return [_to_response(t, current_user_id=current_user.id) for t in trips]
+    routes = routes_for_trips(db, (t.id for t in trips))
+    return [
+        _to_response(
+            t,
+            current_user_id=current_user.id,
+            route_points=routes.get(t.id, []),
+        )
+        for t in trips
+    ]
 
 
 @router.get("/{trip_id}", response_model=schemas.TripResponse)
@@ -181,7 +207,12 @@ def get_trip(
     trip = get_trip_use_case(db, trip_id)
     if trip is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found")
-    return _to_response(trip, current_user_id=current_user.id if current_user else None)
+    routes = routes_for_trips(db, [trip.id])
+    return _to_response(
+        trip,
+        current_user_id=current_user.id if current_user else None,
+        route_points=routes.get(trip.id, []),
+    )
 
 
 @router.patch("/{trip_id}/cancel", response_model=schemas.TripResponse)
@@ -200,4 +231,9 @@ def cancel_trip(
         )
     for push in pending:
         background_tasks.add_task(send_push_async_safe, push)
-    return _to_response(trip, current_user_id=current_user.id)
+    routes = routes_for_trips(db, [trip.id])
+    return _to_response(
+        trip,
+        current_user_id=current_user.id,
+        route_points=routes.get(trip.id, []),
+    )

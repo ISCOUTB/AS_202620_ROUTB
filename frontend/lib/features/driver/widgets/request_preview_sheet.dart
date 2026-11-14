@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../../core/models/trip.dart';
 import '../../../core/models/trip_request.dart';
-import '../../../core/services/whatsapp_launcher.dart';
 import '../../../core/theme/routb_palette.dart';
 import '../../../core/theme/routb_text.dart';
 import '../../../core/theme/routb_theme.dart';
+import '../../../core/widgets/eta_label.dart';
 import '../../../core/widgets/routb_button.dart';
 import '../../../core/widgets/routb_card.dart';
 import '../../../core/widgets/routb_seats.dart';
@@ -174,6 +174,10 @@ class _RequestPreviewBody extends StatelessWidget {
                                 weight: FontWeight.w600,
                               ),
                             ),
+                            if (stop.etaEstimated != null) ...[
+                              const SizedBox(height: 2),
+                              EtaLabel(eta: stop.etaEstimated!),
+                            ],
                             const SizedBox(height: 2),
                             DetourBadge(
                               trip: trip,
@@ -222,27 +226,28 @@ class _RequestPreviewBody extends StatelessWidget {
                           '${request.seatCount} ${request.seatCount == 1 ? 'cupo solicitado' : 'cupos solicitados'}',
                           style: RoutbText.copy(13, color: palette.muted),
                         ),
-                        if (request.hasPhone) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            'Tel: ${request.passengerPhone}',
-                            style: RoutbText.copy(12, color: palette.muted),
-                          ),
-                        ],
                       ],
                     ),
                   ),
                 ],
               ),
-              if (request.hasPhone) ...[
-                const SizedBox(height: 10),
-                WhatsAppButton(
-                  phone: request.passengerPhone,
-                  label: 'Escribir por WhatsApp',
-                  message:
-                      'Hola ${request.passengerName}, te escribo por tu solicitud de cupo en ROUTB para la ruta ${trip.routeLabel}.',
-                ),
-              ],
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Icon(
+                    Icons.lock_outline_rounded,
+                    size: 14,
+                    color: palette.muted,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'El teléfono del pasajero se comparte cuando aceptes la solicitud.',
+                      style: RoutbText.copy(12, color: palette.muted),
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 10),
               Container(
                 padding: const EdgeInsets.symmetric(

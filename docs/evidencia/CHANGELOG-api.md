@@ -19,6 +19,84 @@ introdujo o modificó.
 | 0.7.0   | Cambios locales sin commit | `Changes` | Endurece la identidad de endpoints del Aspecto 3: retira `GET /users/` y `POST /trips/{trip_id}/reservations`, y exige token y propiedad en `POST /trips/` y `PATCH /trips/{trip_id}/cancel`. |
 | 0.8.0   | Cambios locales sin commit | `Changes` | Añade el historial del conductor (parámetro `scope` en `GET /trips/my-trips`) y expone `location_consent_at` en `GET /auth/me` para el perfil de solo lectura. Cambios aditivos. |
 | 0.9.0   | Cambios locales sin commit | `Changes` | Retira `GET /geocode/search` y la geocodificación del backend; la resolución de direcciones y rutas pasa al cliente Flutter con Google Maps Platform (ADR 0018). |
+| 0.10.0  | Cambios locales sin commit | `Changes` | Retira el consentimiento propio de ubicación y sus endpoints; exige vehículo completo para publicar; agrega `route_points` a viajes y sugerencias, `DELETE /users/me` y el canal Android de solicitudes nuevas (fases 1 y 5 del sprint). |
+| 0.11.0  | Cambios locales sin commit | `Changes` | Agrega `PATCH /users/me` para editar nombre, apellido y teléfono, y `PATCH /users/me/password` para cambiar la contraseña con verificación de la actual (G15). Cambios aditivos. |
+| 0.12.0  | Cambios locales sin commit | `Changes` | `GET /trips/` deja de ofrecer los viajes cuya hora de salida ya pasó y `POST /requests/trips/{trip_id}` responde `409` si el viaje ya salió, en vez de crear una solicitud que nace vencida. |
+
+## Fase 1 del sprint: limpieza y requisitos del conductor
+
+- **Consentimiento propio retirado (N1).** Se eliminan `POST
+  /users/me/location-consent`, `DELETE /users/me/location-consent`, los `403
+  location_consent_required` y el campo `location_consent_at`. La migración
+  `014_remove_location_consent` elimina la columna. El permiso del sistema
+  operativo es el único control; la decisión está en el
+  [ADR 0027](../adr/0027-retirar-consentimiento-propio-de-ubicacion.md).
+- **Vehículo completo para publicar (G2/N2).** `PATCH /users/me/vehicle` exige
+  modelo, color y placa cuando se registra o actualiza el vehículo. `POST
+  /trips/` responde `409 vehicle_required` si el conductor no tiene los tres
+  datos. Los viajes ya publicados no se modifican.
+- **Logos y permisos (N3/G20).** Cambios solo de frontend: se retiran los logos
+  internos y el Perfil muestra el estado de ubicación y notificaciones con
+  acceso a los ajustes del sistema. No alteran el contrato REST.
+
+## Fase 4 del sprint: perfil e historial (cambio actual)
+
+- **Editar datos personales (G15).** `PATCH /users/me` acepta `name`,
+  `last_name` y `phone`, valida los mismos mínimos que el registro y mantiene
+  la unicidad del teléfono (`409` si ya está registrado). El identificador
+  sale del token: no se pueden editar los datos de otra persona.
+- **Cambiar contraseña (G15).** `PATCH /users/me/password` exige
+  `current_password` y `new_password` (8–128 caracteres), verifica la actual
+  con el hashing bcrypt existente y responde `204`. Una contraseña actual
+  incorrecta devuelve `400`; no se emite un token nuevo.
+- **Historial del pasajero (G4).** Sin cambios de API: `GET /requests/me` ya
+  devuelve las solicitudes completadas, canceladas y rechazadas; el frontend
+  las separa de las activas en una pestaña «Historial».
+- **Foto de perfil (G17).** Se decidió no agregar foto en el backend; se
+  amplían las iniciales en el Perfil y en el detalle de «Mi viaje».
+
+## Fase 5 del sprint: mapas, detalles y cuenta (cambio actual)
+
+- **Geometría de ruta (G22, G14).** `TripResponse` y `MyRequestResponse`
+  incorporan `route_points`, una lista de objetos `{lat, lng}` con la geometría
+  simplificada de `trips.route_geom`. Se devuelve en `GET /trips/{trip_id}`,
+  `GET /trips/my-trips`, `POST /trips/` y `GET /requests/me`. Las sugerencias de
+  `GET /matching/suggestions` también incluyen `route_points` por viaje.
+- **Eliminación de cuenta (G18).** Nuevo `DELETE /users/me` (204). Responde
+  `409` si la cuenta tiene rutas activas como conductor o solicitudes
+  `pending`/`accepted` como pasajero. Sin esos compromisos borra la cuenta, sus
+  tokens y sus solicitudes; los viajes históricos del conductor quedan con
+  `driver_id = NULL`. La decisión está en
+  [`docs/adr/0028-eliminacion-de-cuenta.md`](../adr/0028-eliminacion-de-cuenta.md)
+  y en [`sprint/06-decisiones-pendientes.md`](../../sprint/06-decisiones-pendientes.md)
+  (D6).
+- **Canal de notificación (G21).** El backend asigna
+  `android.notification.channel_id = routb_new_requests` a los eventos
+  `request_created`; el resto usa `routb_updates`. No cambia el cuerpo REST.
+
+## Viajes que ya salieron (corrección)
+
+- **Listado del pasajero.** `GET /trips/` deja de devolver los viajes activos
+  con cupo cuya hora de salida ya pasó. Los viajes legados sin una hora fiable
+  (`departure_at` nulo y hora no interpretable) se conservan.
+- **Solicitudes nuevas.** `POST /requests/trips/{trip_id}` responde `409` con
+  `detail` «El viaje ya salió y no acepta solicitudes» en vez de crear una
+  solicitud que nacería vencida. No cambia la regla de vencimiento de las
+  solicitudes pendientes: `GET /requests/me` sigue marcándolas como `expired`
+  cuando el viaje sale.
+- **Detalle e historial.** `GET /trips/{trip_id}` y `GET /requests/me`
+  conservan los viajes y solicitudes pasadas para que el conductor y el
+  pasajero puedan consultarlos.
+
+## Privacidad del teléfono del pasajero (Fase 2, decisión D3)
+
+- `GET /trips/my-trips`, `GET /trips/{trip_id}` y `GET /requests/trips/{trip_id}`
+  devuelven `passenger_phone = null` mientras la solicitud esté pendiente o
+  rechazada; solo lo incluyen cuando el estado es `accepted`.
+- `PATCH /requests/{id}/accept` sigue devolviendo el teléfono al confirmar el
+  cupo; `PATCH /requests/{id}/reject` lo omite.
+- No cambia la forma del esquema ni los códigos HTTP: `passenger_phone` sigue
+  siendo opcional.
 
 ## Endurecimiento de endpoints (Aspecto 3)
 

@@ -4,44 +4,20 @@ from __future__ import annotations
  
 import json
 import logging
-from datetime import date, datetime, timedelta
-import re
-from app.core.timezone import colombia_today, get_colombia_tz
+from datetime import date, timedelta
+from app.core.timezone import colombia_today
  
 from geoalchemy2.functions import ST_GeomFromGeoJSON
 from sqlalchemy.orm import Session
  
 from app.core.config import settings
+from app.modules.trips.application.departure import parse_departure_to_timestamptz
+from app.modules.trips.domain.exceptions import VehicleRequiredError
 from app.modules.trips.infrastructure.models import Trip
 from app.modules.trips.infrastructure.schemas import TripCreate
 from app.modules.users.application import get_user_by_id
  
 logger = logging.getLogger(__name__)
- 
- 
-def _parse_departure_to_timestamptz(date_val, time_str: str | None) -> datetime | None:
-    if not date_val or not time_str:
-        return None
-    time_str = time_str.strip()
-    match = re.match(r"^(\d{1,2}):(\d{2})\s*(AM|PM)?$", time_str, re.IGNORECASE)
-    if not match:
-        return None
-    hour = int(match.group(1))
-    minute = int(match.group(2))
-    period = match.group(3)
-    if period:
-        period = period.upper()
-        if period == "PM" and hour < 12:
-            hour += 12
-        elif period == "AM" and hour == 12:
-            hour = 0
-    if not (0 <= hour <= 23 and 0 <= minute <= 59):
-        return None
-    try:
-        dt = datetime(date_val.year, date_val.month, date_val.day, hour, minute)
-        return dt.replace(tzinfo=get_colombia_tz())
-    except Exception:
-        return None
  
  
 def _validate_departure_date(departure_date: date) -> None:
@@ -56,15 +32,23 @@ def _point_geojson(lat: float, lng: float) -> str:
     return json.dumps({"type": "Point", "coordinates": [lng, lat]})
  
  
-def _validate_consent(db: Session, driver_id: int | None) -> None:
-    """Lanza PermissionError si el conductor no ha dado consentimiento."""
+def _validate_driver_vehicle(db: Session, driver_id: int | None) -> None:
+    """Lanza VehicleRequiredError si el conductor no registró su vehículo completo.
+
+    La regla vive en el servidor: no basta con la comprobación previa de la app.
+    Los viajes publicados antes de este cambio no se tocan; solo se bloquean
+    las creaciones nuevas.
+    """
     if driver_id is None:
-        return
+        raise VehicleRequiredError()
     user = get_user_by_id(db, driver_id)
-    if user is None or user.location_consent_at is None:
-        raise PermissionError("location_consent_required")
- 
- 
+    if user is None:
+        raise ValueError("Usuario no encontrado")
+    vehicle_fields = (user.vehicle_model, user.vehicle_plate, user.vehicle_color)
+    if not all((value or "").strip() for value in vehicle_fields):
+        raise VehicleRequiredError()
+
+
 def _extract_coords(driver_point) -> tuple[float | None, float | None]:
     """Obtiene (lat, lng) de un ``driver_point`` que puede ser dict u objeto."""
     if driver_point is None:
@@ -75,15 +59,10 @@ def _extract_coords(driver_point) -> tuple[float | None, float | None]:
  
  
 def _validate_driver_location(
-    db: Session,
-    driver_id: int | None,
     lat: float | None,
     lng: float | None,
 ) -> None:
-    """Valida consentimiento y rango de coordenadas cuando el conductor aporta ubicación."""
-    if driver_id is None:
-        raise PermissionError("location_consent_required")
-    _validate_consent(db, driver_id)
+    """Valida el rango de coordenadas cuando el conductor aporta ubicación."""
     if lat is not None and lng is not None:
         if not (-90 <= lat <= 90 and -180 <= lng <= 180):
             raise ValueError("Coordenadas del viaje fuera de rango.")
@@ -119,22 +98,23 @@ def create_trip(db: Session, trip_data: TripCreate, driver_id: int | None = None
         El objeto ``Trip`` persistido y refrescado.
  
     Raises:
-        PermissionError: si el conductor no tiene consentimiento de ubicación
-            y aporta coordenadas.
+        VehicleRequiredError: si el conductor no registró modelo, color y
+            placa del vehículo.
         ValueError: si la fecha no es hoy o mañana, o si las coordenadas
             están fuera de rango.
     """
     _validate_departure_date(trip_data.departure_date)
+    _validate_driver_vehicle(db, driver_id)
 
     dep_time = trip_data.departure_time or "7:00 AM"
-    dep_at = _parse_departure_to_timestamptz(trip_data.departure_date, dep_time)
+    dep_at = parse_departure_to_timestamptz(trip_data.departure_date, dep_time)
 
     driver_point = getattr(trip_data, "driver_point", None)
     direction = getattr(trip_data, "direction", None)
     lat, lng = _extract_coords(driver_point)
  
     if driver_point:
-        _validate_driver_location(db, driver_id, lat, lng)
+        _validate_driver_location(lat, lng)
  
     has_route_inputs = bool(driver_point and direction and lat is not None and lng is not None)
  

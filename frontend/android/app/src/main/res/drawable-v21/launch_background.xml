@@ -1,6 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Modify this file to customize your launch splash screen -->
+<!-- Pantalla de arranque nativa: el mismo fondo y la misma marca que el
+     splash de Flutter, para que la app no muestre un negro antes de arrancar. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="?android:colorBackground" />
-
+    <item android:drawable="@color/routb_splash_background" />
+    <item
+        android:width="112dp"
+        android:height="112dp"
+        android:gravity="center">
+        <bitmap
+            android:gravity="fill"
+            android:src="@drawable/launch_logo" />
+    </item>
 </layer-list>

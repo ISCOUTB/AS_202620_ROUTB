@@ -200,6 +200,7 @@ class TripRepository {
             tripStatus: trip.status,
             createdAt: DateTime.now(),
             driverName: trip.driverName,
+            routePoints: trip.routePoints,
             canWithdraw: false,
           ),
     ];

@@ -343,20 +343,14 @@ def test_aceptar_solicitud_recalcula_ruta_del_viaje_y_eta():
     """Al aceptar una solicitud en un viaje con geometría, set_trip_route actualiza trips y se calculan stop_seq y eta_estimated."""
     from unittest.mock import patch
 
-    from app.core.timezone import colombia_now, colombia_today
+    from app.core.timezone import colombia_today
     from app.modules.trips.infrastructure.models import Trip
-    from app.modules.users.infrastructure.models import User
     from tests.helpers import FUTURE_TIME as _FUTURE_TIME
 
     driver_id, driver_token = _crear_usuario("3300000019", "driver")
     pass_id, pass_token = _crear_usuario("3300000020", "passenger")
 
     try:
-        with SessionLocal() as db:
-            driver = db.get(User, driver_id)
-            driver.location_consent_at = colombia_now()
-            db.commit()
-
         initial_route = {
             "distance_m": 2500,
             "duration_s": 300,

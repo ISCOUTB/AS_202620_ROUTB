@@ -23,6 +23,7 @@ from app.modules.requests.domain.exceptions import (
     InvalidRequestStateError,
     NoAvailableSeatsError,
     NoSeatsToAcceptError,
+    TripAlreadyDepartedError,
     TripNotActiveError,
     TripRequestNotFoundError,
     UnauthorizedRequestActionError,
@@ -30,14 +31,21 @@ from app.modules.requests.domain.exceptions import (
 )
 from app.modules.requests.infrastructure import schemas
 from app.modules.users.application import UserIdentity
+from app.shared.route_geometry import routes_for_trips
 from app.shared.vehicle import format_vehicle_info
 
 router = APIRouter()
 
 
-def _to_response(req) -> schemas.TripRequestResponse:
+def _to_response(
+    req, *, include_phone: bool | None = None
+) -> schemas.TripRequestResponse:
     p_name = f"{req.passenger.name} {req.passenger.last_name}" if req.passenger else None
-    p_phone = req.passenger.phone if req.passenger else None
+    # El teléfono es dato personal: al conductor solo se le entrega cuando el
+    # cupo quedó aceptado (decisión D3 del sprint). La creación de la solicitud
+    # lo incluye porque la respuesta va al propio pasajero.
+    show_phone = req.status == "accepted" if include_phone is None else include_phone
+    p_phone = req.passenger.phone if req.passenger and show_phone else None
     return schemas.TripRequestResponse(
         id=req.id,
         trip_id=req.trip_id,
@@ -54,7 +62,7 @@ def _to_response(req) -> schemas.TripRequestResponse:
     )
 
 
-def _to_my_response(req, stops=None) -> schemas.MyRequestResponse:
+def _to_my_response(req, stops=None, route_points=None) -> schemas.MyRequestResponse:
     trip = req.trip
     driver = trip.driver if trip else None
     resolved_stops = stops if stops is not None else req.stops
@@ -84,9 +92,17 @@ def _to_my_response(req, stops=None) -> schemas.MyRequestResponse:
             schemas.RequestStopResponse.model_validate(stop)
             for stop in resolved_stops
         ],
+        route_points=route_points or [],
     )
 
-@router.post("/trips/{trip_id}", response_model=schemas.TripRequestResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/trips/{trip_id}",
+    response_model=schemas.TripRequestResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        409: {"description": "El viaje ya salió o no tiene cupos suficientes"},
+    },
+)
 def request_seat(
     trip_id: int,
     background_tasks: BackgroundTasks,
@@ -105,12 +121,14 @@ def request_seat(
         )
         for push in pending:
             background_tasks.add_task(send_push_async_safe, push)
-        return _to_response(req)
+        return _to_response(req, include_phone=True)
     except TripNotActiveError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=e.message)
     except DriverCannotRequestError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
     except NoAvailableSeatsError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=e.message)
+    except TripAlreadyDepartedError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=e.message)
     except ActiveRequestAlreadyExistsError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
@@ -195,10 +213,12 @@ def my_requests(
     cupo confirmado no lo veria ahi.
     """
     requests = get_passenger_requests_use_case(db, passenger_id=current_user.id)
+    routes = routes_for_trips(db, (r.trip_id for r in requests))
     return [
         _to_my_response(
             r,
             stops=get_consolidated_stops_for_request_use_case(db, r),
+            route_points=routes.get(r.trip_id, []),
         )
         for r in requests
     ]

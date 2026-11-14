@@ -1,4 +1,6 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../../../app/app_routes.dart';
 import '../../../app/dependencies.dart';
@@ -11,12 +13,14 @@ import '../../../core/theme/theme_controller.dart';
 import '../../../core/widgets/routb_button.dart';
 import '../../../core/widgets/routb_card.dart';
 import '../../../core/widgets/routb_field.dart';
-import '../../../core/widgets/routb_hero.dart';
+import '../../../core/widgets/routb_permission_status.dart';
+import '../../../core/widgets/routb_section_header.dart';
 import '../../../core/widgets/routb_seats.dart';
 import '../../../core/widgets/routb_toast.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../auth/screens/auth_flow.dart';
 import '../widgets/vehicle_sheet.dart';
+import 'edit_account_screen.dart';
 
 /// Modos de pantalla que ofrece la pestaña de perfil, en su orden.
 const List<({String label, ThemeMode mode})> _screenModes =
@@ -28,9 +32,11 @@ const List<({String label, ThemeMode mode})> _screenModes =
 
 /// Pestaña de perfil, igual para los dos modos.
 ///
-/// Reúne los datos de la cuenta, el modo de pantalla, la autorización de
-/// ubicación y el cierre de sesión. No tiene `Scaffold` propio: vive dentro de
-/// la pantalla de cada modo, como la pestaña «Mis viajes» del pasajero.
+/// Reúne la identidad, el modo de pantalla, los permisos y el cierre de sesión.
+/// Las acciones de cuenta (cambiar contraseña y eliminar la cuenta) viven en la
+/// hoja «Editar cuenta» para no dejar la eliminación a la vista. No tiene
+/// `Scaffold` propio: vive dentro de la pantalla de cada modo, como la pestaña
+/// «Mis viajes» del pasajero.
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({required this.account, super.key});
 
@@ -45,7 +51,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   UserProfile? _profile;
   String? _error;
   bool _loading = true;
-  bool _changingConsent = false;
   bool _asked = false;
 
   @override
@@ -70,6 +75,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       final profile = await _auth.fetchProfile();
       if (!mounted) return;
+      RoutbScopeDependencies.of(context).profileName.value = profile.name;
       setState(() {
         _profile = profile;
         _loading = false;
@@ -96,72 +102,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Future<void> _grantConsent() => _changeConsent(grant: true);
-
-  Future<void> _revokeConsent() async {
-    if (!await _confirmRevoke()) return;
-    await _changeConsent(grant: false);
-  }
-
-  Future<void> _changeConsent({required bool grant}) async {
-    final dependencies = RoutbScopeDependencies.of(context);
-    setState(() => _changingConsent = true);
-    try {
-      if (grant) {
-        await dependencies.auth.grantLocationConsent();
-      } else {
-        await dependencies.auth.revokeLocationConsent();
-      }
-      if (!mounted) return;
-      // El endpoint confirmó el cambio: se refleja al instante, sin depender
-      // de volver a leer el perfil (que puede no informar el campo si el
-      // backend todavía no está actualizado).
-      setState(() {
-        _profile = _profile?.withLocationConsent(grant ? DateTime.now() : null);
-      });
-      // Al revocar, el backend cancela las solicitudes pendientes: las pestañas
-      // de viajes deben releer su estado.
-      dependencies.requestRefresh.value++;
-      RoutbToast.show(
-        context,
-        grant ? 'Ubicación autorizada' : 'Autorización revocada',
-      );
-    } on Exception catch (error, stack) {
-      logFailure('el cambio de autorización de ubicación', error, stack);
-      if (mounted) RoutbToast.show(context, describeFailure(error));
-    } finally {
-      if (mounted) setState(() => _changingConsent = false);
-    }
-  }
-
-  Future<bool> _confirmRevoke() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('¿Revocar la ubicación?'),
-        content: const Text(
-          'Se cancelan tus solicitudes pendientes y se borran las ubicaciones '
-          'guardadas. Después no podrás buscar direcciones ni publicar o pedir '
-          'viajes que necesiten coordenadas exactas.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Mantener'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(
-              'Revocar',
-              style: TextStyle(color: dialogContext.palette.rose),
-            ),
-          ),
-        ],
-      ),
-    );
-    return confirmed ?? false;
-  }
-
   Future<void> _editVehicle(UserProfile profile) async {
     final updated = await showVehicleSheet(
       context: context,
@@ -172,7 +112,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() => _profile = updated);
     RoutbToast.show(
       context,
-      updated.hasVehicle ? 'Vehículo actualizado' : 'Vehículo retirado',
+      updated.hasCompleteVehicle
+          ? 'Vehículo actualizado'
+          : updated.hasVehicle
+          ? 'El vehículo quedó incompleto'
+          : 'Vehículo retirado',
+    );
+  }
+
+  void _openEditAccount() {
+    final profile = _profile;
+    if (profile == null) return;
+
+    Navigator.of(context).push(
+      RoutbPageRoute<void>(
+        child: EditAccountScreen(
+          profile: profile,
+          auth: _auth,
+          onProfileUpdated: (updated) {
+            if (!mounted) return;
+            setState(() => _profile = updated);
+            RoutbScopeDependencies.of(context).profileName.value = updated.name;
+          },
+        ),
+      ),
     );
   }
 
@@ -192,35 +155,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        _hero(),
+        const RoutbSectionHeader(
+          title: 'Perfil',
+          subtitle: 'Tu cuenta y tus preferencias',
+        ),
         Expanded(child: _body()),
       ],
-    );
-  }
-
-  Widget _hero() {
-    final palette = context.palette;
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        gradient: palette.heroGradient,
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(30)),
-      ),
-      padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          HeroBar(
-            role: widget.account.role,
-            userName: widget.account.name,
-            onLogout: _logout,
-            isDarkBackground: true,
-            wave: widget.account.role == UserRole.passenger,
-          ),
-          const SizedBox(height: 8),
-          Text('Perfil', style: RoutbText.headline(22, color: Colors.white)),
-        ],
-      ),
     );
   }
 
@@ -234,23 +174,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return RefreshIndicator(
       onRefresh: _refresh,
       child: ListView(
+        key: const PageStorageKey<String>('profile-tab'),
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
         children: [
-          RoutbCard(child: _IdentityHeader(profile: profile)),
+          RoutbCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _IdentityHeader(profile: profile),
+                const SizedBox(height: 12),
+                RoutbButton(
+                  label: 'Editar cuenta',
+                  icon: Icons.manage_accounts_outlined,
+                  variant: RoutbButtonVariant.secondary,
+                  height: 44,
+                  onPressed: _openEditAccount,
+                ),
+              ],
+            ),
+          ),
           const SizedBox(height: 14),
           _screenModeCard(),
           const SizedBox(height: 14),
-          _locationCard(profile),
+          const _PermissionsCard(),
           if (profile.role == UserRole.driver) ...[
             const SizedBox(height: 14),
             _vehicleCard(profile),
           ],
-          const SizedBox(height: 14),
-          const RoutbHint(
-            'La edición de tus datos y el cambio de contraseña llegarán en una '
-            'próxima versión.',
-          ),
           const SizedBox(height: 18),
           RoutbButton(
             label: 'Cerrar sesión',
@@ -293,6 +244,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _vehicleCard(UserProfile profile) {
     final palette = context.palette;
     final hasVehicle = profile.hasVehicle;
+    final complete = profile.hasCompleteVehicle;
+    final missing = profile.missingVehicleFields;
 
     return RoutbCard(
       child: Column(
@@ -302,16 +255,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
             title: 'Vehículo',
             icon: Icons.directions_car_filled_rounded,
             trailing: RoutbStatusPill(
-              label: hasVehicle ? 'Registrado' : 'Sin registrar',
-              background: hasVehicle
-                  ? palette.mintSurface
-                  : palette.amberSurface,
-              foreground: hasVehicle
+              label: complete
+                  ? 'Registrado'
+                  : hasVehicle
+                  ? 'Pendiente'
+                  : 'Sin registrar',
+              background: complete ? palette.mintSurface : palette.amberSurface,
+              foreground: complete
                   ? palette.onMintSurface
                   : palette.onAmberSurface,
             ),
           ),
-          if (hasVehicle) ...[
+          if (complete) ...[
             Row(
               children: [
                 Container(
@@ -361,14 +316,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ] else ...[
             Text(
-              'Registra el modelo, el color y la placa para que tus pasajeros '
-              'reconozcan el carro al llegar al punto de encuentro.',
+              hasVehicle
+                  ? 'Falta completar: ${missing.join(', ')}. Sin los tres datos '
+                        'no podrás publicar rutas.'
+                  : 'Registra el modelo, el color y la placa para que tus '
+                        'pasajeros reconozcan el carro al llegar al punto de '
+                        'encuentro.',
               style: RoutbText.copy(12.5, color: palette.muted, height: 1.4),
             ),
             const SizedBox(height: 14),
             RoutbButton(
-              label: 'Registrar vehículo',
-              icon: Icons.add_rounded,
+              label: hasVehicle ? 'Completar vehículo' : 'Registrar vehículo',
+              icon: hasVehicle ? Icons.edit_outlined : Icons.add_rounded,
               variant: RoutbButtonVariant.secondary,
               height: 44,
               onPressed: () => _editVehicle(profile),
@@ -378,49 +337,115 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
+}
 
-  Widget _locationCard(UserProfile profile) {
+/// Estado de los permisos del sistema que ROUTB usa (G20).
+///
+/// Solo consulta y muestra; si están denegados ofrece abrir los ajustes del
+/// celular. No pide permisos al iniciar la app: cada función los solicita
+/// cuando de verdad los necesita.
+class _PermissionsCard extends StatefulWidget {
+  const _PermissionsCard();
+
+  @override
+  State<_PermissionsCard> createState() => _PermissionsCardState();
+}
+
+class _PermissionsCardState extends State<_PermissionsCard> {
+  RoutbPermissionState _location = RoutbPermissionState.loading;
+  RoutbPermissionState _notifications = RoutbPermissionState.loading;
+  bool _asked = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_asked) return;
+    _asked = true;
+    _load();
+  }
+
+  Future<void> _load() async {
+    final results = await Future.wait([
+      _locationStatus(),
+      _notificationStatus(),
+    ]);
+    if (!mounted) return;
+    setState(() {
+      _location = results[0];
+      _notifications = results[1];
+    });
+  }
+
+  Future<RoutbPermissionState> _locationStatus() async {
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        return RoutbPermissionState.denied;
+      }
+      final permission = await Geolocator.checkPermission();
+      return permission == LocationPermission.always ||
+              permission == LocationPermission.whileInUse
+          ? RoutbPermissionState.granted
+          : RoutbPermissionState.denied;
+    } on Object {
+      return RoutbPermissionState.denied;
+    }
+  }
+
+  Future<RoutbPermissionState> _notificationStatus() async {
+    try {
+      final settings = await FirebaseMessaging.instance
+          .getNotificationSettings();
+      return switch (settings.authorizationStatus) {
+        AuthorizationStatus.authorized ||
+        AuthorizationStatus.provisional => RoutbPermissionState.granted,
+        _ => RoutbPermissionState.denied,
+      };
+    } on Object {
+      return RoutbPermissionState.denied;
+    }
+  }
+
+  Future<void> _openSettings() async {
+    try {
+      await Geolocator.openAppSettings();
+    } on Object {
+      // Sin ajustes disponibles en esta plataforma: la app no se bloquea.
+    }
+    await _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final palette = context.palette;
-    final hasConsent = profile.hasLocationConsent;
     return RoutbCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          RoutbCardHeader(
+          const RoutbCardHeader(
+            title: 'Permisos',
+            icon: Icons.verified_user_outlined,
+          ),
+          RoutbPermissionStatus(
             title: 'Ubicación',
+            description: 'Para buscar direcciones y ver sugerencias cercanas.',
             icon: Icons.location_on_outlined,
-            trailing: RoutbStatusPill(
-              label: profile.consentLabel,
-              background: hasConsent
-                  ? palette.mintSurface
-                  : palette.amberSurface,
-              foreground: hasConsent
-                  ? palette.onMintSurface
-                  : palette.onAmberSurface,
-            ),
+            state: _location,
+            onOpenSettings: _openSettings,
           ),
+          const SizedBox(height: 4),
+          RoutbPermissionStatus(
+            title: 'Notificaciones',
+            description: 'Para avisarte cuando una solicitud cambie de estado.',
+            icon: Icons.notifications_none_rounded,
+            state: _notifications,
+            onOpenSettings: _openSettings,
+          ),
+          const SizedBox(height: 10),
           Text(
-            hasConsent
-                ? 'Sirve para buscar direcciones y ver sugerencias puerta a '
-                      'puerta. Puedes revocarla cuando quieras.'
-                : 'Sin esta autorización no puedes buscar direcciones ni ver '
-                      'sugerencias puerta a puerta.',
-            style: RoutbText.copy(12.5, color: palette.muted, height: 1.4),
+            'Los permisos se piden solo cuando usas la función que los '
+            'necesita. Si los desactivas, puedes volver a activarlos aquí.',
+            style: RoutbText.copy(12, color: palette.muted, height: 1.4),
           ),
-          const SizedBox(height: 14),
-          if (hasConsent)
-            RoutbTextAction(
-              label: 'Revocar autorización',
-              icon: Icons.gpp_bad_outlined,
-              color: palette.rose,
-              onPressed: _changingConsent ? null : _revokeConsent,
-            )
-          else
-            RoutbButton(
-              label: 'Autorizar ubicación',
-              busy: _changingConsent,
-              onPressed: _grantConsent,
-            ),
         ],
       ),
     );
@@ -442,7 +467,7 @@ class _IdentityHeader extends StatelessWidget {
         InitialsAvatar(
           name: profile.fullName,
           initials: profile.initials,
-          size: 54,
+          size: 64,
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -472,13 +497,11 @@ class _IdentityHeader extends StatelessWidget {
                   ),
                 ],
               ),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: RoutbChipLabel(label: profile.roleLabel),
-              ),
             ],
           ),
         ),
+        const SizedBox(width: 8),
+        RoutbChipLabel(label: profile.roleLabel),
       ],
     );
   }

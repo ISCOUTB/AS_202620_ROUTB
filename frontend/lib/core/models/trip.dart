@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../constants/zones.dart';
 import 'initials.dart';
+import 'route_points.dart';
 import 'trip_schedule.dart';
 import 'travel_time.dart';
 import 'trip_request.dart';
@@ -30,6 +32,7 @@ class Trip {
     this.vehicleInfo,
     this.myRequestStatus,
     this.direction,
+    this.routePoints = const <LatLng>[],
   });
 
   /// Identificador del viaje.
@@ -82,6 +85,12 @@ class Trip {
   /// Sentido geográfico; nulo identifica viajes legados.
   final String? direction;
 
+  /// Geometría de la ruta calculada por el backend, en orden de recorrido.
+  ///
+  /// Vacía en viajes sin `route_geom`; en ese caso el mapa conserva el
+  /// comportamiento de geocodificar origen y destino por texto.
+  final List<LatLng> routePoints;
+
   /// Solicitudes del viaje. `GET /trips/my-trips` las incluye; para pasajero
   /// llega vacía.
   final List<TripRequest> requests;
@@ -119,6 +128,7 @@ class Trip {
           ? null
           : SeatRequestStatus.fromWire(rawMyRequest),
       direction: json['direction'] as String?,
+      routePoints: routePointsFromJson(json['route_points']),
       requests: rawRequests == null
           ? const <TripRequest>[]
           : rawRequests
@@ -137,7 +147,8 @@ class Trip {
   bool get isFull => availableSeats <= 0;
 
   /// `true` cuando el conductor todavía puede recibir solicitudes.
-  bool get acceptsRequests => status.isActive && !isFull;
+  bool get acceptsRequests =>
+      status.isActive && !isFull && !hasDeparted(DateTime.now());
 
   // --- Lugares ---------------------------------------------------------------
 
@@ -199,6 +210,23 @@ class Trip {
 
   /// `AM` o `PM`, o cadena vacía si la hora no se pudo interpretar.
   String get departureMeridiem => departure?.meridiem ?? '';
+
+  /// Momento exacto de salida, si la API trae fecha y hora válidas.
+  DateTime? get departureDateTime {
+    final date = departureDate;
+    final time = departure;
+    if (date == null || time == null) return null;
+    return DateTime(date.year, date.month, date.day, time.hour, time.minute);
+  }
+
+  /// `true` si la hora de salida ya pasó.
+  ///
+  /// Sin fecha u hora interpretable no se puede afirmar que el viaje salió; en
+  /// ese caso se conserva visible y solicitable.
+  bool hasDeparted(DateTime now) {
+    final departureAt = departureDateTime;
+    return departureAt != null && !departureAt.isAfter(now);
+  }
 
   /// Llegada estimada, calculada con la duración del barrio del trayecto.
   ///
@@ -272,7 +300,11 @@ class Trip {
   // --- Solicitud propia --------------------------------------------------------
 
   /// Estado de la solicitud de la persona que está mirando.
-  SeatRequestState get bookingState {
+  SeatRequestState get bookingState => bookingStateAt(DateTime.now());
+
+  /// Igual que [bookingState], con un reloj explícito para pruebas y pantallas.
+  SeatRequestState bookingStateAt(DateTime now) {
+    if (hasDeparted(now)) return SeatRequestState.departed;
     if (myRequestStatus?.isAccepted ?? false) return SeatRequestState.confirmed;
     if (myRequestStatus?.isPending ?? false) return SeatRequestState.requested;
     if (!status.isActive) return SeatRequestState.unavailable;
@@ -300,6 +332,7 @@ class Trip {
     SeatRequestStatus? myRequestStatus,
     String? direction,
     List<TripRequest>? requests,
+    List<LatLng>? routePoints,
   }) => Trip(
     id: id,
     origin: origin,
@@ -316,6 +349,7 @@ class Trip {
     vehicleInfo: vehicleInfo,
     myRequestStatus: myRequestStatus ?? this.myRequestStatus,
     direction: direction ?? this.direction,
+    routePoints: routePoints ?? this.routePoints,
     requests: requests ?? this.requests,
   );
 
@@ -334,7 +368,8 @@ class Trip {
       other.driverId == driverId &&
       other.driverName == driverName &&
       other.vehicleInfo == vehicleInfo &&
-      other.myRequestStatus == myRequestStatus;
+      other.myRequestStatus == myRequestStatus &&
+      listEquals(other.routePoints, routePoints);
 
   @override
   int get hashCode => Object.hash(
@@ -351,6 +386,7 @@ class Trip {
     driverName,
     vehicleInfo,
     myRequestStatus,
+    Object.hashAll(routePoints),
   );
 }
 
@@ -367,6 +403,9 @@ enum SeatRequestState {
 
   /// El conductor confirmó el cupo.
   confirmed,
+
+  /// La hora de salida ya pasó.
+  departed,
 
   /// El viaje ya no está activo.
   unavailable,

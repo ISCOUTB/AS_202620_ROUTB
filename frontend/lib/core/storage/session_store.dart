@@ -15,8 +15,6 @@ class SessionStore {
   static const String _nameKey = 'routb_name';
   static const String _roleKey = 'routb_role';
   static const String _themeKey = 'routb_theme_mode';
-  static const String _locationConsentPromptedKey =
-      'routb_location_consent_prompted';
 
   SharedPreferences? _preferences;
 
@@ -50,21 +48,20 @@ class SessionStore {
     await prefs.setString(_roleKey, role.wire);
   }
 
+  /// Actualiza el nombre guardado sin tocar el token ni el rol.
+  ///
+  /// Se usa cuando la persona edita su perfil: el saludo de la app debe seguir
+  /// mostrando el nombre nuevo después de reiniciar.
+  Future<void> saveName(String name) async {
+    await (await _prefs).setString(_nameKey, name.trim());
+  }
+
   /// Cierra la sesión y borra los datos de la persona.
   Future<void> clear() async {
     final prefs = await _prefs;
     await prefs.remove(_tokenKey);
     await prefs.remove(_nameKey);
     await prefs.remove(_roleKey);
-  }
-
-  /// Indica si ya se mostró la explicación de ubicación en este dispositivo.
-  Future<bool> readLocationConsentPrompted() async =>
-      (await _prefs).getBool(_locationConsentPromptedKey) ?? false;
-
-  /// Evita volver a interrumpir el inicio después de responder al aviso.
-  Future<void> saveLocationConsentPrompted() async {
-    await (await _prefs).setBool(_locationConsentPromptedKey, true);
   }
 
   /// Modo del tema elegido. Por defecto sigue al sistema.

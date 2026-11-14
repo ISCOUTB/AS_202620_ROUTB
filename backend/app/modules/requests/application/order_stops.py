@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.shared.routing.service import calculate_route
 from app.modules.trips.application import set_trip_route
-from app.modules.trips.application.create_trip import _parse_departure_to_timestamptz
+from app.modules.trips.application.departure import parse_departure_to_timestamptz
 
 
 def reorder_accepted_stops(db: Session, trip_id: int) -> None:
@@ -64,7 +64,7 @@ def refresh_trip_route_and_stop_eta(db: Session, trip_id: int) -> None:
         duration_s=route["duration_s"],
         source=route["source"],
     )
-    departure = trip["departure_at"] or _parse_departure_to_timestamptz(
+    departure = trip["departure_at"] or parse_departure_to_timestamptz(
         trip["departure_date"], trip["departure_time"]
     )
     if departure is None:

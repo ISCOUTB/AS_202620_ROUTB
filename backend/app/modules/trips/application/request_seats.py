@@ -1,7 +1,7 @@
 """Public application operations used by requests to inspect and adjust seats."""
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
@@ -17,6 +17,8 @@ class TripRequestContext:
     available_seats: int
     direction: str | None
     departure_date: date
+    departure_time: str | None
+    departure_at: datetime | None
 
 
 def get_trip_request_context(db: Session, trip_id: int) -> TripRequestContext | None:
@@ -28,6 +30,8 @@ def get_trip_request_context(db: Session, trip_id: int) -> TripRequestContext | 
             Trip.available_seats,
             Trip.direction,
             Trip.departure_date,
+            Trip.departure_time,
+            Trip.departure_at,
         ).where(
             Trip.id == trip_id
         )
@@ -41,6 +45,8 @@ def get_trip_request_context(db: Session, trip_id: int) -> TripRequestContext | 
         available_seats=row.available_seats,
         direction=row.direction,
         departure_date=row.departure_date,
+        departure_time=row.departure_time,
+        departure_at=row.departure_at,
     )
 
 

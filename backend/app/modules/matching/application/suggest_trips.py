@@ -18,7 +18,8 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.timezone import get_colombia_tz
 from app.modules.matching.schemas import SuggestionItem
-from app.modules.trips.application.create_trip import _parse_departure_to_timestamptz
+from app.modules.trips.application.departure import parse_departure_to_timestamptz
+from app.shared.route_geometry import parse_route_geojson
 from app.shared.routing.service import calculate_route
 
 logger = logging.getLogger(__name__)
@@ -49,7 +50,7 @@ def suggest_trips(
     max_routing = settings.MATCHING_ROUTING_CANDIDATES
     max_results = settings.MATCHING_MAX_RESULTS
 
-    requested_dt = _parse_departure_to_timestamptz(trip_date, trip_time)
+    requested_dt = parse_departure_to_timestamptz(trip_date, trip_time)
     if requested_dt is None:
         # Fallback a las 07:00 de ese día
         requested_dt = datetime(trip_date.year, trip_date.month, trip_date.day, 7, 0, tzinfo=get_colombia_tz())
@@ -105,6 +106,7 @@ def suggest_trips(
             t.route_duration_s,
             t.route_distance_m,
             t.route_source,
+            ST_AsGeoJSON(ST_Simplify(t.route_geom, 0.0001)) AS route_geojson,
             ST_Y(t.origin_geom) AS origin_lat,
             ST_X(t.origin_geom) AS origin_lng,
             ST_Y(t.dest_geom) AS dest_lat,
@@ -156,6 +158,7 @@ def suggest_trips(
         avail_seats = row["available_seats"]
         base_duration_s = row["route_duration_s"] or 0
         walk_dist_m = float(row["walk_distance_m"] or 0.0)
+        route_points = parse_route_geojson(row["route_geojson"])
         origin_lat = row["origin_lat"]
         origin_lng = row["origin_lng"]
         dest_lat = row["dest_lat"]
@@ -241,6 +244,7 @@ def suggest_trips(
                 available_seats=avail_seats,
                 total_seats=tot_seats,
                 degraded=is_degraded,
+                route_points=route_points,
             )
         )
 

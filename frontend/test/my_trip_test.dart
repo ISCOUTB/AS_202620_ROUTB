@@ -404,6 +404,44 @@ void main() {
       expect(find.textContaining('XYZ-'), findsNothing);
     });
 
+    testWidgets(
+      'la tarjeta oculta el vehículo si la solicitud no está aceptada',
+      (tester) async {
+        // Aunque el backend ya filtra `vehicle_info` por estado, la tarjeta no
+        // debe mostrarlo si la solicitud sigue pendiente.
+        await _usePhone(tester, const Size(360, 640));
+        const vehicle = 'Chevrolet Spark · Gris (XYZ-123)';
+        final dependencies = _dependencies(
+          _routes(
+            trips: const <Map<String, dynamic>>[],
+            myRequests: <Map<String, dynamic>>[
+              _myRequestJson(status: 'pending', vehicleInfo: vehicle),
+            ],
+          ),
+        );
+        addTearDown(dependencies.dispose);
+
+        await tester.pumpWidget(
+          _app(
+            RoutbScopeDependencies(
+              dependencies: dependencies,
+              child: PassengerScreen(
+                account: const Account(
+                  token: 't',
+                  name: 'Ana',
+                  role: UserRole.passenger,
+                ),
+              ),
+            ),
+          ),
+        );
+        await _settle(tester);
+
+        expect(find.text('Solicitud enviada'), findsOneWidget);
+        expect(find.textContaining(vehicle), findsNothing);
+      },
+    );
+
     testWidgets('la tarjeta desaparece cuando la solicitud ya no está viva', (
       tester,
     ) async {
@@ -644,6 +682,39 @@ void main() {
         );
       },
     );
+
+    testWidgets('no muestra el vehículo si la solicitud no está aceptada', (
+      tester,
+    ) async {
+      await _usePhone(tester, const Size(360, 640));
+      const vehicle = 'Chevrolet Spark · Gris (XYZ-123)';
+      final dependencies = _dependencies(_routes());
+      addTearDown(dependencies.dispose);
+
+      await tester.pumpWidget(
+        _app(
+          RoutbScopeDependencies(
+            dependencies: dependencies,
+            child: MyTripScreen(
+              request: MyRequest.fromJson(
+                _myRequestJson(status: 'pending', vehicleInfo: vehicle),
+              ),
+              onWithdrawn: () {},
+            ),
+          ),
+        ),
+      );
+      await _settle(tester);
+
+      await tester.drag(find.byType(ListView), const Offset(0, -300));
+      await _settle(tester);
+
+      expect(find.text('Solicitud enviada'), findsOneWidget);
+      expect(find.textContaining(vehicle), findsNothing);
+
+      // Detiene el sondeo de la solicitud pendiente antes de cerrar la prueba.
+      await tester.pumpWidget(_app(const SizedBox()));
+    });
 
     testWidgets('cancelar pide confirmación y avisa al padre', (tester) async {
       await _usePhone(tester, const Size(360, 640));

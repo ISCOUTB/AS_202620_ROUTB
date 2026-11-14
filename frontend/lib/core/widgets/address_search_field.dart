@@ -10,6 +10,7 @@ import '../models/geocode_result.dart';
 import '../network/google_maps_service.dart';
 import '../theme/routb_palette.dart';
 import '../theme/routb_text.dart';
+import 'location_permission_dialog.dart';
 
 /// Resultado seleccionado de un punto con dirección y coordenada.
 class SelectedLocation {
@@ -72,6 +73,7 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
   bool _isLocating = false;
   bool _showMap = false;
   bool _showDropdown = false;
+  bool _remoteFailed = false;
   String? _errorMessage;
   LatLng? _pinnedPoint;
   String? _selectedAddress;
@@ -256,6 +258,7 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
       _showDropdown = true;
       _remoteSuggestions = const [];
       _isResolvingNeighborhood = false;
+      _remoteFailed = false;
       _errorMessage = null;
       if (invalidatesLocation) {
         _hasSelection = false;
@@ -297,6 +300,15 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
 
       _notifyChange();
       _moveMapIfReady(point, 15.0);
+    } on PermissionDeniedException {
+      if (!mounted) return;
+      setState(() {
+        _isLocating = false;
+        _errorMessage =
+            'El permiso de ubicación está desactivado. Puedes escribir tu '
+            'dirección o ajustar el pin manualmente.';
+      });
+      await showLocationPermissionDialog(context);
     } on Exception {
       if (!mounted) return;
       setState(() {
@@ -371,7 +383,18 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
       setState(() {
         _showDropdown = true;
         _remoteSuggestions = const [];
+        _remoteFailed = false;
         _errorMessage = null;
+      });
+      return;
+    }
+    if (!_googleMaps.hasApiKey) {
+      setState(() {
+        _showDropdown = true;
+        _remoteFailed = true;
+        _errorMessage =
+            'No se pudo consultar Google Maps. Elige tu barrio del catálogo '
+            'local para continuar.';
       });
       return;
     }
@@ -441,20 +464,32 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
         _remoteSuggestions = results;
         _activeSearch = null;
       });
-    } on Object catch (error) {
+    } on Object {
       if (!mounted || epoch != _searchEpoch) return;
       setState(() {
         _isLoading = false;
-        _errorMessage = error.toString();
+        _remoteFailed = true;
+        _errorMessage =
+            'No se pudo consultar Google Maps. Elige tu barrio del catálogo '
+            'local para continuar.';
         _activeSearch = null;
       });
     }
   }
 
-  List<String> _filteredNeighborhoods() => Zones.filterNeighborhoodNames(
-    _queryController.text,
-    hidden: _hiddenNeighborhoods,
-  );
+  List<String> _filteredNeighborhoods() {
+    final matches = Zones.filterNeighborhoodNames(
+      _queryController.text,
+      hidden: _hiddenNeighborhoods,
+    );
+    if (matches.isNotEmpty || !_remoteFailed) return matches;
+
+    // Si el servicio externo falló y el texto no coincide con ningún barrio,
+    // se ofrece el catálogo completo como respaldo (G24).
+    return Zones.neighborhoodNames
+        .where((name) => !_hiddenNeighborhoods.contains(name))
+        .toList(growable: false);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -676,7 +711,11 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
                     // Barrios locales, con los que empiezan por el texto
                     // escrito siempre primero.
                     if (filteredNeighborhoods.isNotEmpty) ...[
-                      const _DropdownHeader(label: 'Barrios de Cartagena'),
+                      _DropdownHeader(
+                        label: _remoteFailed
+                            ? 'Google Maps no respondió · elige tu barrio'
+                            : 'Barrios de Cartagena',
+                      ),
                       for (final name in filteredNeighborhoods)
                         ListTile(
                           dense: true,

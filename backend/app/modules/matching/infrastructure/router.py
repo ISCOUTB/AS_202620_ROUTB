@@ -18,20 +18,10 @@ from app.modules.users.application import UserIdentity
 router = APIRouter()
 
 
-def _check_location_consent(current_user: UserIdentity) -> None:
-    """Lanza 403 si el usuario no ha otorgado consentimiento de ubicación."""
-    if not getattr(current_user, "location_consent_at", None):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="location_consent_required",
-        )
-
-
 @router.get(
     "/suggestions",
     response_model=list[SuggestionItem],
     responses={
-        403: {"description": "location_consent_required"},
         422: {"description": "Coordenadas o parámetros inválidos"},
     },
 )
@@ -51,8 +41,6 @@ def get_trip_suggestions(
     current_user: Annotated[UserIdentity, Depends(get_current_user)] = None,
 ) -> list[SuggestionItem]:
     """Sugiere viajes compatibles ordenados por qué tan poco desvían al conductor."""
-    _check_location_consent(current_user)
-
     today = colombia_today()
     if date not in (today, today + timedelta(days=1)):
         raise HTTPException(

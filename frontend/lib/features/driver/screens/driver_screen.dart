@@ -7,6 +7,8 @@ import '../../../app/dependencies.dart';
 import '../../../core/models/initials.dart';
 import '../../../core/models/trip.dart';
 import '../../../core/models/trip_request.dart';
+import '../../../core/models/trip_status.dart';
+import '../../../core/models/user_profile.dart';
 import '../../../core/models/user_role.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/routb_palette.dart';
@@ -17,12 +19,16 @@ import '../../../core/widgets/routb_button.dart';
 import '../../../core/widgets/routb_card.dart';
 import '../../../core/widgets/routb_hero.dart';
 import '../../../core/widgets/routb_nav_bar.dart';
+import '../../../core/widgets/routb_section_header.dart';
 import '../../../core/widgets/routb_seats.dart';
 import '../../../core/widgets/routb_toast.dart';
 import '../../auth/data/auth_repository.dart';
-import '../../auth/screens/auth_flow.dart';
+import '../../notifications/push_notification_service.dart';
 import '../../profile/screens/profile_screen.dart';
+import '../../safety/models/active_trip_info.dart';
+import '../../safety/screens/security_screen.dart';
 import '../../trips/data/trip_repository.dart';
+import '../../trips/screens/active_trip_empty_screen.dart';
 import '../state/driver_state.dart';
 import '../widgets/driver_cards.dart';
 import '../widgets/publish_route_sheet.dart';
@@ -39,7 +45,7 @@ import 'route_detail_screen.dart';
 const double _bodyOverlap = 12;
 
 /// Pestañas del modo conductor, en el orden de la barra inferior.
-enum _DriverTab { routes, history, profile }
+enum _DriverTab { routes, history, security, profile }
 
 /// Modo conductor: publica rutas, responde solicitudes y sigue las que tiene.
 ///
@@ -56,14 +62,37 @@ class DriverScreen extends StatefulWidget {
   State<DriverScreen> createState() => _DriverScreenState();
 }
 
-class _DriverScreenState extends State<DriverScreen> {
+class _DriverScreenState extends State<DriverScreen>
+    with WidgetsBindingObserver {
   DriverState _state = const DriverState(status: DriverStatus.loading);
   _DriverTab _tab = _DriverTab.routes;
   final Set<int> _busyRequests = <int>{};
   int? _highlightedTripId;
   bool _asked = false;
+  bool _appInForeground = true;
   ValueNotifier<int>? _refreshSignal;
   VoidCallback? _refreshListener;
+  StreamSubscription<RoutbPushEvent>? _pushSubscription;
+  PushNotificationService? _pushService;
+  Timer? _highlightTimer;
+  Timer? _activeTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    // El estado «vigente» de una ruta depende del reloj. Un latido lento
+    // mantiene el indicador del centro al día sin consultar al backend.
+    _activeTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+      if (mounted && _appInForeground) setState(() {});
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appInForeground = state == AppLifecycleState.resumed;
+    if (mounted) setState(() {});
+  }
 
   @override
   void didChangeDependencies() {
@@ -76,6 +105,18 @@ class _DriverScreenState extends State<DriverScreen> {
       _refreshSignal = signal;
       _refreshListener = () => unawaited(_load());
       signal.addListener(_refreshListener!);
+    }
+    final push = RoutbScopeDependencies.of(context).push;
+    if (_pushService != push) {
+      unawaited(_pushSubscription?.cancel());
+      _pushService = push;
+      _pushSubscription = push.events.listen(_onPushEvent);
+      final pending = push.takePendingTap();
+      if (pending != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _onPushEvent(pending);
+        });
+      }
     }
     // La primera carga se pide desde aquí y no desde `initState`: el
     // repositorio se lee del `RoutbScopeDependencies`, y buscar un inherited
@@ -90,10 +131,129 @@ class _DriverScreenState extends State<DriverScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _highlightTimer?.cancel();
+    _activeTimer?.cancel();
+    unawaited(_pushSubscription?.cancel());
     if (_refreshSignal != null && _refreshListener != null) {
       _refreshSignal!.removeListener(_refreshListener!);
     }
     super.dispose();
+  }
+
+  /// Refresca las rutas y resalta el viaje afectado cuando llega un push.
+  void _onPushEvent(RoutbPushEvent event) {
+    if (!mounted || !event.hasContent) return;
+
+    if (event.foreground) {
+      RoutbToast.show(
+        context,
+        event.body.isNotEmpty ? event.body : event.title,
+      );
+    }
+    if (event.tripId != null) {
+      _highlightTimer?.cancel();
+      setState(() => _highlightedTripId = event.tripId);
+      _highlightTimer = Timer(const Duration(seconds: 4), () {
+        if (mounted) setState(() => _highlightedTripId = null);
+      });
+    }
+    unawaited(_load());
+
+    if (event.foreground) return;
+    if (event.event == 'request_created') {
+      _focusTab(_DriverTab.routes);
+    } else if (event.event == 'trip_cancelled') {
+      _focusTab(_DriverTab.history);
+    }
+  }
+
+  /// Vuelve a la raíz y cambia de pestaña, para que un push no deje abierta una
+  /// pantalla de detalle encima.
+  void _focusTab(_DriverTab tab) {
+    if (!mounted) return;
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    setState(() => _tab = tab);
+  }
+
+  /// Rutas que todavía cuentan como activas para el botón central.
+  ///
+  /// «Activa» es una ruta publicada que aún no terminó: programada, en curso o
+  /// próxima. Una ruta de hoy que ya superó su ventana de viaje deja de
+  /// encender el indicador aunque siga en «Mis rutas» hasta que cambie el día.
+  List<Trip> get _activeTrips {
+    final now = DateTime.now();
+    return _state.trips
+        .where((trip) {
+          if (!trip.status.isActive) return false;
+          final phase = trip.phaseAt(now);
+          return phase == TripPhase.scheduled || phase == TripPhase.onCourse;
+        })
+        .toList(growable: false);
+  }
+
+  /// Ruta activa que debe abrir el botón central: la de salida más próxima.
+  Trip? get _nearestTrip {
+    final trips = _activeTrips;
+    if (trips.isEmpty) return null;
+
+    final now = DateTime.now();
+    final ordered = List<Trip>.of(trips)
+      ..sort((a, b) => _tripStart(a).compareTo(_tripStart(b)));
+    for (final trip in ordered) {
+      if (_tripStart(trip).isAfter(now)) return trip;
+    }
+    return ordered.first;
+  }
+
+  DateTime _tripStart(Trip trip) {
+    final date = trip.departureDate ?? DateTime.now();
+    final time = trip.departure;
+    return DateTime(
+      date.year,
+      date.month,
+      date.day,
+      time?.hour ?? 23,
+      time?.minute ?? 59,
+    );
+  }
+
+  ActiveTripInfo? get _activeTripInfo {
+    final trip = _nearestTrip;
+    if (trip == null) return null;
+    return ActiveTripInfo(
+      origin: trip.origin,
+      destination: trip.destination,
+      departureLabel: trip.departureLabel,
+    );
+  }
+
+  Future<void> _openActiveTrip() async {
+    if (_state.status == DriverStatus.loading) await _load();
+    if (!mounted) return;
+    if (_state.status == DriverStatus.failed) {
+      RoutbToast.show(
+        context,
+        'No se pudieron cargar tus rutas. Intenta de nuevo.',
+      );
+      return;
+    }
+
+    final trip = _nearestTrip;
+    if (trip == null) {
+      final shortcut = await Navigator.of(context).push<ActiveTripShortcut>(
+        RoutbPageRoute<ActiveTripShortcut>(
+          child: const ActiveTripEmptyScreen(role: UserRole.driver),
+        ),
+      );
+      if (shortcut == ActiveTripShortcut.publish && mounted) {
+        setState(() => _tab = _DriverTab.routes);
+        await _openPublishSheet(widget.account);
+      }
+      return;
+    }
+
+    await _openDetail(trip);
   }
 
   Future<void> _load() async {
@@ -111,12 +271,17 @@ class _DriverScreenState extends State<DriverScreen> {
       final enriched = current;
 
       if (!mounted) return;
+      final previous = _state.selected;
+      final selected = previous == null
+          ? enriched.firstOrNull
+          : enriched.where((trip) => trip.id == previous.id).firstOrNull ??
+                enriched.firstOrNull;
       setState(() {
         _state = DriverState(
           status: DriverStatus.ready,
           trips: enriched,
           history: history,
-          selected: enriched.firstOrNull,
+          selected: selected,
         );
       });
     } on Exception catch (error, stack) {
@@ -282,11 +447,27 @@ class _DriverScreenState extends State<DriverScreen> {
     }
   }
 
-  Future<void> _openPublishSheet() async {
+  Future<void> _openPublishSheet(Account account) async {
+    final auth = RoutbScopeDependencies.of(context).auth;
+    UserProfile profile;
+    try {
+      profile = await auth.fetchProfile();
+    } on Exception catch (error, stack) {
+      logFailure('la consulta del perfil antes de publicar', error, stack);
+      if (!mounted) return;
+      RoutbToast.show(context, describeFailure(error));
+      return;
+    }
+    if (!mounted) return;
+    if (!profile.hasCompleteVehicle) {
+      await _showVehicleRequired(profile);
+      return;
+    }
+
     final draft = await showPublishRouteSheet(
       context: context,
-      driverName: widget.account.name,
-      driverInitials: initialsOf(widget.account.name),
+      driverName: account.name,
+      driverInitials: initialsOf(account.name),
     );
     if (draft == null || !mounted) return;
 
@@ -313,40 +494,87 @@ class _DriverScreenState extends State<DriverScreen> {
       RoutbToast.show(context, 'Ruta publicada. Ya la ven los pasajeros');
     } on ApiException catch (error) {
       if (!mounted) return;
+      if (error.detail == 'vehicle_required') {
+        await _showVehicleRequired();
+        return;
+      }
       RoutbToast.show(context, error.message);
     }
   }
 
-  Future<void> _logout() async {
-    final dependencies = RoutbScopeDependencies.of(context);
-    await dependencies.push.logout();
-    await dependencies.auth.logout();
-    if (!mounted) return;
-    Navigator.of(context).pushAndRemoveUntil(
-      RoutbPageRoute<void>(child: const AuthFlow()),
-      (route) => false,
+  /// N2: sin modelo, color y placa el servidor no permite publicar.
+  ///
+  /// Se avisa antes de abrir el formulario y se lleva a Perfil, donde vive la
+  /// tarjeta «Vehículo». El resto de la app sigue disponible.
+  Future<void> _showVehicleRequired([UserProfile? profile]) async {
+    final missing = profile?.missingVehicleFields ?? const <String>[];
+    final detail = missing.isEmpty
+        ? 'Registra el modelo, el color y la placa para publicar una ruta.'
+        : 'Falta completar: ${missing.join(', ')}.';
+    final goToProfile = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Configura tu vehículo'),
+        content: Text(
+          '$detail\n\nSin esos datos no puedes publicar rutas. Puedes '
+          'completarlos en Perfil → Vehículo.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Ahora no'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Ir a Perfil'),
+          ),
+        ],
+      ),
     );
-    RoutbToast.show(context, 'Cerraste sesión');
+    if (goToProfile == true && mounted) {
+      setState(() => _tab = _DriverTab.profile);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final dependencies = RoutbScopeDependencies.of(context);
+    return ValueListenableBuilder<String?>(
+      valueListenable: dependencies.profileName,
+      builder: (context, profileName, _) {
+        final name = (profileName ?? widget.account.name).trim();
+        return _build(
+          context,
+          Account(
+            name: name.isEmpty ? widget.account.name : name,
+            role: widget.account.role,
+            token: widget.account.token,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _build(BuildContext context, Account account) {
     final palette = context.palette;
 
     return Scaffold(
       backgroundColor: palette.background,
       floatingActionButton:
           _tab == _DriverTab.routes && _state.status == DriverStatus.ready
-          ? _NewRouteButton(onPressed: _openPublishSheet)
+          ? _NewRouteButton(onPressed: () => _openPublishSheet(account))
           : null,
       bottomNavigationBar: RoutbNavBar(
         items: const [
           RoutbNavItem(label: 'Mis rutas', icon: Icons.route_rounded),
           RoutbNavItem(label: 'Historial', icon: Icons.history_rounded),
+          RoutbNavItem(label: 'Seguridad', icon: Icons.shield_outlined),
           RoutbNavItem(label: 'Perfil', icon: Icons.person_outline_rounded),
         ],
         selectedIndex: _tab.index,
         onSelected: (index) => setState(() => _tab = _DriverTab.values[index]),
+        onCenterTap: _openActiveTrip,
+        centerActive: _nearestTrip != null,
       ),
       body: SafeArea(
         bottom: false,
@@ -365,7 +593,7 @@ class _DriverScreenState extends State<DriverScreen> {
                       onRetry: _load,
                     ),
                     DriverStatus.ready => _Body(
-                      account: widget.account,
+                      account: account,
                       state: _state,
                       busyRequests: _busyRequests,
                       highlightedTripId: _highlightedTripId,
@@ -377,17 +605,19 @@ class _DriverScreenState extends State<DriverScreen> {
                       onOpenPreview: _openRequestPreview,
                       onCancel: _confirmCancel,
                       onOpenDetail: _openDetail,
-                      onLogout: _logout,
                       onRefresh: _load,
                     ),
                   },
                   _DriverTab.history => _HistoryTab(
-                    account: widget.account,
                     state: _state,
-                    onLogout: _logout,
                     onRefresh: _load,
                   ),
-                  _DriverTab.profile => ProfileScreen(account: widget.account),
+                  _DriverTab.security => SecurityScreen(
+                    role: UserRole.driver,
+                    userName: account.name,
+                    activeTrip: _activeTripInfo,
+                  ),
+                  _DriverTab.profile => ProfileScreen(account: account),
                 },
               ),
             );
@@ -448,7 +678,6 @@ class _Body extends StatelessWidget {
     required this.onOpenPreview,
     required this.onCancel,
     required this.onOpenDetail,
-    required this.onLogout,
     required this.onRefresh,
   });
 
@@ -462,7 +691,6 @@ class _Body extends StatelessWidget {
   final void Function(Trip trip, TripRequest request) onOpenPreview;
   final ValueChanged<Trip> onCancel;
   final ValueChanged<Trip> onOpenDetail;
-  final VoidCallback onLogout;
   final Future<void> Function() onRefresh;
 
   @override
@@ -472,15 +700,11 @@ class _Body extends StatelessWidget {
     return RefreshIndicator(
       onRefresh: onRefresh,
       child: CustomScrollView(
+        key: const PageStorageKey<String>('driver-routes'),
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
           SliverToBoxAdapter(
-            child: HeroSection(
-              userName: account.name,
-              role: UserRole.driver,
-              trip: state.selected,
-              onLogout: onLogout,
-            ),
+            child: HeroSection(userName: account.name, trip: state.selected),
           ),
           // El cuerpo queda ligeramente separado del hero para que las
           // secciones respiren sin cambiar la posición ni el tamaño del hero.
@@ -576,18 +800,10 @@ class _Body extends StatelessWidget {
 
 /// Hero del modo conductor: mapa, hora y cupos de la ruta seleccionada.
 class HeroSection extends StatelessWidget {
-  const HeroSection({
-    required this.userName,
-    required this.role,
-    required this.trip,
-    required this.onLogout,
-    super.key,
-  });
+  const HeroSection({required this.userName, required this.trip, super.key});
 
   final String userName;
-  final UserRole role;
   final Trip? trip;
-  final VoidCallback onLogout;
 
   @override
   Widget build(BuildContext context) {
@@ -607,12 +823,7 @@ class HeroSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 12),
-          HeroBar(
-            role: role,
-            userName: userName,
-            onLogout: onLogout,
-            isDarkBackground: true,
-          ),
+          HeroBar(userName: userName, wave: true),
           const SizedBox(height: 16),
           if (selected == null)
             _EmptyHeroMessage()
@@ -798,49 +1009,18 @@ class _NewRouteButton extends StatelessWidget {
 /// Sigue el mismo esquema que «Mis viajes» del pasajero: un hero con la cuenta
 /// y debajo la lista. Las rutas vigentes siguen en «Mis rutas».
 class _HistoryTab extends StatelessWidget {
-  const _HistoryTab({
-    required this.account,
-    required this.state,
-    required this.onLogout,
-    required this.onRefresh,
-  });
+  const _HistoryTab({required this.state, required this.onRefresh});
 
-  final Account account;
   final DriverState state;
-  final VoidCallback onLogout;
   final Future<void> Function() onRefresh;
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.palette;
-
     return Column(
       children: [
-        Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            gradient: palette.heroGradient,
-            borderRadius: const BorderRadius.vertical(
-              bottom: Radius.circular(30),
-            ),
-          ),
-          padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              HeroBar(
-                role: UserRole.driver,
-                userName: account.name,
-                onLogout: onLogout,
-                isDarkBackground: true,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Historial',
-                style: RoutbText.headline(22, color: Colors.white),
-              ),
-            ],
-          ),
+        const RoutbSectionHeader(
+          title: 'Historial',
+          subtitle: 'Rutas canceladas o que ya pasaron',
         ),
         Expanded(
           child: switch (state.status) {
@@ -873,6 +1053,7 @@ class _HistoryList extends StatelessWidget {
       onRefresh: onRefresh,
       child: trips.isEmpty
           ? ListView(
+              key: const PageStorageKey<String>('driver-history-empty'),
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(24),
               children: const [
@@ -886,6 +1067,7 @@ class _HistoryList extends StatelessWidget {
               ],
             )
           : ListView.builder(
+              key: const PageStorageKey<String>('driver-history'),
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(14, 16, 14, 24),
               itemCount: trips.length,

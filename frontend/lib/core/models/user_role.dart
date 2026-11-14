@@ -20,12 +20,6 @@ enum UserRole {
     UserRole.driver => 'Comparte tu ruta y ayuda a otros estudiantes.',
   };
 
-  /// Encabezado del hero de cada modo.
-  String get modeLabel => switch (this) {
-    UserRole.passenger => 'Modo pasajero',
-    UserRole.driver => 'Modo conductor',
-  };
-
   /// Insignia que confirma el registro.
   String get registrationLabel => switch (this) {
     UserRole.passenger => 'Registro como pasajero',

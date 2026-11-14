@@ -54,6 +54,21 @@ def _get_app():
         return None
 
 
+# Canales de Android registrados por la app. La solicitud nueva usa un canal
+# propio con un patrón de vibración más intenso para que el conductor la
+# distinga de una actualización normal (G21).
+_ANDROID_CHANNEL_UPDATES = "routb_updates"
+_ANDROID_CHANNEL_NEW_REQUESTS = "routb_new_requests"
+
+
+def android_channel_for_event(data: dict | None) -> str:
+    """Canal Android que debe usar la notificación según su evento."""
+    event = (data or {}).get("event")
+    if event == "request_created":
+        return _ANDROID_CHANNEL_NEW_REQUESTS
+    return _ANDROID_CHANNEL_UPDATES
+
+
 def send_push(
     tokens: list[str],
     title: str,
@@ -80,11 +95,17 @@ def send_push(
 
     from firebase_admin import messaging
 
+    channel_id = android_channel_for_event(data)
     messages = [
         messaging.Message(
             notification=messaging.Notification(title=title, body=body),
             data=data or {},
             token=token,
+            android=messaging.AndroidConfig(
+                notification=messaging.AndroidNotification(
+                    channel_id=channel_id,
+                )
+            ),
         )
         for token in tokens
     ]

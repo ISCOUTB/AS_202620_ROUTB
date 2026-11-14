@@ -62,14 +62,12 @@ Map<String, dynamic> _profileJson({
   required String lastName,
   required String phone,
   required String role,
-  String? consentAt,
 }) => <String, dynamic>{
   'id': 7,
   'name': name,
   'last_name': lastName,
   'phone': phone,
   'role': role,
-  'location_consent_at': consentAt,
 };
 
 /// Respuestas del modo conductor: una ruta vigente, otra cancelada y una
@@ -127,7 +125,32 @@ class _DriverApi {
   });
 }
 
-/// Respuestas del modo pasajero: sin viajes y con el consentimiento vigente.
+/// Respuestas del modo conductor sin rutas publicadas.
+class _EmptyDriverApi {
+  late final http.Client client = MockClient((request) async {
+    final path = request.url.path;
+    if (request.method == 'GET' && path == '/trips/my-trips') {
+      return http.Response('[]', 200, headers: _json);
+    }
+    if (request.method == 'GET' && path == '/auth/me') {
+      return http.Response(
+        jsonEncode(
+          _profileJson(
+            name: 'Sebastián',
+            lastName: 'Ríos',
+            phone: '3001234567',
+            role: 'driver',
+          ),
+        ),
+        200,
+        headers: _json,
+      );
+    }
+    return http.Response('{"detail":"Not Found"}', 404, headers: _json);
+  });
+}
+
+/// Respuestas del modo pasajero: sin viajes.
 class _PassengerApi {
   late final http.Client client = MockClient((request) async {
     final path = request.url.path;
@@ -143,7 +166,6 @@ class _PassengerApi {
             lastName: 'García',
             phone: '3007654321',
             role: 'passenger',
-            consentAt: DateTime(2026, 10, 9, 12).toIso8601String(),
           ),
         ),
         200,
@@ -169,11 +191,11 @@ RoutbDependencies _dependencies(http.Client client) {
 
 /// Monta la pantalla con las dos piezas que necesita: el tema y las
 /// dependencias.
-Widget _app(RoutbDependencies dependencies, Widget home) => MaterialApp(
-  theme: RoutbTheme.light(),
-  home: RoutbScope(
-    controller: dependencies.theme,
-    child: RoutbScopeDependencies(dependencies: dependencies, child: home),
+Widget _app(RoutbDependencies dependencies, Widget home) => RoutbScope(
+  controller: dependencies.theme,
+  child: RoutbScopeDependencies(
+    dependencies: dependencies,
+    child: MaterialApp(theme: RoutbTheme.light(), home: home),
   ),
 );
 
@@ -196,9 +218,15 @@ Future<void> _settle(WidgetTester tester) async {
   }
 }
 
+/// Abre la hoja «Editar cuenta».
+Future<void> _openEditAccount(WidgetTester tester) async {
+  await tester.tap(find.text('Editar cuenta'));
+  await _settle(tester);
+}
+
 /// Baja hasta el final de la lista del perfil para alcanzar el botón de salir.
 Future<void> _scrollToLogout(WidgetTester tester) async {
-  await tester.drag(find.byType(ListView), const Offset(0, -400));
+  await tester.drag(find.byType(ListView), const Offset(0, -500));
   await _settle(tester);
 }
 
@@ -237,7 +265,7 @@ void main() {
       expect(find.text('Nueva ruta'), findsNothing);
     });
 
-    testWidgets('la pestaña de perfil reúne datos, modo y ubicación', (
+    testWidgets('la pestaña de perfil reúne datos, modo y permisos', (
       tester,
     ) async {
       _usePhone(tester, const Size(390, 844));
@@ -255,8 +283,17 @@ void main() {
       expect(find.text('Sebastián Ríos'), findsOneWidget);
       expect(find.text('3001234567'), findsOneWidget);
       expect(find.text('Modo de pantalla'), findsOneWidget);
-      // Sin consentimiento, el perfil ofrece autorizar.
-      expect(find.text('Autorizar ubicación'), findsOneWidget);
+      expect(find.text('Permisos'), findsOneWidget);
+      expect(find.text('Editar cuenta'), findsOneWidget);
+      expect(find.text('Editar perfil'), findsNothing);
+      expect(find.text('Salir'), findsNothing);
+
+      await _openEditAccount(tester);
+      expect(find.text('Editar datos personales'), findsOneWidget);
+      expect(find.text('Cambiar contraseña'), findsOneWidget);
+      expect(find.text('Eliminar mi cuenta'), findsOneWidget);
+      await tester.pageBack();
+      await _settle(tester);
 
       await _scrollToLogout(tester);
       expect(find.text('Cerrar sesión'), findsOneWidget);
@@ -354,6 +391,117 @@ void main() {
         findsOneWidget,
       );
     });
+
+    testWidgets(
+      'la barra tiene Seguridad y el centro abre la ruta más próxima',
+      (tester) async {
+        _usePhone(tester, const Size(390, 844));
+        final dependencies = _dependencies(_DriverApi().client);
+        addTearDown(dependencies.dispose);
+
+        await tester.pumpWidget(
+          _app(dependencies, DriverScreen(account: _driver)),
+        );
+        await _settle(tester);
+
+        expect(find.byType(RoutbNavBar), findsOneWidget);
+        expect(_tab('Seguridad'), findsOneWidget);
+        expect(find.byKey(const Key('routb-center-action')), findsOneWidget);
+
+        await tester.tap(find.byKey(const Key('routb-center-action')));
+        await _settle(tester);
+
+        expect(find.text('Detalle de la ruta'), findsOneWidget);
+      },
+    );
+
+    testWidgets('sin rutas el centro ofrece publicar una ruta', (tester) async {
+      _usePhone(tester, const Size(390, 844));
+      final dependencies = _dependencies(_EmptyDriverApi().client);
+      addTearDown(dependencies.dispose);
+
+      await tester.pumpWidget(
+        _app(dependencies, DriverScreen(account: _driver)),
+      );
+      await _settle(tester);
+
+      await tester.tap(find.byKey(const Key('routb-center-action')));
+      await _settle(tester);
+
+      expect(find.text('No tienes una ruta activa'), findsOneWidget);
+      expect(find.text('Publicar ruta'), findsOneWidget);
+    });
+
+    testWidgets('el saludo solo vive en Mis rutas', (tester) async {
+      _usePhone(tester, const Size(390, 844));
+      final dependencies = _dependencies(_DriverApi().client);
+      addTearDown(dependencies.dispose);
+
+      await tester.pumpWidget(
+        _app(dependencies, DriverScreen(account: _driver)),
+      );
+      await _settle(tester);
+
+      expect(find.textContaining('Hola, Sebastián'), findsOneWidget);
+      expect(find.textContaining('Modo conductor'), findsNothing);
+      expect(find.text('Salir'), findsNothing);
+
+      for (final tab in const <String>['Historial', 'Seguridad', 'Perfil']) {
+        await tester.tap(_tab(tab));
+        await _settle(tester);
+        expect(
+          find.textContaining('Hola, Sebastián'),
+          findsNothing,
+          reason: 'El saludo no debe salir en $tab',
+        );
+      }
+    });
+
+    testWidgets('un push de solicitud nueva lleva a Mis rutas', (tester) async {
+      _usePhone(tester, const Size(390, 844));
+      final dependencies = _dependencies(_DriverApi().client);
+      addTearDown(dependencies.dispose);
+
+      await tester.pumpWidget(
+        _app(dependencies, DriverScreen(account: _driver)),
+      );
+      await _settle(tester);
+      await tester.tap(_tab('Historial'));
+      await _settle(tester);
+
+      dependencies.push.emitForTest(
+        const RoutbPushEvent(
+          title: 'Nueva solicitud',
+          body: 'Un pasajero solicita cupo.',
+          event: 'request_created',
+          tripId: 1,
+          foreground: false,
+        ),
+      );
+      await _settle(tester);
+
+      expect(find.text('Nueva ruta'), findsOneWidget);
+    });
+
+    testWidgets('Seguridad muestra el 123 y las tres entradas', (tester) async {
+      _usePhone(tester, const Size(360, 640));
+      final dependencies = _dependencies(_DriverApi().client);
+      addTearDown(dependencies.dispose);
+
+      await tester.pumpWidget(
+        _app(dependencies, DriverScreen(account: _driver)),
+      );
+      await _settle(tester);
+
+      await tester.tap(_tab('Seguridad'));
+      await _settle(tester);
+
+      expect(find.text('Llamar al 123'), findsOneWidget);
+      expect(find.text('Soporte'), findsOneWidget);
+      expect(find.text('Contactos de emergencia'), findsOneWidget);
+      expect(find.text('Información de seguridad'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
   });
 
   group('Modo pasajero', () {
@@ -375,10 +523,64 @@ void main() {
       expect(find.text('Ana García'), findsOneWidget);
       expect(find.text('Pasajero'), findsOneWidget);
       expect(find.text('Modo de pantalla'), findsOneWidget);
-      expect(find.text('Autorizado'), findsOneWidget);
+      expect(find.text('Permisos'), findsOneWidget);
+      expect(find.text('Editar cuenta'), findsOneWidget);
+      expect(find.text('Editar perfil'), findsNothing);
+      expect(find.text('Salir'), findsNothing);
+
+      await _openEditAccount(tester);
+      expect(find.text('Editar datos personales'), findsOneWidget);
+      expect(find.text('Pasajero'), findsNothing);
+      expect(find.text('Cambiar contraseña'), findsOneWidget);
+      expect(find.text('Eliminar mi cuenta'), findsOneWidget);
+      await tester.pageBack();
+      await _settle(tester);
 
       await _scrollToLogout(tester);
       expect(find.text('Cerrar sesión'), findsOneWidget);
+    });
+
+    testWidgets('el saludo solo vive en Viajes', (tester) async {
+      _usePhone(tester, const Size(390, 844));
+      final dependencies = _dependencies(_PassengerApi().client);
+      addTearDown(dependencies.dispose);
+
+      await tester.pumpWidget(
+        _app(dependencies, PassengerScreen(account: _passenger)),
+      );
+      await _settle(tester);
+
+      expect(find.textContaining('Hola, Ana'), findsOneWidget);
+      expect(_tab('Viajes'), findsOneWidget);
+      expect(find.textContaining('Modo pasajero'), findsNothing);
+      expect(find.text('Salir'), findsNothing);
+
+      for (final tab in const <String>['Historial', 'Seguridad', 'Perfil']) {
+        await tester.tap(_tab(tab));
+        await _settle(tester);
+        expect(
+          find.textContaining('Hola, Ana'),
+          findsNothing,
+          reason: 'El saludo no debe salir en $tab',
+        );
+      }
+    });
+
+    testWidgets('la barra del pasajero tiene Seguridad y el centro', (
+      tester,
+    ) async {
+      _usePhone(tester, const Size(320, 568));
+      final dependencies = _dependencies(_PassengerApi().client);
+      addTearDown(dependencies.dispose);
+
+      await tester.pumpWidget(
+        _app(dependencies, PassengerScreen(account: _passenger)),
+      );
+      await _settle(tester);
+
+      expect(_tab('Seguridad'), findsOneWidget);
+      expect(find.byKey(const Key('routb-center-action')), findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
   });
 }

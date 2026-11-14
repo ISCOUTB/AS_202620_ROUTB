@@ -9,6 +9,7 @@ class TripRequestStop {
     required this.placeType,
     required this.addressText,
     this.stopSequence,
+    this.etaEstimated,
   });
 
   factory TripRequestStop.fromJson(Map<String, dynamic> json) =>
@@ -17,12 +18,22 @@ class TripRequestStop {
         placeType: json['place_type'] as String? ?? 'door',
         addressText: json['address_text'] as String? ?? '',
         stopSequence: json['stop_seq'] as int?,
+        etaEstimated: DateTime.tryParse(json['eta_estimated'] as String? ?? ''),
       );
 
   final int seats;
   final String placeType;
   final String addressText;
   final int? stopSequence;
+
+  /// Hora estimada de llegada a la parada, calculada por el backend.
+  ///
+  /// Es `null` mientras la solicitud está pendiente o cuando el viaje no
+  /// tiene geometría de ruta.
+  final DateTime? etaEstimated;
+
+  /// Hora local de recogida, o `null` si el backend no la calculó.
+  DateTime? get etaLocal => etaEstimated?.toLocal();
 }
 
 /// Solicitud de cupos que un pasajero envía sobre un viaje.

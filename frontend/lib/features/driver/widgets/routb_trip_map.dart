@@ -66,6 +66,7 @@ class RoutbTripMap extends StatelessWidget {
       destination: trip.destination,
       waypoints: effectiveWaypoints,
       waypointCoordinate: waypointCoordinate,
+      routePoints: trip.routePoints,
       height: height,
       phase: trip.phaseAt(DateTime.now()),
       showPhase: showPhase,

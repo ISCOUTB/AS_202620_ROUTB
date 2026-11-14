@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../constants/zones.dart';
 import 'initials.dart';
+import 'route_points.dart';
 import 'travel_time.dart';
 import 'trip_request.dart';
 import 'trip_status.dart';
@@ -34,6 +36,7 @@ class MyRequest {
     this.vehicleInfo,
     this.canWithdraw = true,
     this.stops = const <TripRequestStop>[],
+    this.routePoints = const <LatLng>[],
   });
 
   /// Identificador de la solicitud, el que se usa para retirarla.
@@ -96,6 +99,9 @@ class MyRequest {
   /// Paradas intermedias o puntos de recogida asociados a esta solicitud.
   final List<TripRequestStop> stops;
 
+  /// Geometría de la ruta calculada por el backend para este viaje.
+  final List<LatLng> routePoints;
+
   /// Lee la solicitud que devuelve `GET /requests/me`.
   factory MyRequest.fromJson(Map<String, dynamic> json) {
     final rawDeparture = (json['departure_time'] as String?)?.trim() ?? '';
@@ -129,6 +135,7 @@ class MyRequest {
                 .whereType<Map<String, dynamic>>()
                 .map(TripRequestStop.fromJson)
                 .toList(growable: false),
+      routePoints: routePointsFromJson(json['route_points']),
     );
   }
 
@@ -157,6 +164,14 @@ class MyRequest {
   /// `true` cuando el viaje ya no sale, porque se canceló.
   bool get isOrphaned => !tripStatus.isActive;
 
+  /// `true` si el viaje se completó: el cupo estaba confirmado y la salida ya
+  /// pasó sin que la ruta se cancelara.
+  bool get isCompleted => isConfirmed && isPast && !isOrphaned;
+
+  /// `true` si la solicitud terminó sin completarse: se rechazó, venció, la
+  /// canceló el pasajero, otra persona ocupó el cupo o la ruta se canceló.
+  bool get isHistoryCancelled => !isActive && !isCompleted;
+
   /// `true` cuando ya pasó el día y la duración estimada del viaje.
   bool get isPast {
     final date = departureDate;
@@ -170,15 +185,23 @@ class MyRequest {
   }
 
   /// Texto de la píldora de estado.
+  ///
+  /// Los estados terminales van antes que [isPast] para que una solicitud
+  /// rechazada o vencida no se muestre como «Viaje finalizado» solo porque su
+  /// fecha ya pasó. En el historial eso importa: la sección «Cancelados»
+  /// conserva el motivo real.
   String get statusLabel {
     if (isOrphaned) return 'Viaje cancelado';
-    if (isPast) return 'Viaje finalizado';
-    if (isConfirmed) return 'Cupo confirmado';
-    if (isPending) return 'Solicitud enviada';
+    if (isCompleted) return 'Viaje finalizado';
+    if (status == SeatRequestStatus.rejected) return 'No aceptada';
     if (status == SeatRequestStatus.cancelled) {
       return 'Cancelada por otra aceptación';
     }
-    if (status == SeatRequestStatus.expired) return 'Solicitud vencida';
+    if (status == SeatRequestStatus.expired || (isPending && isPast)) {
+      return 'Solicitud vencida';
+    }
+    if (isConfirmed) return 'Cupo confirmado';
+    if (isPending) return 'Solicitud enviada';
     return 'No aceptada';
   }
 
@@ -245,6 +268,7 @@ class MyRequest {
     driverPhone: driverPhone,
     vehicleInfo: vehicleInfo,
     canWithdraw: canWithdraw ?? this.canWithdraw,
+    routePoints: routePoints,
   );
 
   @override

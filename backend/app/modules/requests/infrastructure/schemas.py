@@ -1,6 +1,8 @@
 from datetime import date, datetime
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.shared.schemas import RoutePoint
+
 
 class RequestStopCreate(BaseModel):
     seats: int = Field(ge=1, le=4)
@@ -88,3 +90,7 @@ class MyRequestResponse(BaseModel):
     driver_phone: str | None = None
     vehicle_info: str | None = None
     stops: list[RequestStopResponse] = []
+    route_points: list[RoutePoint] = Field(
+        default_factory=list,
+        description="Puntos (lat, lng) de la ruta calculada para el viaje.",
+    )

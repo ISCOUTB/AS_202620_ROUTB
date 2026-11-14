@@ -63,6 +63,12 @@ def test_output_acepta_archivo_dentro_de_evidencia():
     assert output == script.EVIDENCE_DIR / "medicion-semana14-prueba.json"
 
 
+def test_output_acepta_puntos_y_guiones_bajos_en_el_nombre():
+    script = _script()
+    output = script._validate_output_path("docs/evidencia/medicion_2026.11.json")
+    assert output == script.EVIDENCE_DIR / "medicion_2026.11.json"
+
+
 @pytest.mark.parametrize(
     "output",
     [
@@ -72,6 +78,21 @@ def test_output_acepta_archivo_dentro_de_evidencia():
     ],
 )
 def test_output_rechaza_rutas_fuera_de_evidencia(output):
+    script = _script()
+    with pytest.raises(ValueError):
+        script._validate_output_path(output)
+
+
+@pytest.mark.parametrize(
+    "output",
+    [
+        "docs/evidencia/sub/medicion.json",
+        "docs/evidencia/archivo con espacios.json",
+        "docs/evidencia/.oculto.json",
+        "docs/evidencia/archivo:raro.json",
+    ],
+)
+def test_output_rechaza_subdirectorios_y_nombres_no_simples(output):
     script = _script()
     with pytest.raises(ValueError):
         script._validate_output_path(output)
