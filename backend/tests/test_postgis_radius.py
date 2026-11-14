@@ -44,3 +44,57 @@ def test_postgis_geography_radius():
             )
         ).scalar()
         assert result_far is False
+
+
+def test_migracion_012_deja_indice_gist_sobre_expresion_geography():
+    """El indice espacial de `trips` cubre `route_geom::geography`.
+
+    Un GiST sobre la columna `geometry` no sirve para la consulta de
+    matching, que castea a `geography`. Tambien se comprueba que no queden
+    dos indices equivalentes (el de la migracion 006 y el de la 012).
+    """
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text(
+                "SELECT indexname, indexdef FROM pg_indexes "
+                "WHERE schemaname = 'public' AND tablename = 'trips' "
+                "AND indexname IN ('idx_trips_route_geom_gist', 'idx_trips_route_geog')"
+            )
+        ).mappings().all()
+
+    indices = {row["indexname"]: row["indexdef"] for row in rows}
+    assert "idx_trips_route_geom_gist" in indices
+    assert "idx_trips_route_geog" not in indices
+
+    definicion = indices["idx_trips_route_geom_gist"]
+    assert "USING gist" in definicion
+    assert "route_geom" in definicion
+    assert "::geography" in definicion
+
+
+def test_planificador_usa_indice_gist_en_st_dwithin():
+    """Con seqscan desactivado, el plan elige el GiST de `route_geom`.
+
+    La tabla puede estar vacia: el objetivo es demostrar que el indice es
+    elegible para la misma expresion que usa `suggest_trips`.
+    """
+    with engine.begin() as conn:
+        conn.execute(text("SET LOCAL enable_seqscan = off"))
+        plan = conn.execute(
+            text(
+                """
+                EXPLAIN
+                SELECT t.id
+                FROM trips t
+                WHERE t.route_geom IS NOT NULL
+                  AND ST_DWithin(
+                      t.route_geom::geography,
+                      ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography,
+                      :radius_m
+                  )
+                """
+            ),
+            {"lng": -75.5478, "lat": 10.4236, "radius_m": 800},
+        ).scalars().all()
+
+    assert "idx_trips_route_geom_gist" in "\n".join(plan)

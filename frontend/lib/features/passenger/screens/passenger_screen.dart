@@ -51,7 +51,12 @@ class PassengerScreen extends StatefulWidget {
   State<PassengerScreen> createState() => _PassengerScreenState();
 }
 
-class _PassengerScreenState extends State<PassengerScreen> {
+class _PassengerScreenState extends State<PassengerScreen>
+    with WidgetsBindingObserver {
+  /// Cadencia del sondeo de rescate: ni tan corta que gaste batería ni tan
+  /// larga que el pasajero se quede esperando una respuesta que ya llegó.
+  static const Duration _pollInterval = Duration(seconds: 15);
+
   final TextEditingController _origin = TextEditingController();
   final TextEditingController _destination = TextEditingController();
 
@@ -60,7 +65,10 @@ class _PassengerScreenState extends State<PassengerScreen> {
   List<MyRequest> _myRequests = const <MyRequest>[];
   String _errorMessage = '';
   Timer? _debounce;
+  Timer? _pollTimer;
   bool _filtering = false;
+  bool _appInForeground = true;
+  bool _myRequestsInFlight = false;
   DateTime _selectedDate = TripSchedule.dateOnly(DateTime.now());
   _PassengerTab _selectedTab = _PassengerTab.search;
   bool _myRequestsLoading = true;
@@ -69,6 +77,12 @@ class _PassengerScreenState extends State<PassengerScreen> {
   bool _asked = false;
   ValueNotifier<int>? _refreshSignal;
   VoidCallback? _refreshListener;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
 
   @override
   void didChangeDependencies() {
@@ -96,6 +110,8 @@ class _PassengerScreenState extends State<PassengerScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _pollTimer?.cancel();
     if (_refreshSignal != null && _refreshListener != null) {
       _refreshSignal!.removeListener(_refreshListener!);
     }
@@ -103,6 +119,16 @@ class _PassengerScreenState extends State<PassengerScreen> {
     _origin.dispose();
     _destination.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final foreground = state == AppLifecycleState.resumed;
+    if (foreground == _appInForeground) return;
+    _appInForeground = foreground;
+    // Al volver se reanuda solo si sigue habiendo una solicitud pendiente; en
+    // segundo plano se apaga para no drenar la batería.
+    _evaluatePolling();
   }
 
   TripRepository get _repository => RoutbScopeDependencies.of(context).trips;
@@ -141,8 +167,12 @@ class _PassengerScreenState extends State<PassengerScreen> {
     }
   }
 
-  Future<void> _loadMyRequests() async {
-    if (mounted) {
+  Future<void> _loadMyRequests({bool silent = false}) async {
+    // Una consulta anterior puede seguir en curso: el sondeo se salta el turno
+    // en vez de encadenar peticiones sobre redes lentas.
+    if (_myRequestsInFlight) return;
+    _myRequestsInFlight = true;
+    if (mounted && !silent) {
       setState(() {
         _myRequestsLoading = true;
         _myRequestsFailed = false;
@@ -154,15 +184,43 @@ class _PassengerScreenState extends State<PassengerScreen> {
       setState(() {
         _myRequests = requests;
         _myRequestsLoading = false;
+        _myRequestsFailed = false;
       });
+      _evaluatePolling();
     } on Exception catch (error, stack) {
       logFailure('la carga de mis solicitudes', error, stack);
       if (!mounted) return;
-      setState(() {
-        _myRequestsLoading = false;
-        _myRequestsFailed = true;
-      });
+      // Un fallo del sondeo no debe borrar la lista que el pasajero ya veía:
+      // se reintenta en el siguiente turno.
+      if (!silent) {
+        setState(() {
+          _myRequestsLoading = false;
+          _myRequestsFailed = true;
+        });
+      }
+    } finally {
+      _myRequestsInFlight = false;
     }
+  }
+
+  /// Mantiene el autorefresco solo mientras haya solicitudes en espera.
+  ///
+  /// Es la red de rescate cuando FCM no llega (permisos denegados, app en
+  /// segundo plano restrictivo o red inestable). Se apaga en cuanto la última
+  /// solicitud deja de estar pendiente o la app pasa a segundo plano.
+  void _evaluatePolling() {
+    final hasPending = _myRequests.any(
+      (request) => request.isPending && request.isActive,
+    );
+    if (!hasPending || !_appInForeground) {
+      _pollTimer?.cancel();
+      _pollTimer = null;
+      return;
+    }
+    _pollTimer ??= Timer.periodic(_pollInterval, (_) {
+      if (_myRequestsInFlight) return;
+      unawaited(_loadMyRequests(silent: true));
+    });
   }
 
   MyRequest? get _currentRequest {

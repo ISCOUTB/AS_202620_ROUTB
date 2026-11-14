@@ -168,9 +168,13 @@ class _ModeRouteState extends State<ModeRoute> {
 
   Future<void> _askForLocationConsent() async {
     final dependencies = RoutbScopeDependencies.of(context);
-    unawaited(dependencies.push.start(onNotification: () {
-      dependencies.requestRefresh.value++;
-    }));
+    unawaited(
+      dependencies.push.start(
+        onNotification: () {
+          dependencies.requestRefresh.value++;
+        },
+      ),
+    );
     if (await dependencies.session.readLocationConsentPrompted()) return;
     if (!mounted) return;
 

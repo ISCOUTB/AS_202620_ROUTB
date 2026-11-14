@@ -55,19 +55,20 @@ abstract final class RoutbTheme {
   static ThemeData dark() => _build(Brightness.dark, RoutbPalette.dark);
 
   static ThemeData _build(Brightness brightness, RoutbPalette palette) {
-    final scheme = ColorScheme.fromSeed(
-      seedColor: palette.brand,
-      brightness: brightness,
-    ).copyWith(
-      primary: palette.brand,
-      onPrimary: palette.onBrand,
-      surface: palette.card,
-      onSurface: palette.ink,
-      surfaceContainerHighest: palette.surface,
-      outlineVariant: palette.line,
-      error: palette.rose,
-      onError: palette.onBrand,
-    );
+    final scheme =
+        ColorScheme.fromSeed(
+          seedColor: palette.brand,
+          brightness: brightness,
+        ).copyWith(
+          primary: palette.brand,
+          onPrimary: palette.onBrand,
+          surface: palette.card,
+          onSurface: palette.ink,
+          surfaceContainerHighest: palette.surface,
+          outlineVariant: palette.line,
+          error: palette.rose,
+          onError: palette.onBrand,
+        );
 
     final textTheme = RoutbText.textTheme(palette.ink, palette.muted);
 
@@ -157,7 +158,9 @@ abstract final class RoutbTheme {
       // Avisos propios: la app usa `RoutbToast`, no `SnackBar`.
       snackBarTheme: SnackBarThemeData(
         backgroundColor: palette.ink,
-        contentTextStyle: textTheme.bodyMedium?.copyWith(color: palette.background),
+        contentTextStyle: textTheme.bodyMedium?.copyWith(
+          color: palette.background,
+        ),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(radiusField),

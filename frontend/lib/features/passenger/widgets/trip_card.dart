@@ -7,6 +7,7 @@ import '../../../core/widgets/date_quick_picker.dart';
 import '../../../core/widgets/routb_card.dart';
 import '../../../core/widgets/routb_route.dart';
 import '../../../core/widgets/routb_seats.dart';
+import '../../../core/widgets/routb_vehicle_badge.dart';
 
 /// `.tk`: tarjeta de un viaje disponible.
 ///
@@ -144,6 +145,13 @@ class TripCard extends StatelessWidget {
               ),
             ],
           ),
+          if (trip.hasVehicleInfo) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: RoutbVehicleBadge(info: trip.vehicleInfo!, dense: true),
+            ),
+          ],
           const SizedBox(height: 14),
           const DashedDivider(),
           const SizedBox(height: 12),

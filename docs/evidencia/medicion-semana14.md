@@ -24,6 +24,10 @@
 - **Calentamiento:** `GET /health` y espera de 5 s antes de la primera ronda.
 - **Repeticiones:** 3 rondas independientes; se reporta el p95 de cada una y se
   contrasta el p95 más alto contra el umbral.
+- **Destino controlado:** el script solo acepta URLs `http`/`https` sin
+  credenciales embebidas, autoriza hosts de loopback por defecto y exige
+  `--allow-host` para cualquier otro host. El JSON de salida solo puede escribirse
+  dentro de `docs/evidencia/`; las rutas de escape se rechazan.
 - **Cálculo del percentil:** rango más cercano, `ceil(n × 0,95) − 1`, igual que
   el procedimiento documentado en
   [`metricas-escenario-calidad.md`](metricas-escenario-calidad.md).
@@ -37,6 +41,7 @@ Comandos ejecutados desde la raíz del repositorio:
 backend\.venv\Scripts\python.exe scripts\medir_rendimiento.py `
   --url https://routb.iscoutb.dev/trips/ `
   --warmup-url https://routb.iscoutb.dev/health `
+  --allow-host routb.iscoutb.dev `
   --label "Dokploy (producción)" `
   --requests 100 --repetitions 3 --warmup-seconds 5 `
   --output docs/evidencia/medicion-semana14-dokploy.json

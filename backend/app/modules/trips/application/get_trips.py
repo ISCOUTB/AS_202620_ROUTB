@@ -1,7 +1,7 @@
 from datetime import date
 
 from sqlalchemy import or_
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.core.timezone import colombia_today
 from app.modules.trips.infrastructure.models import Trip
@@ -40,7 +40,7 @@ def get_driver_trips(db: Session, driver_id: int, scope: str = "active") -> list
     """
     query = (
         db.query(Trip)
-        .options(joinedload(Trip.driver))
+        .options(joinedload(Trip.driver), selectinload(Trip.requests))
         .filter(Trip.driver_id == driver_id)
     )
     if scope == "active":

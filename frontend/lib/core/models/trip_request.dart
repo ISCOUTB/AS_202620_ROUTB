@@ -11,7 +11,8 @@ class TripRequestStop {
     this.stopSequence,
   });
 
-  factory TripRequestStop.fromJson(Map<String, dynamic> json) => TripRequestStop(
+  factory TripRequestStop.fromJson(Map<String, dynamic> json) =>
+      TripRequestStop(
         seats: json['seats'] as int? ?? 1,
         placeType: json['place_type'] as String? ?? 'door',
         addressText: json['address_text'] as String? ?? '',
@@ -80,7 +81,8 @@ class TripRequest {
           : rawName.trim(),
       passengerPhone: json['passenger_phone'] as String? ?? '',
       status: SeatRequestStatus.fromWire(json['status'] as String?),
-      createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ??
+      createdAt:
+          DateTime.tryParse(json['created_at'] as String? ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0),
       stops: (json['stops'] as List? ?? const <dynamic>[])
           .whereType<Map<String, dynamic>>()
@@ -102,16 +104,16 @@ class TripRequest {
   bool get hasPhone => passengerPhone.trim().isNotEmpty;
 
   TripRequest copyWith({SeatRequestStatus? status}) => TripRequest(
-        id: id,
-        tripId: tripId,
-        passengerId: passengerId,
-        seatCount: seatCount,
-        passengerName: passengerName,
-        passengerPhone: passengerPhone,
-        status: status ?? this.status,
-        createdAt: createdAt,
-        stops: stops,
-      );
+    id: id,
+    tripId: tripId,
+    passengerId: passengerId,
+    seatCount: seatCount,
+    passengerName: passengerName,
+    passengerPhone: passengerPhone,
+    status: status ?? this.status,
+    createdAt: createdAt,
+    stops: stops,
+  );
 
   @override
   bool operator ==(Object other) =>
@@ -126,14 +128,14 @@ class TripRequest {
 
   @override
   int get hashCode => Object.hash(
-        id,
-        tripId,
-        passengerId,
-        seatCount,
-        passengerName,
-        passengerPhone,
-        status,
-      );
+    id,
+    tripId,
+    passengerId,
+    seatCount,
+    passengerName,
+    passengerPhone,
+    status,
+  );
 }
 
 /// Consultas sobre la lista de solicitudes de un viaje.

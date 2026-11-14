@@ -98,45 +98,43 @@ class RoutbSheetScaffold extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.max,
         children: [
-            // `.sg`: asa.
-            Container(
-              width: 44,
-              height: 5,
-              margin: const EdgeInsets.only(top: 10),
-              decoration: BoxDecoration(
-                color: palette.line,
-                borderRadius: BorderRadius.circular(9),
-              ),
+          // `.sg`: asa.
+          Container(
+            width: 44,
+            height: 5,
+            margin: const EdgeInsets.only(top: 10),
+            decoration: BoxDecoration(
+              color: palette.line,
+              borderRadius: BorderRadius.circular(9),
             ),
-            // `.sh1`: encabezado con cierre.
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
+          ),
+          // `.sh1`: encabezado con cierre.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: RoutbText.headline(22, color: palette.ink),
+                      ),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 4),
                         Text(
-                          title,
-                          style: RoutbText.headline(22, color: palette.ink),
+                          subtitle!,
+                          style: RoutbText.copy(12, color: palette.muted),
                         ),
-                        if (subtitle != null) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            subtitle!,
-                            style: RoutbText.copy(12, color: palette.muted),
-                          ),
-                        ],
                       ],
-                    ),
+                    ],
                   ),
-                  _SheetCloseButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
+                ),
+                _SheetCloseButton(onPressed: () => Navigator.of(context).pop()),
+              ],
             ),
+          ),
           Expanded(
             child: SingleChildScrollView(
               controller: scrollController,

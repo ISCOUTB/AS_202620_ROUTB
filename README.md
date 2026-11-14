@@ -94,6 +94,9 @@ El recorrido de validación del flujo de autenticación se encuentra implementad
   
   **Conclusion de la última ejecución:** La ejecución de las pruebas automatizadas ha sido exitosa, lo que indica que el código cumple con los estándares de calidad establecidos.
 
+El workflow también valida el frontend en el job `flutter-ci`: verifica el formato
+con `dart format`, ejecuta `flutter analyze` y corre `flutter test`.
+
 ### Análisis de SonarCloud
 
 El análisis de calidad se ejecuta desde GitHub Actions con el scanner oficial

@@ -27,5 +27,8 @@ Las decisiones arquitectónicas que impactan significativamente la estructura, l
 | [ADR 0021](../adr/0021-integridad-solicitudes-y-concurrencia.md) | Aceptado | Garantizar una sola solicitud activa por pasajero y viaje con un índice único parcial y verificar la concurrencia del flujo crear → aceptar. |
 | [ADR 0022](../adr/0022-desacoplamiento-asincrono-notificaciones.md) | Aceptado como prototipo | Desacoplamiento temporal y mensajería asíncrona para notificaciones push ante eventos de viaje (prototipo aislado). |
 | [ADR 0023](../adr/0023-estrategia-de-seguridad-stride-y-auditoria-de-dependencias.md) | Aceptado | Adoptar el modelado de amenazas STRIDE anclado en C4 y la auditoría automatizada de vulnerabilidades en dependencias con pip-audit en CI. |
+| [ADR 0024](../adr/0024-unicidad-de-telefono.md) | Aceptado | Garantizar un solo usuario por teléfono con el índice único `uq_users_phone`, normalizando a 10 dígitos y abortando la migración si hay duplicados. |
+| [ADR 0025](../adr/0025-despacho-push-con-background-tasks.md) | Aceptado | Despachar las notificaciones push con `BackgroundTasks` después del `commit`, con una tarea de fondo autónoma y entrega *at-most-once*. |
+| [ADR 0026](../adr/0026-datos-vehiculo-y-visibilidad.md) | Aceptado | Registrar modelo, color y placa del vehículo como datos opcionales del conductor y exponerlos solo al pasajero con solicitud aceptada. |
 
 ---

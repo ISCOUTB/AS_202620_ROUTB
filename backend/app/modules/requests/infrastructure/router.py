@@ -1,10 +1,11 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.modules.auth.infrastructure.security import get_current_user
+from app.modules.notifications.application.dispatch import send_push_async_safe
 from app.modules.requests.application.create_request import create_request as create_request_use_case
 from app.modules.requests.application.list_requests import (
     get_consolidated_stops_for_request as get_consolidated_stops_for_request_use_case,
@@ -29,6 +30,7 @@ from app.modules.requests.domain.exceptions import (
 )
 from app.modules.requests.infrastructure import schemas
 from app.modules.users.application import UserIdentity
+from app.shared.vehicle import format_vehicle_info
 
 router = APIRouter()
 
@@ -56,6 +58,11 @@ def _to_my_response(req, stops=None) -> schemas.MyRequestResponse:
     trip = req.trip
     driver = trip.driver if trip else None
     resolved_stops = stops if stops is not None else req.stops
+    vehicle_info = (
+        format_vehicle_info(driver)
+        if req.status == "accepted"
+        else None
+    )
     return schemas.MyRequestResponse(
         id=req.id,
         seat_count=req.seat_count,
@@ -72,6 +79,7 @@ def _to_my_response(req, stops=None) -> schemas.MyRequestResponse:
         trip_status=trip.status if trip else "cancelled",
         driver_name=f"{driver.name} {driver.last_name}" if driver else None,
         driver_phone=driver.phone if driver else None,
+        vehicle_info=vehicle_info,
         stops=[
             schemas.RequestStopResponse.model_validate(stop)
             for stop in resolved_stops
@@ -81,12 +89,13 @@ def _to_my_response(req, stops=None) -> schemas.MyRequestResponse:
 @router.post("/trips/{trip_id}", response_model=schemas.TripRequestResponse, status_code=status.HTTP_201_CREATED)
 def request_seat(
     trip_id: int,
+    background_tasks: BackgroundTasks,
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[UserIdentity, Depends(get_current_user)],
     payload: schemas.TripRequestCreate | None = None,
 ):
     try:
-        req = create_request_use_case(
+        req, pending = create_request_use_case(
             db,
             trip_id=trip_id,
             passenger_id=current_user.id,
@@ -94,6 +103,8 @@ def request_seat(
             requested_at=payload.requested_at if payload is not None else None,
             stops=[stop.model_dump() for stop in payload.stops] if payload is not None else [],
         )
+        for push in pending:
+            background_tasks.add_task(send_push_async_safe, push)
         return _to_response(req)
     except TripNotActiveError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=e.message)
@@ -127,11 +138,16 @@ def list_trip_requests(
 @router.patch("/{request_id}/accept", response_model=schemas.TripRequestResponse)
 def accept_request(
     request_id: int,
+    background_tasks: BackgroundTasks,
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[UserIdentity, Depends(get_current_user)],
 ):
     try:
-        req = accept_request_use_case(db, request_id=request_id, driver_id=current_user.id)
+        req, pending = accept_request_use_case(
+            db, request_id=request_id, driver_id=current_user.id
+        )
+        for push in pending:
+            background_tasks.add_task(send_push_async_safe, push)
         return _to_response(req)
     except TripRequestNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=e.message)
@@ -148,11 +164,16 @@ def accept_request(
 @router.patch("/{request_id}/reject", response_model=schemas.TripRequestResponse)
 def reject_request(
     request_id: int,
+    background_tasks: BackgroundTasks,
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[UserIdentity, Depends(get_current_user)],
 ):
     try:
-        req = reject_request_use_case(db, request_id=request_id, driver_id=current_user.id)
+        req, pending = reject_request_use_case(
+            db, request_id=request_id, driver_id=current_user.id
+        )
+        for push in pending:
+            background_tasks.add_task(send_push_async_safe, push)
         return _to_response(req)
     except TripRequestNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=e.message)

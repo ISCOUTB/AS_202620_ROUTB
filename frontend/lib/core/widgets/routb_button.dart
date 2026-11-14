@@ -55,8 +55,11 @@ class RoutbButton extends StatelessWidget {
     final palette = context.palette;
     final enabled = onPressed != null && !busy;
     final radius = BorderRadius.circular(RoutbTheme.radiusPill);
-    final boxHeight = height ??
-        (variant == RoutbButtonVariant.secondary ? 46.0 : RoutbTheme.buttonHeight);
+    final boxHeight =
+        height ??
+        (variant == RoutbButtonVariant.secondary
+            ? 46.0
+            : RoutbTheme.buttonHeight);
 
     final BoxDecoration decoration;
     final Color foreground;

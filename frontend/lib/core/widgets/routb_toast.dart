@@ -109,12 +109,13 @@ class _RoutbToastEntryState extends State<_RoutbToastEntry>
         child: FadeTransition(
           opacity: _controller,
           child: SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0, 0.1),
-              end: Offset.zero,
-            ).animate(
-              CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-            ),
+            position:
+                Tween<Offset>(
+                  begin: const Offset(0, 0.1),
+                  end: Offset.zero,
+                ).animate(
+                  CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+                ),
             child: Align(
               alignment: Alignment.bottomCenter,
               child: Semantics(
@@ -123,8 +124,10 @@ class _RoutbToastEntryState extends State<_RoutbToastEntry>
                   color: Colors.transparent,
                   child: Container(
                     width: double.infinity,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                     decoration: BoxDecoration(
                       color: palette.ink,
                       borderRadius: BorderRadius.circular(16),

@@ -14,6 +14,11 @@ Uso recomendado desde la raíz del repositorio:
 
 No requiere autenticación para ``GET /trips/``. Si el endpoint devuelve un
 código distinto de 200, la ronda se aborta para no mezclar errores con tiempos.
+
+Por seguridad, solo se miden URLs HTTP(S) cuyo host esté autorizado (por
+defecto, loopback) mediante ``--allow-host``, y el JSON de salida se escribe
+únicamente dentro de ``docs/evidencia/``. Las URLs con credenciales embebidas
+se rechazan.
 """
 
 from __future__ import annotations
@@ -30,6 +35,49 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+EVIDENCE_DIR = REPO_ROOT / "docs" / "evidencia"
+DEFAULT_ALLOWED_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+
+
+def _validate_target(
+    raw_url: str, allowed_hosts: set[str] | frozenset[str]
+) -> httpx.URL:
+    """Valida esquema, credenciales y host antes de exponer la URL a httpx."""
+    try:
+        target = httpx.URL(raw_url)
+    except (httpx.InvalidURL, ValueError) as exc:
+        raise ValueError(f"URL inválida: {raw_url!r}") from exc
+
+    if target.scheme not in ("http", "https"):
+        raise ValueError(f"La URL debe usar http o https: {raw_url!r}")
+    if not target.host:
+        raise ValueError(f"La URL no incluye un host: {raw_url!r}")
+    if target.username or target.password:
+        raise ValueError("La URL no puede incluir credenciales")
+
+    host = target.host.rstrip(".").lower()
+    if host not in allowed_hosts:
+        raise ValueError(
+            f"Host no autorizado: {host!r}. Usa --allow-host para autorizarlo."
+        )
+    return target
+
+
+def _validate_output_path(raw_path: str) -> Path:
+    """Confina la escritura a docs/evidencia y bloquea rutas de escape."""
+    evidence_dir = EVIDENCE_DIR.resolve()
+    candidate = Path(raw_path)
+    if not candidate.is_absolute():
+        candidate = REPO_ROOT / candidate
+
+    resolved = candidate.resolve()
+    if resolved == evidence_dir or not resolved.is_relative_to(evidence_dir):
+        raise ValueError(
+            f"--output debe apuntar a un archivo dentro de {evidence_dir}"
+        )
+    return resolved
 
 
 def _percentile(sorted_values: list[float], percentile: float) -> float:
@@ -53,7 +101,7 @@ def _round_stats(times_ms: list[float]) -> dict[str, float]:
 
 
 def _measure_round(
-    client: httpx.Client, url: str, requests_count: int
+    client: httpx.Client, url: httpx.URL, requests_count: int
 ) -> tuple[dict[str, float], dict[str, int], list[int]]:
     times_ms: list[float] = []
     status_codes: dict[str, int] = {}
@@ -110,17 +158,43 @@ def main() -> int:
     parser.add_argument("--timeout", type=float, default=35.0, help="Timeout por petición")
     parser.add_argument("--label", required=True, help="Nombre del entorno medido")
     parser.add_argument(
-        "--output", required=True, help="Archivo JSON donde se guardan los resultados"
+        "--output",
+        required=True,
+        help="Archivo JSON dentro de docs/evidencia donde se guardan los resultados",
+    )
+    parser.add_argument(
+        "--allow-host",
+        action="append",
+        default=None,
+        metavar="HOST",
+        help=(
+            "Host autorizado para las peticiones (repetible). Por defecto: "
+            "localhost, 127.0.0.1 y ::1"
+        ),
     )
     args = parser.parse_args()
 
     if args.requests < 1 or args.repetitions < 1:
         parser.error("--requests y --repetitions deben ser mayores que cero")
 
+    allowed_hosts = set(DEFAULT_ALLOWED_HOSTS)
+    for host in args.allow_host or []:
+        normalized = host.strip().rstrip(".").lower()
+        if not normalized:
+            parser.error("--allow-host no puede estar vacío")
+        allowed_hosts.add(normalized)
+
     warmup_url = args.warmup_url
     if warmup_url is None:
         base = args.url.split("/trips", 1)[0]
         warmup_url = f"{base}/health"
+
+    try:
+        target_url = _validate_target(args.url, allowed_hosts)
+        warmup_target_url = _validate_target(warmup_url, allowed_hosts)
+        output_path = _validate_output_path(args.output)
+    except ValueError as exc:
+        parser.error(str(exc))
 
     environment = _environment_snapshot()
     environment["cpu_count"] = os.cpu_count()
@@ -128,18 +202,18 @@ def main() -> int:
     rounds: list[dict[str, object]] = []
     started_at = datetime.now(timezone.utc)
 
-    with httpx.Client(timeout=args.timeout) as client:
-        warmup_response = client.get(warmup_url)
+    with httpx.Client(timeout=args.timeout, follow_redirects=False) as client:
+        warmup_response = client.get(warmup_target_url)
         if warmup_response.status_code != 200:
             raise RuntimeError(
-                f"El calentamiento {warmup_url} respondió "
+                f"El calentamiento {warmup_target_url} respondió "
                 f"{warmup_response.status_code}; se esperaba 200"
             )
         time.sleep(args.warmup_seconds)
 
         for number in range(1, args.repetitions + 1):
             stats, status_codes, payload_items = _measure_round(
-                client, args.url, args.requests
+                client, target_url, args.requests
             )
             rounds.append(
                 {
@@ -161,8 +235,8 @@ def main() -> int:
 
     result = {
         "label": args.label,
-        "url": args.url,
-        "warmup_url": warmup_url,
+        "url": str(target_url),
+        "warmup_url": str(warmup_target_url),
         "started_at_utc": started_at.isoformat(),
         "finished_at_utc": finished_at.isoformat(),
         "duration_s": round((finished_at - started_at).total_seconds(), 2),
@@ -179,7 +253,6 @@ def main() -> int:
         },
     }
 
-    output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(
         json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"

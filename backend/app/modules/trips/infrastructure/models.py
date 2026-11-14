@@ -2,8 +2,8 @@ from datetime import date
 
 from app.core.timezone import colombia_today
 
-from geoalchemy2 import Geometry
-from sqlalchemy import Column, Date, DateTime, ForeignKey, Integer, String, func
+from geoalchemy2 import Geography, Geometry
+from sqlalchemy import Column, Date, DateTime, ForeignKey, Index, Integer, String, cast, func
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -40,6 +40,17 @@ class Trip(Base):
     route_distance_m = Column(Integer, nullable=True)
     route_duration_s = Column(Integer, nullable=True)
     route_source = Column(String(10), nullable=True)
+
+    # Mismo nombre y expresion que la migracion 012. La consulta de matching
+    # castea `route_geom` a `geography`, asi que el indice se declara sobre
+    # esa expresion y no sobre la columna `geometry` (ADR 0009).
+    __table_args__ = (
+        Index(
+            "idx_trips_route_geom_gist",
+            cast(route_geom, Geography(geometry_type=None, srid=-1)),
+            postgresql_using="gist",
+        ),
+    )
 
     driver = relationship("User")
     requests = relationship("TripRequest", back_populates="trip", cascade="all, delete-orphan")

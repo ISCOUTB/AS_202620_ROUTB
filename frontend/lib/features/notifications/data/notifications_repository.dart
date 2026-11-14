@@ -19,10 +19,7 @@ class NotificationsRepository {
   }) async {
     await _client.put(
       '/notifications/device-token',
-      body: {
-        'device_token': deviceToken,
-        'platform': platform,
-      },
+      body: {'device_token': deviceToken, 'platform': platform},
     );
   }
 

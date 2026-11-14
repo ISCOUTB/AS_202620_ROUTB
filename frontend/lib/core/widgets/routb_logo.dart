@@ -2,16 +2,16 @@ import 'package:flutter/material.dart';
 
 /// Variante del símbolo de ROUTB.
 ///
-/// La marca es la letra «R» trazada como un recorrido con nodos naranjas. El
-/// nombre no forma parte del símbolo: el título de la pantalla y el saludo del
-/// hero ya dicen ROUTB, y repetirlo en cada logo competía con ese texto.
+/// La marca es un auto de frente, con ojos en el parabrisas y un pin de
+/// ubicación en el techo. El nombre no forma parte del símbolo: el título de
+/// la pantalla y el saludo del hero ya dicen ROUTB.
 ///
 /// | Variante | Fondo | Asset |
 /// |---|---|---|
 /// | [onHero] | oscuro | `routb_marca_blanca.png` |
 /// | [onSurface] | claro | `routb_marca_oscura.png` |
 enum RoutbLogoVariant {
-  /// Marca en blanco, para el hero violeta y el splash en tema oscuro.
+  /// Marca en blanco, para el hero y el splash en tema oscuro.
   onHero,
 
   /// Marca en tinta, para el acceso y el splash en tema claro.
@@ -19,9 +19,9 @@ enum RoutbLogoVariant {
 
   /// Ruta del asset.
   String get asset => switch (this) {
-        RoutbLogoVariant.onHero => 'assets/images/routb_marca_blanca.png',
-        RoutbLogoVariant.onSurface => 'assets/images/routb_marca_oscura.png',
-      };
+    RoutbLogoVariant.onHero => 'assets/images/routb_marca_blanca.png',
+    RoutbLogoVariant.onSurface => 'assets/images/routb_marca_oscura.png',
+  };
 
   /// `true` si el fondo donde se pinta es oscuro.
   bool get isForDarkBackground => this == RoutbLogoVariant.onHero;
@@ -33,13 +33,12 @@ enum RoutbLogoVariant {
 /// va la marca blanca, y sobre fondo claro la de tinta.
 extension RoutbLogoVariantTheme on RoutbLogoVariant {
   /// Variante para el fondo [isDarkBackground].
-  RoutbLogoVariant forBackground(bool isDarkBackground) => isDarkBackground
-      ? RoutbLogoVariant.onHero
-      : RoutbLogoVariant.onSurface;
+  RoutbLogoVariant forBackground(bool isDarkBackground) =>
+      isDarkBackground ? RoutbLogoVariant.onHero : RoutbLogoVariant.onSurface;
 }
 
 /// Proporción del símbolo, tal como viene en el asset.
-const double kRoutbLogoAspectRatio = 130 / 141;
+const double kRoutbLogoAspectRatio = 1.0;
 
 /// Símbolo de ROUTB.
 ///

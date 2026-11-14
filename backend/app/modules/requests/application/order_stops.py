@@ -7,6 +7,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.shared.routing.service import calculate_route
+from app.modules.trips.application import set_trip_route
 from app.modules.trips.application.create_trip import _parse_departure_to_timestamptz
 
 
@@ -55,18 +56,13 @@ def refresh_trip_route_and_stop_eta(db: Session, trip_id: int) -> None:
     coords.append((trip["dest_lat"], trip["dest_lng"]))
     route = calculate_route(db, coords)
     geometry = json.dumps({"type": "LineString", "coordinates": route["geometry"]})
-    db.execute(
-        text(
-            """UPDATE trips SET route_geom = ST_SetSRID(ST_GeomFromGeoJSON(:geometry), 4326),
-                      route_distance_m = :distance, route_duration_s = :duration,
-                      route_source = :source WHERE id = :trip_id"""
-        ).bindparams(
-            geometry=geometry,
-            distance=route["distance_m"],
-            duration=route["duration_s"],
-            source=route["source"],
-            trip_id=trip_id,
-        )
+    set_trip_route(
+        db,
+        trip_id=trip_id,
+        line_geojson=geometry,
+        distance_m=route["distance_m"],
+        duration_s=route["duration_s"],
+        source=route["source"],
     )
     departure = trip["departure_at"] or _parse_departure_to_timestamptz(
         trip["departure_date"], trip["departure_time"]

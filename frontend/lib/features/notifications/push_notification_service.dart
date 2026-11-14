@@ -1,11 +1,11 @@
 import 'dart:developer' as dev;
+
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../../core/network/api_exception.dart';
 import 'data/notifications_repository.dart';
-
 
 /// Servicio de notificaciones push.
 ///
@@ -24,7 +24,8 @@ class PushNotificationService {
   FirebaseMessaging? _messagingInstance;
   FirebaseMessaging get _messaging =>
       _messagingInstance ??= FirebaseMessaging.instance;
-  final FlutterLocalNotificationsPlugin _local = FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _local =
+      FlutterLocalNotificationsPlugin();
   String? _registeredToken;
   bool _started = false;
 
@@ -34,7 +35,11 @@ class PushNotificationService {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
     try {
       if (!_started) {
-        await _messaging.requestPermission(alert: true, badge: true, sound: true);
+        await _messaging.requestPermission(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
         await _local.initialize(
           const InitializationSettings(
             android: AndroidInitializationSettings('@mipmap/ic_launcher'),
@@ -51,7 +56,11 @@ class PushNotificationService {
       if (await _messaging.getInitialMessage() != null) onNotification();
       await _register(await _messaging.getToken());
     } on Object catch (error) {
-      dev.log('No se pudo iniciar FCM: $error', name: 'PushNotificationService', level: 900);
+      dev.log(
+        'No se pudo iniciar FCM: $error',
+        name: 'PushNotificationService',
+        level: 900,
+      );
     }
   }
 
@@ -148,7 +157,11 @@ class PushNotificationService {
       await _messaging.deleteToken();
       _registeredToken = null;
     } on Object catch (error) {
-      dev.log('No se pudo desvincular FCM al salir: $error', name: 'PushNotificationService', level: 900);
+      dev.log(
+        'No se pudo desvincular FCM al salir: $error',
+        name: 'PushNotificationService',
+        level: 900,
+      );
     }
   }
 }

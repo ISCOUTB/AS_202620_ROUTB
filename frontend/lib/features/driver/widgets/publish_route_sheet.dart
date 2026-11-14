@@ -212,7 +212,8 @@ class _PublishSheetState extends State<_PublishSheet> {
                 const SizedBox(height: 12),
                 DepartureStepper(
                   departure: _draft.departure,
-                  onChanged: (value) => setState(() => _draft.departure = value),
+                  onChanged: (value) =>
+                      setState(() => _draft.departure = value),
                 ),
               ],
             ),

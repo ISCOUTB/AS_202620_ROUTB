@@ -46,23 +46,20 @@ class InitialsAvatar extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [
             HSLColor.fromAHSL(1, hue.toDouble(), 0.82, 0.56).toColor(),
-            HSLColor.fromAHSL(1, ((hue + 50) % 360).toDouble(), 0.85, 0.48)
-                .toColor(),
+            HSLColor.fromAHSL(
+              1,
+              ((hue + 50) % 360).toDouble(),
+              0.85,
+              0.48,
+            ).toColor(),
           ],
         ),
         borderRadius: BorderRadius.circular(size * 0.34),
-        border: Border.all(
-          color: const Color(0x38FFFFFF),
-          width: 1.2,
-        ),
+        border: Border.all(color: const Color(0x38FFFFFF), width: 1.2),
       ),
       child: Text(
         initials,
-        style: RoutbText.headline(
-          size * 0.34,
-          color: Colors.white,
-          height: 1,
-        ),
+        style: RoutbText.headline(size * 0.34, color: Colors.white, height: 1),
       ),
     );
   }
@@ -302,15 +299,15 @@ class _SeatSlot extends StatelessWidget {
       color: isDriver
           ? palette.brand
           : filled
-              ? null
-              : palette.surface,
+          ? null
+          : palette.surface,
       gradient: !isDriver && filled ? palette.mintGradient : null,
       borderRadius: BorderRadius.circular(size * 0.33),
       border: isDriver
           ? Border.all(color: const Color(0x33FFFFFF), width: 1.2)
           : filled
-              ? Border.all(color: palette.mint, width: 1.5)
-              : Border.all(color: palette.line, width: 1.5),
+          ? Border.all(color: palette.mint, width: 1.5)
+          : Border.all(color: palette.line, width: 1.5),
     );
   }
 }
@@ -362,10 +359,7 @@ class RoutbEmptyState extends StatelessWidget {
             textAlign: TextAlign.center,
             style: RoutbText.copy(13, color: palette.muted, height: 1.5),
           ),
-          if (action != null) ...[
-            const SizedBox(height: 16),
-            action!,
-          ],
+          if (action != null) ...[const SizedBox(height: 16), action!],
         ],
       ),
     );

@@ -5,7 +5,11 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.modules.auth.infrastructure.security import get_current_user
-from app.modules.users.application import UserIdentity, create_user
+from app.modules.users.application import (
+    UserIdentity,
+    create_user,
+    update_driver_vehicle,
+)
 from app.modules.users.application.location_consent import (
     grant_location_consent,
     revoke_location_consent,
@@ -60,3 +64,28 @@ def delete_location_consent(
     Cancela las solicitudes pendientes y borra las paradas almacenadas.
     """
     revoke_location_consent(db, current_user.id)
+
+
+@router.patch(
+    "/me/vehicle",
+    response_model=schemas.UserResponse,
+    summary="Registrar o actualizar vehículo del conductor",
+)
+def update_my_vehicle(
+    vehicle: schemas.VehicleUpdate,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[UserIdentity, Depends(get_current_user)],
+):
+    """Registra o actualiza el modelo, color y placa del vehículo del conductor."""
+    try:
+        return update_driver_vehicle(db, current_user.id, vehicle)
+    except PermissionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(exc),
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        )

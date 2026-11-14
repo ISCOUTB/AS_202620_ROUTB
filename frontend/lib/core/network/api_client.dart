@@ -15,7 +15,7 @@ import 'api_exception.dart';
 /// cada módulo solo llaman a [get], [post] y [patch].
 class ApiClient {
   ApiClient(this._session, {http.Client? client, this.onUnauthorized})
-      : _client = client ?? http.Client();
+    : _client = client ?? http.Client();
 
   /// Margen holgado para redes móviles lentas.
   ///
@@ -51,11 +51,7 @@ class ApiClient {
   }
 
   /// POST con cuerpo JSON opcional.
-  Future<Object?> post(
-    String path, {
-    Object? body,
-    bool authenticated = true,
-  }) {
+  Future<Object?> post(String path, {Object? body, bool authenticated = true}) {
     return _send(
       () async => _client.post(
         _uri(path),
@@ -83,19 +79,13 @@ class ApiClient {
   /// DELETE sin cuerpo. Devuelve `null` cuando el servidor responde 204.
   Future<Object?> delete(String path, {bool authenticated = true}) {
     return _send(
-      () async => _client.delete(
-        _uri(path),
-        headers: await _headers(authenticated),
-      ),
+      () async =>
+          _client.delete(_uri(path), headers: await _headers(authenticated)),
     );
   }
 
   /// PUT con cuerpo JSON opcional.
-  Future<Object?> put(
-    String path, {
-    Object? body,
-    bool authenticated = true,
-  }) {
+  Future<Object?> put(String path, {Object? body, bool authenticated = true}) {
     return _send(
       () async => _client.put(
         _uri(path),
@@ -104,7 +94,6 @@ class ApiClient {
       ),
     );
   }
-
 
   Future<Map<String, String>> _headers(bool authenticated) async {
     final headers = <String, String>{'Content-Type': 'application/json'};
@@ -122,9 +111,8 @@ class ApiClient {
         if (entry.value != null && entry.value!.isNotEmpty)
           entry.key: entry.value!,
     };
-    return Uri.parse('$baseUrl$endpoint').replace(
-      queryParameters: parameters.isEmpty ? null : parameters,
-    );
+    return Uri.parse('$baseUrl$endpoint')
+        .replace(queryParameters: parameters.isEmpty ? null : parameters);
   }
 
   /// Ejecuta la petición y normaliza el resultado.

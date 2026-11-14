@@ -4,8 +4,7 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.orm.exc import ObjectDeletedError
-from app.modules.notifications.application.manage_device_token import get_tokens_for_user
-from app.modules.notifications.application.send_notification import send_push
+from app.modules.notifications.application.dispatch import PendingPush
 from app.modules.requests.domain.exceptions import (
     InvalidRequestStateError,
     RequestExpiredError,
@@ -139,25 +138,23 @@ def _refresh_accepted_request(
         logger.exception("No se pudo recalcular la ruta del viaje %s", request.trip_id)
 
 
-def _notify_request_accepted(db: Session, request: TripRequest) -> None:
-    try:
-        tokens = get_tokens_for_user(db, request.passenger_id)
-        if tokens:
-            send_push(
-                [token.device_token for token in tokens],
-                title="Solicitud aceptada",
-                body="El conductor ha aceptado tu solicitud de cupo.",
-                data={"trip_id": str(request.trip_id), "event": "request_accepted"},
-                db=db,
-            )
-    except Exception:
-        pass
+def _pending_request_push(
+    request: TripRequest, *, event: str, title: str, body: str
+) -> PendingPush:
+    return PendingPush(
+        user_id=request.passenger_id,
+        title=title,
+        body=body,
+        data={"trip_id": str(request.trip_id), "event": event},
+    )
 
 
-def accept_request(db: Session, request_id: int, driver_id: int | None = None) -> TripRequest:
+def accept_request(
+    db: Session, request_id: int, driver_id: int | None = None
+) -> tuple[TripRequest, list[PendingPush]]:
     request = _validate_acceptance(db, request_id, driver_id)
     if request.status == "accepted":
-        return request
+        return request, []
 
     trip = db.query(Trip).filter(Trip.id == request.trip_id).first()
     _validate_passenger_schedule(db, request, trip)
@@ -178,11 +175,19 @@ def accept_request(db: Session, request_id: int, driver_id: int | None = None) -
         raise TripRequestNotFoundError() from exc
 
     _refresh_accepted_request(db, request, trip)
-    _notify_request_accepted(db, request)
-    return request
+    return request, [
+        _pending_request_push(
+            request,
+            event="request_accepted",
+            title="Solicitud aceptada",
+            body="El conductor ha aceptado tu solicitud de cupo.",
+        )
+    ]
 
 
-def reject_request(db: Session, request_id: int, driver_id: int | None = None) -> TripRequest:
+def reject_request(
+    db: Session, request_id: int, driver_id: int | None = None
+) -> tuple[TripRequest, list[PendingPush]]:
     request = (
         db.query(TripRequest)
         .options(joinedload(TripRequest.trip))
@@ -197,7 +202,7 @@ def reject_request(db: Session, request_id: int, driver_id: int | None = None) -
         raise UnauthorizedRequestActionError("No tienes permiso para gestionar esta solicitud")
 
     if request.status == "rejected":
-        return request
+        return request, []
 
     old_status = request.status
     transitioned = db.execute(
@@ -212,7 +217,7 @@ def reject_request(db: Session, request_id: int, driver_id: int | None = None) -
         if current is None:
             raise TripRequestNotFoundError()
         if current.status == "rejected":
-            return current
+            return current, []
         raise InvalidRequestStateError()
 
     if old_status == "accepted" and not release_request_seats(
@@ -229,21 +234,14 @@ def reject_request(db: Session, request_id: int, driver_id: int | None = None) -
     except InvalidRequestError as exc:
         raise TripRequestNotFoundError() from exc
 
-    # Notificar al pasajero (best-effort, no bloquea el flujo)
-    try:
-        tokens = get_tokens_for_user(db, request.passenger_id)
-        if tokens:
-            send_push(
-                [t.device_token for t in tokens],
-                title="Solicitud rechazada",
-                body="El conductor ha rechazado tu solicitud de cupo.",
-                data={"trip_id": str(request.trip_id), "event": "request_rejected"},
-                db=db,
-            )
-    except Exception:
-        pass
-
-    return request
+    return request, [
+        _pending_request_push(
+            request,
+            event="request_rejected",
+            title="Solicitud rechazada",
+            body="El conductor ha rechazado tu solicitud de cupo.",
+        )
+    ]
 
 
 def withdraw_request(db: Session, request_id: int, passenger_id: int) -> None:

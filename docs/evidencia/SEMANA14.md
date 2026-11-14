@@ -47,7 +47,9 @@ documentados, y cada fila tiene estado **Corregido**, **Asumido** o
 
 ## 2. Incorporación de la revisión a arc42 §11
 
-La sección
+La revisión entre pares es una actividad individual con nota propia
+(`arqsw:workshop-pares`); aquí solo se registra lo que el equipo recibió y lo
+que hizo con ello. La sección
 [11.4](../arc42/11_riesgos_y_deuda_tecnica.md#114-señalamientos-de-la-revisión-entre-pares-y-de-la-revisión-externa)
 contiene:
 
@@ -98,7 +100,10 @@ explícitamente en lugar de inventar hallazgos.
 
 ## 5. Estado de la suite del backend
 
-{{PYTEST_STATUS}}
+`pytest -q` desde `backend/`: **108 passed, 7 warnings in 1422,00 s (23:42)**.
+La duración está dominada por la base de pruebas remota y por
+`test_week9_quality_measurement.py`, que ejecuta 100 peticiones a `GET /trips/`
+con `TestClient`; no hubo fallos.
 
 ## 6. Referencias
 

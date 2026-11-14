@@ -9,22 +9,35 @@ deben colaborar mediante servicios o la API del backend.
 
 | Entidad | Módulo dueño | Modelo en el repositorio | Tabla PostgreSQL | Estado |
 |---|---|---|---|---|
-| Usuario | `users` | `backend/app/modules/users/infrastructure/models.py` | `users` | Implementada |
-| Recorrido | `trips` | `backend/app/modules/trips/infrastructure/models.py` | `trips` | Implementada |
+| Usuario | `users` | `backend/app/modules/users/infrastructure/models.py` | `users` | Implementada; incluye `vehicle_model`, `vehicle_plate` y `vehicle_color` opcionales (ADR 0026) |
+| Recorrido (`route_geom`, `route_distance_m`, `route_duration_s`, `route_source`, `available_seats`) | `trips` | `backend/app/modules/trips/infrastructure/models.py` | `trips` | Implementada |
 | Solicitud de viaje y cantidad pedida (`seat_count`) | `requests` | `backend/app/modules/requests/infrastructure/models.py` | `trip_requests` | Implementada; `seat_count` tiene valor por defecto 1 |
+| Parada de solicitud (`stop_seq`, `eta_estimated`, `stop_geom`) | `requests` | `backend/app/modules/requests/infrastructure/models.py` | `request_stops` | Implementada |
 | Notificación | `notifications` | `backend/app/modules/notifications/infrastructure/models.py` | `notifications` | Pendiente: verificar entidad y migración antes de declarar cobertura |
 | Administración | `admin` | `backend/app/modules/admin/infrastructure/models.py` | — | Usa usuarios con rol administrativo; verificar antes de asignar entidad propia |
 
 `auth` no posee una tabla propia: su responsabilidad es autenticar usuarios
 del contexto `users` y emitir tokens JWT.
 
-Las solicitudes y la cantidad solicitada pertenecen a `requests`; el contador
-de disponibilidad pertenece a `trips`. `requests` coordina aceptación y
-liberación mediante las operaciones públicas de aplicación
+Las solicitudes (`trip_requests`), sus paradas (`request_stops`) y la cantidad
+solicitada pertenecen a `requests`; el contador de disponibilidad y las métricas
+y geometría de ruta del viaje pertenecen a `trips`. `requests` coordina
+aceptación y liberación de cupos mediante las operaciones públicas de aplicación
 `trips.application.reserve_request_seats` y
-`trips.application.release_request_seats`; estas aplican actualizaciones
-condicionales atómicas. El cambio de estado y el cambio de disponibilidad se
-confirman en la misma transacción.
+`trips.application.release_request_seats` (actualizaciones condicionales
+atómicas), y delega la actualización de la ruta recalculada del viaje
+(`route_geom`, `route_distance_m`, `route_duration_s`, `route_source`) a
+`trips.application.set_trip_route` conservando la misma sesión y transacción
+activa. Esta frontera modular está protegida por
+`backend/tests/test_module_boundaries.py`.
+
+Los datos del vehículo (`vehicle_model`, `vehicle_plate`, `vehicle_color`)
+pertenecen al módulo `users` y se actualizan únicamente con
+`PATCH /users/me/vehicle`. Los módulos que los consumen los reciben por la
+entidad `User` ya resuelta o por `app.shared.vehicle.format_vehicle_info`, sin
+duplicar la regla de visibilidad. `vehicle_info` se calcula al serializar y
+solo se entrega al pasajero con solicitud `accepted`; ni `trips` ni `requests`
+lo guardan (ADR 0026).
 
 ## Cobertura del código persistente
 
@@ -32,8 +45,9 @@ Las entidades ORM actuales se registran en `Base.metadata` y están cubiertas
 por las migraciones aplicadas en Supabase:
 
 - `User` → `users`
-- `Trip` → `trips` (incluye `driver_id`, `departure_time` y `status`)
+- `Trip` → `trips` (incluye `driver_id`, `departure_time`, `status` y campos de ruta)
 - `TripRequest` → `trip_requests`
+- `RequestStop` → `request_stops`
 
 Las migraciones están en `backend/migrations/versions` y se ejecutan con:
 

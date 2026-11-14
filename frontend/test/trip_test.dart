@@ -15,6 +15,7 @@ Map<String, dynamic> tripPayload({
   String departure = '7:00 AM',
   String status = 'active',
   String? driverName = 'Enzo Fernández',
+  String? vehicleInfo,
   String? myRequestStatus,
   String? departureDate,
   List<Map<String, dynamic>> requests = const <Map<String, dynamic>>[],
@@ -29,6 +30,7 @@ Map<String, dynamic> tripPayload({
   'status': status,
   'driver_id': 9,
   'driver_name': driverName,
+  'vehicle_info': vehicleInfo,
   'my_request_status': myRequestStatus,
   'requests': requests,
 };
@@ -268,6 +270,35 @@ void main() {
     });
   });
 
+  group('Trip: vehículo', () {
+    test('lee la ficha del vehículo cuando la API la entrega', () {
+      final trip = Trip.fromJson(
+        tripPayload(
+          myRequestStatus: 'accepted',
+          vehicleInfo: 'Chevrolet Spark · Gris (XYZ-123)',
+        ),
+      );
+
+      expect(trip.hasVehicleInfo, isTrue);
+      expect(trip.vehicleInfo, 'Chevrolet Spark · Gris (XYZ-123)');
+    });
+
+    test('sin ficha el listado público queda limpio', () {
+      final trip = Trip.fromJson(tripPayload());
+
+      expect(trip.hasVehicleInfo, isFalse);
+      expect(trip.vehicleInfo, isNull);
+    });
+
+    test('copyWith conserva la ficha del vehículo', () {
+      final trip = Trip.fromJson(
+        tripPayload(vehicleInfo: 'Chevrolet Spark · Gris (XYZ-123)'),
+      );
+
+      expect(trip.copyWith(availableSeats: 1).vehicleInfo, trip.vehicleInfo);
+    });
+  });
+
   group('Trip: copias', () {
     test(
       'copyWith cambia solo lo indicado y deja el objeto original intacto',
@@ -430,6 +461,41 @@ void main() {
         expect(trip.acceptedWaypoint, 'Calle 12 ## 121-3, El Rodeo');
         expect(trip.acceptedWaypoints, ['Calle 12 ## 121-3, El Rodeo']);
         expect(trip.hasAcceptedDetour, isTrue);
+      },
+    );
+
+    test(
+      'parsea paradas anidadas en el resumen de solicitudes de my-trips',
+      () {
+        final trip = Trip.fromJson(
+          tripPayload(
+            requests: [
+              {
+                'id': 12,
+                'trip_id': 1,
+                'passenger_id': 44,
+                'seat_count': 2,
+                'status': 'pending',
+                'passenger_name': 'Mateo P',
+                'created_at': '2026-10-01T08:00:00',
+                'stops': [
+                  {
+                    'id': 77,
+                    'seats': 2,
+                    'place_type': 'meeting_point',
+                    'address_text': 'Pie de la Popa',
+                    'stop_seq': null,
+                  },
+                ],
+              },
+            ],
+          ),
+        );
+        final stop = trip.requests.single.stops.single;
+        expect(stop.seats, 2);
+        expect(stop.placeType, 'meeting_point');
+        expect(stop.addressText, 'Pie de la Popa');
+        expect(stop.stopSequence, isNull);
       },
     );
   });

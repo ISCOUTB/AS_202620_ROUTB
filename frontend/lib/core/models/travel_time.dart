@@ -15,13 +15,13 @@ import 'package:flutter/foundation.dart';
 class TravelTime implements Comparable<TravelTime> {
   /// Minutos desde medianoche, en el rango `0..1439`.
   const TravelTime(this.minutes)
-      : assert(minutes >= 0 && minutes < 1440, 'La hora debe estar en 0..1439');
+    : assert(minutes >= 0 && minutes < 1440, 'La hora debe estar en 0..1439');
 
   /// Construye una hora a partir de hora y minuto.
   const TravelTime.fromClock(int hour, int minute)
-      : minutes = hour * 60 + minute,
-        assert(hour >= 0 && hour < 24),
-        assert(minute >= 0 && minute < 60);
+    : minutes = hour * 60 + minute,
+      assert(hour >= 0 && hour < 24),
+      assert(minute >= 0 && minute < 60);
 
   /// Minutos desde medianoche.
   final int minutes;
@@ -96,10 +96,7 @@ class TravelTime implements Comparable<TravelTime> {
   /// `true` si la hora cae dentro de [window] a partir de [now].
   ///
   /// Se usa para marcar los viajes que salen en breve.
-  bool isWithin(
-    DateTime now, {
-    Duration window = const Duration(minutes: 90),
-  }) {
+  bool isWithin(DateTime now, {Duration window = const Duration(minutes: 90)}) {
     final delta = minutesUntil(now);
     return delta >= 0 && delta <= window.inMinutes;
   }

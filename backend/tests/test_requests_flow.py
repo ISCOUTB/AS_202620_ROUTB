@@ -311,7 +311,7 @@ def test_retirar_inexistente_da_404():
         )
         assert respuesta.status_code == 404
     finally:
-        _limpiar()
+        _limpiar(_pasajero_id)
 
 
 def test_mis_solicitudes_requiere_token():

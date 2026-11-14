@@ -129,10 +129,7 @@ class RoutbCardHeader extends StatelessWidget {
             const SizedBox(width: 10),
           ],
           Expanded(
-            child: Text(
-              title,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
+            child: Text(title, style: Theme.of(context).textTheme.titleMedium),
           ),
           if (count != null && count! > 0) ...[
             RoutbBadge(
@@ -214,8 +211,11 @@ class RoutbChipLabel extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: RoutbText.copy(12, color: palette.onBrandSurface,
-            weight: FontWeight.w700),
+        style: RoutbText.copy(
+          12,
+          color: palette.onBrandSurface,
+          weight: FontWeight.w700,
+        ),
       ),
     );
   }

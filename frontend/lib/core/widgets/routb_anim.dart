@@ -209,8 +209,8 @@ class _PressableState extends State<Pressable>
     }
     final isActivation =
         event.logicalKey == LogicalKeyboardKey.enter ||
-            event.logicalKey == LogicalKeyboardKey.space ||
-            event.logicalKey == LogicalKeyboardKey.numpadEnter;
+        event.logicalKey == LogicalKeyboardKey.space ||
+        event.logicalKey == LogicalKeyboardKey.numpadEnter;
     if (!isActivation) return KeyEventResult.ignored;
 
     _press();
@@ -237,9 +237,10 @@ class _PressableState extends State<Pressable>
       );
     }
 
-    final scale = Tween<double>(begin: 1, end: widget.scale).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
+    final scale = Tween<double>(
+      begin: 1,
+      end: widget.scale,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
 
     return Semantics(
       button: widget.button,
@@ -258,10 +259,8 @@ class _PressableState extends State<Pressable>
           onKeyEvent: _onKey,
           child: AnimatedBuilder(
             animation: scale,
-            builder: (context, child) => Transform.scale(
-              scale: scale.value,
-              child: child,
-            ),
+            builder: (context, child) =>
+                Transform.scale(scale: scale.value, child: child),
             child: content,
           ),
         ),
@@ -272,11 +271,7 @@ class _PressableState extends State<Pressable>
 
 /// Punto que late, como el indicador de disponibilidad del mapa.
 class PulsingDot extends StatefulWidget {
-  const PulsingDot({
-    required this.color,
-    this.size = 7,
-    super.key,
-  });
+  const PulsingDot({required this.color, this.size = 7, super.key});
 
   /// Color del punto y de su halo.
   final Color color;

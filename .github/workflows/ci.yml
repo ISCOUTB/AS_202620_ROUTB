@@ -10,6 +10,10 @@ on:
     branches: [master, Changes]
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -49,7 +53,7 @@ jobs:
           alembic downgrade -1
           alembic upgrade head
         env:
-          DATABASE_URL_TEST: postgresql://routb:routb_test@localhost:5432/routb_test
+          DATABASE_URL_TEST: postgresql+psycopg2://routb:routb_test@localhost:5432/routb_test
           TESTING: "1"
 
       - name: Ejecutar pruebas unitarias y de contrato OpenAPI
@@ -59,7 +63,7 @@ jobs:
           pytest -v -s 2>&1 | tee backend-test-output.log
           grep -E 'OSRM .* N=50 p95=' backend-test-output.log >> "$GITHUB_STEP_SUMMARY" || true
         env:
-          DATABASE_URL_TEST: postgresql://routb:routb_test@localhost:5432/routb_test
+          DATABASE_URL_TEST: postgresql+psycopg2://routb:routb_test@localhost:5432/routb_test
           TESTING: "1"
           JWT_SECRET_KEY: ci-test-secret-key
           JWT_ALGORITHM: HS256
@@ -69,11 +73,41 @@ jobs:
         working-directory: backend
         run: pytest tests/test_openapi_contract.py -v
         env:
-          DATABASE_URL_TEST: postgresql://routb:routb_test@localhost:5432/routb_test
+          DATABASE_URL_TEST: postgresql+psycopg2://routb:routb_test@localhost:5432/routb_test
           TESTING: "1"
           JWT_SECRET_KEY: ci-test-secret-key
           JWT_ALGORITHM: HS256
           JWT_EXPIRE_MINUTES: "60"
+
+  flutter-ci:
+    name: Flutter Analyze, Test & Format
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: "3.47.1"
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: flutter pub get --enforce-lockfile
+
+      - name: Verify code formatting
+        working-directory: frontend
+        run: dart format --output=none --set-exit-if-changed lib test
+
+      - name: Static code analysis
+        working-directory: frontend
+        run: flutter analyze
+
+      - name: Run widget and unit tests
+        working-directory: frontend
+        run: flutter test
 
   dependency-audit:
     name: Dependency Vulnerability Audit (pip-audit)

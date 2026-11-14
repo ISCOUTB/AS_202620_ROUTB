@@ -5,8 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.timezone import colombia_now
-from app.modules.notifications.application.manage_device_token import get_tokens_for_user
-from app.modules.notifications.application.send_notification import send_push
+from app.modules.notifications.application.dispatch import PendingPush
 from app.modules.requests.domain.exceptions import (
     ActiveRequestAlreadyExistsError,
     DriverCannotRequestError,
@@ -24,7 +23,7 @@ def create_request(
     seat_count: int = 1,
     requested_at: datetime | None = None,
     stops: list[dict] | None = None,
-) -> TripRequest:
+) -> tuple[TripRequest, list[PendingPush]]:
     if seat_count < 1 or seat_count > 4:
         raise NoAvailableSeatsError("La solicitud debe ser de 1 a 4 cupos")
 
@@ -97,17 +96,14 @@ def create_request(
             ) from exc
         raise
     db.refresh(request)
+    pending: list[PendingPush] = []
     if trip.driver_id is not None:
-        try:
-            tokens = get_tokens_for_user(db, trip.driver_id)
-            if tokens:
-                send_push(
-                    [token.device_token for token in tokens],
-                    title="Nueva solicitud de viaje",
-                    body="Un pasajero solicitó cupo en tu viaje.",
-                    data={"trip_id": str(trip_id), "event": "request_created"},
-                    db=db,
-                )
-        except Exception:
-            pass
-    return request
+        pending.append(
+            PendingPush(
+                user_id=trip.driver_id,
+                title="Nueva solicitud de viaje",
+                body="Un pasajero solicitó cupo en tu viaje.",
+                data={"trip_id": str(trip_id), "event": "request_created"},
+            )
+        )
+    return request, pending

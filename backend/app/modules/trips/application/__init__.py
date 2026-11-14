@@ -11,6 +11,7 @@ from app.modules.trips.application.request_seats import (
     release_request_seats,
     reserve_request_seats,
 )
+from app.modules.trips.application.update_trip_route import set_trip_route
 
 __all__ = [
     "create_trip",
@@ -22,4 +23,5 @@ __all__ = [
     "get_trip_request_context",
     "reserve_request_seats",
     "release_request_seats",
+    "set_trip_route",
 ]

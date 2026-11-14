@@ -107,12 +107,8 @@ class _DriverScreenState extends State<DriverScreen> {
       final current = mine
           .where((trip) => !trip.isPastDate(now))
           .toList(growable: false);
-      // El detalle incluye las direcciones de las paradas, que no forman parte
-      // del resumen anidado de solicitudes de GET /trips/my-trips.
-      final enriched = <Trip>[
-        for (final trip in current)
-          trip.copyWith(requests: await _trips.listRequests(trip.id)),
-      ];
+      // Los viajes vigentes ya vienen enriquecidos directamente desde listMine().
+      final enriched = current;
 
       if (!mounted) return;
       setState(() {
