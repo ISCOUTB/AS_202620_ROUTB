@@ -15,8 +15,9 @@
 
 - **Herramienta:** [`scripts/medir_rendimiento.py`](../../scripts/medir_rendimiento.py),
   escrito en Python 3.14 con `httpx`. El script hace el calentamiento, ejecuta
-  las rondas, valida que todas las respuestas sean `200` y guarda el resultado
-  crudo en JSON.
+  las rondas, valida que todas las respuestas sean `200` e imprime el resultado
+  crudo en JSON por la salida estándar. Los mensajes de progreso y la tabla
+  resumen van a `stderr`, así que la redirección no contamina el JSON.
 - **Carga:** 100 peticiones **secuenciales** por ronda, 3 rondas, 300 peticiones
   válidas en total. Cada petición usa una conexión HTTP persistente del cliente
   (`httpx.Client`), por lo que el tiempo incluye el viaje de red pero no el
@@ -26,20 +27,21 @@
   contrasta el p95 más alto contra el umbral.
 - **Destino controlado:** el script solo acepta URLs `http`/`https` sin
   credenciales embebidas, autoriza hosts de loopback por defecto y exige
-  `--allow-host` para cualquier otro host. El JSON de salida solo puede
-  escribirse en los archivos de evidencia declarados en `EVIDENCE_OUTPUTS`
-  (`medicion-semana14-dokploy.json` y `medicion-semana14-local.json`), siempre
-  dentro de `docs/evidencia/`. `--output` solo selecciona el nombre; esa cadena
-  no se usa como ruta de escritura, así que no puede escapar de la carpeta ni
-  sobrescribir otros archivos. Para una entrega futura basta con agregar el
-  nuevo nombre a esa tabla.
+  `--allow-host` para cualquier otro host. No abre ni escribe archivos: el JSON
+  sale por `stdout` y se redirige al archivo de evidencia desde la consola. Así
+  ninguna cadena de la línea de comandos llega a una operación de escritura y no
+  hay superficie para *path traversal* (Sonar S8707). La antigua opción
+  `--output` ya no escribe: si se usa, el script muestra cómo migrar el comando.
+  Los destinos recomendados siguen siendo
+  `docs/evidencia/medicion-semana14-dokploy.json` y
+  `docs/evidencia/medicion-semana14-local.json`.
 - **Cálculo del percentil:** rango más cercano, `ceil(n × 0,95) − 1`, igual que
   el procedimiento documentado en
   [`metricas-escenario-calidad.md`](metricas-escenario-calidad.md).
 - **Respuestas no válidas:** cualquier código distinto de `200` aborta la ronda;
   no se mezclan errores con tiempos.
 
-Comandos ejecutados desde la raíz del repositorio:
+Comandos para repetir la medición desde la raíz del repositorio:
 
 ```powershell
 # Entorno desplegado
@@ -49,7 +51,7 @@ backend\.venv\Scripts\python.exe scripts\medir_rendimiento.py `
   --allow-host routb.iscoutb.dev `
   --label "Dokploy (producción)" `
   --requests 100 --repetitions 3 --warmup-seconds 5 `
-  --output docs/evidencia/medicion-semana14-dokploy.json
+  > docs\evidencia\medicion-semana14-dokploy.json
 
 # Entorno local con datos sembrados (ver sección 3.2)
 backend\.venv\Scripts\python.exe scripts\medir_rendimiento.py `
@@ -57,8 +59,11 @@ backend\.venv\Scripts\python.exe scripts\medir_rendimiento.py `
   --warmup-url http://127.0.0.1:8014/health `
   --label "Local (API Windows + PostgreSQL de pruebas remoto)" `
   --requests 100 --repetitions 3 --warmup-seconds 5 `
-  --output docs/evidencia/medicion-semana14-local.json
+  > docs\evidencia\medicion-semana14-local.json
 ```
+
+> En Windows PowerShell 5.1, `>` guarda el archivo en UTF-16. Si necesitas UTF-8
+> sin BOM, ejecuta el comando desde PowerShell 7 (`pwsh`).
 
 ## 3. Entorno de la medición
 

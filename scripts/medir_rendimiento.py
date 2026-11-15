@@ -1,26 +1,25 @@
 """Mide la latencia de un endpoint HTTP de ROUTB (Semana 14).
 
 El script ejecuta un calentamiento, varias rondas de peticiones secuenciales y
-calcula mínimo, promedio, p95 y máximo por ronda. Guarda el resultado crudo en
-JSON para que otra persona pueda contrastarlo con el umbral de arc42 sección 10.
+calcula mínimo, promedio, p95 y máximo por ronda. Imprime el resultado crudo en
+JSON por la salida estándar para que otra persona pueda contrastarlo con el
+umbral de arc42 sección 10; los mensajes de progreso van a ``stderr``.
 
 Uso recomendado desde la raíz del repositorio:
 
     backend/.venv/Scripts/python.exe scripts/medir_rendimiento.py ^
         --url http://127.0.0.1:8014/trips/ ^
         --warmup-url http://127.0.0.1:8014/health ^
-        --label local ^
-        --output docs/evidencia/medicion-semana14-local.json
+        --label local > docs/evidencia/medicion-semana14-local.json
 
 No requiere autenticación para ``GET /trips/``. Si el endpoint devuelve un
 código distinto de 200, la ronda se aborta para no mezclar errores con tiempos.
 
 Por seguridad, solo se miden URLs HTTP(S) cuyo host esté autorizado (por
-defecto, loopback) mediante ``--allow-host``, y el JSON de salida se escribe
-únicamente en uno de los archivos de evidencia declarados en
-``EVIDENCE_OUTPUTS``, dentro de ``docs/evidencia/``. ``--output`` solo
-selecciona ese nombre; nunca se usa como ruta de escritura. Las URLs con
-credenciales embebidas se rechazan.
+defecto, loopback) mediante ``--allow-host``. El script no abre ni escribe
+archivos: el JSON se redirige desde la consola. La antigua opción ``--output``
+solo se reconoce para indicar cómo migrar el comando. Las URLs con credenciales
+embebidas se rechazan.
 """
 
 from __future__ import annotations
@@ -41,10 +40,9 @@ import httpx
 REPO_ROOT = Path(__file__).resolve().parent.parent
 EVIDENCE_DIR = REPO_ROOT / "docs" / "evidencia"
 DEFAULT_ALLOWED_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
-# Archivos de evidencia que el script puede escribir. La ruta del sink se toma
-# de esta tabla constante y nunca se compone con texto de la línea de comandos:
-# Sonar no reconoce resolve()/is_relative_to() como saneadores y marca S8707
-# (path traversal) si el argumento de --output llega hasta write_text.
+# Nombres de evidencia que aceptaba la antigua opción --output. Solo se usan
+# para guiar la migración al redireccionamiento de stdout; el script ya no
+# escribe archivos, así que no hay sink de path traversal (Sonar S8707).
 EVIDENCE_OUTPUTS = {
     "medicion-semana14-dokploy.json": EVIDENCE_DIR / "medicion-semana14-dokploy.json",
     "medicion-semana14-local.json": EVIDENCE_DIR / "medicion-semana14-local.json",
@@ -52,7 +50,7 @@ EVIDENCE_OUTPUTS = {
 
 
 def _resolve_output_path(raw_path: str) -> Path:
-    """Selecciona una ruta de salida de la tabla fija de archivos permitidos."""
+    """Traduce el antiguo ``--output`` al destino recomendado de redirección."""
     name = os.path.basename(raw_path)
     for allowed_name, allowed_path in EVIDENCE_OUTPUTS.items():
         if name == allowed_name:
@@ -167,12 +165,8 @@ def main() -> int:
     parser.add_argument("--label", required=True, help="Nombre del entorno medido")
     parser.add_argument(
         "--output",
-        required=True,
-        help=(
-            "Archivo de evidencia donde se guardan los resultados: "
-            "medicion-semana14-dokploy.json o medicion-semana14-local.json. "
-            "Se escribe siempre dentro de docs/evidencia"
-        ),
+        default=None,
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--allow-host",
@@ -185,6 +179,16 @@ def main() -> int:
         ),
     )
     args = parser.parse_args()
+
+    if args.output is not None:
+        try:
+            destination = _resolve_output_path(args.output)
+        except ValueError as exc:
+            parser.error(str(exc))
+        parser.error(
+            "--output ya no se usa: el JSON se imprime en la salida estándar. "
+            f"Repite el comando redirigiendo la salida a {destination}"
+        )
 
     if args.requests < 1 or args.repetitions < 1:
         parser.error("--requests y --repetitions deben ser mayores que cero")
@@ -204,10 +208,6 @@ def main() -> int:
     try:
         target_url = _validate_target(args.url, allowed_hosts)
         warmup_target_url = _validate_target(warmup_url, allowed_hosts)
-        # La ruta escrita sale de EVIDENCE_OUTPUTS (constantes del módulo), no
-        # de args.output: así ninguna cadena del CLI llega al sink de escritura
-        # y Sonar deja de reportar S8707.
-        safe_output_path = _resolve_output_path(args.output)
     except ValueError as exc:
         parser.error(str(exc))
 
@@ -240,7 +240,8 @@ def main() -> int:
             )
             print(
                 f"Ronda {number}: n={stats['n']} "
-                f"p95={stats['p95_ms']} ms max={stats['max_ms']} ms"
+                f"p95={stats['p95_ms']} ms max={stats['max_ms']} ms",
+                file=sys.stderr,
             )
 
     p95_values = [float(item["p95_ms"]) for item in rounds]
@@ -268,24 +269,26 @@ def main() -> int:
         },
     }
 
-    safe_output_path.parent.mkdir(parents=True, exist_ok=True)
-    safe_output_path.write_text(
-        json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-    )
-
-    print()
-    print("| Ronda | N | Mínimo | Promedio | p95 | Máximo |")
-    print("|---|---:|---:|---:|---:|---:|")
+    print(file=sys.stderr)
+    print("| Ronda | N | Mínimo | Promedio | p95 | Máximo |", file=sys.stderr)
+    print("|---|---:|---:|---:|---:|", file=sys.stderr)
     for item in rounds:
         print(
             f"| {item['round']} | {item['n']} | {item['min_ms']} ms | "
-            f"{item['avg_ms']} ms | **{item['p95_ms']} ms** | {item['max_ms']} ms |"
+            f"{item['avg_ms']} ms | **{item['p95_ms']} ms** | {item['max_ms']} ms |",
+            file=sys.stderr,
         )
-    print()
-    print(f"p95 más alto de las rondas: {worst_p95} ms")
-    print(f"Umbral: {args.threshold_ms} ms")
-    print(f"Resultado: {conclusion}")
-    print(f"Resultados crudos: {safe_output_path}")
+    print(file=sys.stderr)
+    print(f"p95 más alto de las rondas: {worst_p95} ms", file=sys.stderr)
+    print(f"Umbral: {args.threshold_ms} ms", file=sys.stderr)
+    print(f"Resultado: {conclusion}", file=sys.stderr)
+    print(file=sys.stderr)
+
+    # El JSON es la única salida por stdout. Al no escribir archivos desde el
+    # script, no existe un sink de path traversal que Sonar pueda marcar.
+    # ensure_ascii=True (predeterminado) evita problemas de codificación al
+    # redirigir desde consolas con páginas de códigos distintas.
+    print(json.dumps(result, indent=2))
 
     return 0 if conclusion == "CUMPLE" else 1
 
