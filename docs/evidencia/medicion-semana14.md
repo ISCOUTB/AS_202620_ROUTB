@@ -26,8 +26,13 @@
   contrasta el p95 más alto contra el umbral.
 - **Destino controlado:** el script solo acepta URLs `http`/`https` sin
   credenciales embebidas, autoriza hosts de loopback por defecto y exige
-  `--allow-host` para cualquier otro host. El JSON de salida solo puede escribirse
-  dentro de `docs/evidencia/`; las rutas de escape se rechazan.
+  `--allow-host` para cualquier otro host. El JSON de salida solo puede
+  escribirse en los archivos de evidencia declarados en `EVIDENCE_OUTPUTS`
+  (`medicion-semana14-dokploy.json` y `medicion-semana14-local.json`), siempre
+  dentro de `docs/evidencia/`. `--output` solo selecciona el nombre; esa cadena
+  no se usa como ruta de escritura, así que no puede escapar de la carpeta ni
+  sobrescribir otros archivos. Para una entrega futura basta con agregar el
+  nuevo nombre a esa tabla.
 - **Cálculo del percentil:** rango más cercano, `ceil(n × 0,95) − 1`, igual que
   el procedimiento documentado en
   [`metricas-escenario-calidad.md`](metricas-escenario-calidad.md).

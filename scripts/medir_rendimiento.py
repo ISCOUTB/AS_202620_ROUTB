@@ -17,8 +17,10 @@ código distinto de 200, la ronda se aborta para no mezclar errores con tiempos.
 
 Por seguridad, solo se miden URLs HTTP(S) cuyo host esté autorizado (por
 defecto, loopback) mediante ``--allow-host``, y el JSON de salida se escribe
-únicamente como archivo directo dentro de ``docs/evidencia/`` (sin
-subcarpetas). Las URLs con credenciales embebidas se rechazan.
+únicamente en uno de los archivos de evidencia declarados en
+``EVIDENCE_OUTPUTS``, dentro de ``docs/evidencia/``. ``--output`` solo
+selecciona ese nombre; nunca se usa como ruta de escritura. Las URLs con
+credenciales embebidas se rechazan.
 """
 
 from __future__ import annotations
@@ -28,7 +30,6 @@ import json
 import math
 import os
 import platform
-import re
 import statistics
 import sys
 import time
@@ -40,7 +41,27 @@ import httpx
 REPO_ROOT = Path(__file__).resolve().parent.parent
 EVIDENCE_DIR = REPO_ROOT / "docs" / "evidencia"
 DEFAULT_ALLOWED_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
-_OUTPUT_NAME_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
+# Archivos de evidencia que el script puede escribir. La ruta del sink se toma
+# de esta tabla constante y nunca se compone con texto de la línea de comandos:
+# Sonar no reconoce resolve()/is_relative_to() como saneadores y marca S8707
+# (path traversal) si el argumento de --output llega hasta write_text.
+EVIDENCE_OUTPUTS = {
+    "medicion-semana14-dokploy.json": EVIDENCE_DIR / "medicion-semana14-dokploy.json",
+    "medicion-semana14-local.json": EVIDENCE_DIR / "medicion-semana14-local.json",
+}
+
+
+def _resolve_output_path(raw_path: str) -> Path:
+    """Selecciona una ruta de salida de la tabla fija de archivos permitidos."""
+    name = os.path.basename(raw_path)
+    for allowed_name, allowed_path in EVIDENCE_OUTPUTS.items():
+        if name == allowed_name:
+            return allowed_path
+    allowed = ", ".join(sorted(EVIDENCE_OUTPUTS))
+    raise ValueError(
+        f"--output debe seleccionar uno de los archivos de evidencia "
+        f"permitidos: {allowed}"
+    )
 
 
 def _validate_target(
@@ -65,30 +86,6 @@ def _validate_target(
             f"Host no autorizado: {host!r}. Usa --allow-host para autorizarlo."
         )
     return target
-
-
-def _validate_output_path(raw_path: str) -> Path:
-    """Confina la escritura a un archivo directo dentro de docs/evidencia."""
-    evidence_dir = EVIDENCE_DIR.resolve()
-    candidate = Path(raw_path)
-    if not candidate.is_absolute():
-        candidate = REPO_ROOT / candidate
-
-    resolved = candidate.resolve()
-    if resolved == evidence_dir or not resolved.is_relative_to(evidence_dir):
-        raise ValueError(
-            f"--output debe apuntar a un archivo dentro de {evidence_dir}"
-        )
-    if resolved.parent != evidence_dir:
-        raise ValueError(
-            f"--output debe ser un archivo directamente dentro de {evidence_dir}"
-        )
-    if _OUTPUT_NAME_RE.fullmatch(resolved.name) is None:
-        raise ValueError(
-            "--output debe tener un nombre de archivo simple: letras, "
-            "números, punto, guion o guion bajo"
-        )
-    return resolved
 
 
 def _percentile(sorted_values: list[float], percentile: float) -> float:
@@ -172,8 +169,9 @@ def main() -> int:
         "--output",
         required=True,
         help=(
-            "Archivo JSON directamente dentro de docs/evidencia donde se "
-            "guardan los resultados"
+            "Archivo de evidencia donde se guardan los resultados: "
+            "medicion-semana14-dokploy.json o medicion-semana14-local.json. "
+            "Se escribe siempre dentro de docs/evidencia"
         ),
     )
     parser.add_argument(
@@ -206,25 +204,10 @@ def main() -> int:
     try:
         target_url = _validate_target(args.url, allowed_hosts)
         warmup_target_url = _validate_target(warmup_url, allowed_hosts)
-        _validate_output_path(args.output)
-        # Se reconstruye la ruta del sink con la carpeta confiable y
-        # ``os.path.basename``, y se canonicaliza el resultado con
-        # ``Path.resolve()``, que Sonar reconoce como saneador de rutas
-        # (S8707). La contención se vuelve a comprobar sobre la ruta ya
-        # resuelta para no depender solo del motor de taint.
-        evidence_dir = EVIDENCE_DIR.resolve()
-        output_name = os.path.basename(args.output)
-        if _OUTPUT_NAME_RE.fullmatch(output_name) is None:
-            raise ValueError(
-                "--output debe tener un nombre de archivo simple: letras, "
-                "números, punto, guion o guion bajo"
-            )
-        safe_output_path = (evidence_dir / output_name).resolve()
-        if safe_output_path.parent != evidence_dir:
-            raise ValueError(
-                f"--output debe ser un archivo directamente dentro de "
-                f"{evidence_dir}"
-            )
+        # La ruta escrita sale de EVIDENCE_OUTPUTS (constantes del módulo), no
+        # de args.output: así ninguna cadena del CLI llega al sink de escritura
+        # y Sonar deja de reportar S8707.
+        safe_output_path = _resolve_output_path(args.output)
     except ValueError as exc:
         parser.error(str(exc))
 

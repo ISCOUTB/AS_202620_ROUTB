@@ -55,18 +55,39 @@ def test_target_rechaza_esquemas_credenciales_y_hosts_no_autorizados(url):
         script._validate_target(url, script.DEFAULT_ALLOWED_HOSTS)
 
 
-def test_output_acepta_archivo_dentro_de_evidencia():
+def test_output_acepta_archivo_documentado():
     script = _script()
-    output = script._validate_output_path(
-        "docs/evidencia/medicion-semana14-prueba.json"
+    output = script._resolve_output_path(
+        "docs/evidencia/medicion-semana14-local.json"
     )
-    assert output == script.EVIDENCE_DIR / "medicion-semana14-prueba.json"
+    assert output == script.EVIDENCE_DIR / "medicion-semana14-local.json"
 
 
-def test_output_acepta_puntos_y_guiones_bajos_en_el_nombre():
+def test_output_acepta_el_nombre_simple_del_archivo():
     script = _script()
-    output = script._validate_output_path("docs/evidencia/medicion_2026.11.json")
-    assert output == script.EVIDENCE_DIR / "medicion_2026.11.json"
+    output = script._resolve_output_path("medicion-semana14-dokploy.json")
+    assert output == script.EVIDENCE_DIR / "medicion-semana14-dokploy.json"
+
+
+@pytest.mark.parametrize(
+    "raw_path",
+    [
+        "medicion-semana14-local.json",
+        "docs/evidencia/medicion-semana14-local.json",
+        "otra/carpeta/medicion-semana14-local.json",
+    ],
+)
+def test_output_siempre_devuelve_la_ruta_constante_de_evidencia(raw_path):
+    script = _script()
+    output = script._resolve_output_path(raw_path)
+    assert output == script.EVIDENCE_DIR / "medicion-semana14-local.json"
+    assert output is script.EVIDENCE_OUTPUTS["medicion-semana14-local.json"]
+
+
+def test_outputs_permitidos_viven_en_el_directorio_de_evidencia():
+    script = _script()
+    for path in script.EVIDENCE_OUTPUTS.values():
+        assert path.parent == script.EVIDENCE_DIR
 
 
 @pytest.mark.parametrize(
@@ -75,36 +96,21 @@ def test_output_acepta_puntos_y_guiones_bajos_en_el_nombre():
         "docs/medicion.json",
         "docs/evidencia/../medicion.json",
         "../medicion.json",
-    ],
-)
-def test_output_rechaza_rutas_fuera_de_evidencia(output):
-    script = _script()
-    with pytest.raises(ValueError):
-        script._validate_output_path(output)
-
-
-@pytest.mark.parametrize(
-    "output",
-    [
-        "docs/evidencia/sub/medicion.json",
+        "docs/evidencia/medicion-semana14-prueba.json",
+        "docs/evidencia/medicion_2026.11.json",
         "docs/evidencia/archivo con espacios.json",
         "docs/evidencia/.oculto.json",
         "docs/evidencia/archivo:raro.json",
+        "docs/evidencia",
     ],
 )
-def test_output_rechaza_subdirectorios_y_nombres_no_simples(output):
+def test_output_rechaza_archivos_fuera_de_la_tabla_permitida(output):
     script = _script()
     with pytest.raises(ValueError):
-        script._validate_output_path(output)
-
-
-def test_output_rechaza_el_directorio_de_evidencia():
-    script = _script()
-    with pytest.raises(ValueError):
-        script._validate_output_path("docs/evidencia")
+        script._resolve_output_path(output)
 
 
 def test_output_rechaza_ruta_absoluta_externa(tmp_path):
     script = _script()
     with pytest.raises(ValueError):
-        script._validate_output_path(str(tmp_path / "medicion.json"))
+        script._resolve_output_path(str(tmp_path / "medicion.json"))
