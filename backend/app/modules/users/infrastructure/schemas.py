@@ -1,4 +1,3 @@
-from datetime import datetime
 from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -17,6 +16,31 @@ class UserCreate(BaseModel):
         description="Contraseña de al menos 8 caracteres",
     )
     role: Literal["passenger", "driver"] = "passenger"
+
+
+class ProfileUpdate(BaseModel):
+    """Datos personales que el usuario puede editar desde su perfil."""
+
+    name: str = Field(..., min_length=2, max_length=50)
+    last_name: str = Field(..., min_length=2, max_length=50)
+    phone: PhoneNumber
+
+    @model_validator(mode="after")
+    def validate_and_normalize_profile(self):
+        self.name = self.name.strip()
+        self.last_name = self.last_name.strip()
+        if len(self.name) < 2:
+            raise ValueError("El nombre debe tener al menos 2 caracteres")
+        if len(self.last_name) < 2:
+            raise ValueError("El apellido debe tener al menos 2 caracteres")
+        return self
+
+
+class PasswordUpdate(BaseModel):
+    """Cambio de contraseña con verificación de la contraseña actual."""
+
+    current_password: str = Field(..., min_length=1, max_length=128)
+    new_password: str = Field(..., min_length=8, max_length=128)
 
 
 class VehicleUpdate(BaseModel):
@@ -48,15 +72,15 @@ class VehicleUpdate(BaseModel):
             self.vehicle_color = None
             return self
 
-        if model is None or plate is None:
+        if model is None or plate is None or color is None:
             raise ValueError(
-                "Debes indicar tanto el modelo como la placa del vehículo"
+                "Debes indicar el modelo, la placa y el color del vehículo"
             )
         if len(model) < 2:
             raise ValueError(
                 "El modelo del vehículo debe tener al menos 2 caracteres"
             )
-        if color is not None and len(color) < 2:
+        if len(color) < 2:
             raise ValueError(
                 "El color del vehículo debe tener al menos 2 caracteres"
             )
@@ -75,7 +99,6 @@ class UserResponse(BaseModel):
     last_name: str
     phone: str
     role: Literal["passenger", "driver"]
-    location_consent_at: datetime | None = None
     vehicle_model: str | None = None
     vehicle_plate: str | None = None
     vehicle_color: str | None = None

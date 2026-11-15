@@ -7,6 +7,7 @@ import 'package:frontend/app/routb_app.dart';
 import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/core/storage/session_store.dart';
 import 'package:frontend/core/theme/theme_controller.dart';
+import 'package:frontend/core/widgets/routb_logo.dart';
 import 'package:frontend/features/auth/data/auth_repository.dart';
 import 'package:frontend/features/matching/data/matching_repository.dart';
 import 'package:frontend/features/notifications/data/notifications_repository.dart';
@@ -36,7 +37,8 @@ RoutbDependencies _dependencies() {
 /// nunca dejaría de programar cuadros.
 Future<void> _startAuthFlow(WidgetTester tester) async {
   await tester.pump(); // splash
-  await tester.pump(const Duration(milliseconds: 1000)); // resuelve la sesión
+  // La sesión se resuelve rápido, pero el splash tiene un mínimo de 1.2 s.
+  await tester.pump(const Duration(milliseconds: 1300));
   await tester.pump(const Duration(milliseconds: 600)); // transición de 400 ms
 }
 
@@ -66,6 +68,17 @@ void main() {
       // El primer cuadro todavía muestra el splash, antes de resolver.
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
       expect(find.text('Iniciar sesión'), findsNothing);
+
+      // Aunque no haya sesión, el splash se queda el mínimo para que la marca
+      // alcance a verse.
+      await tester.pump(const Duration(milliseconds: 900));
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.text('Iniciar sesión'), findsNothing);
+
+      // Se cumple el mínimo y termina la transición al acceso.
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(find.text('Iniciar sesión'), findsOneWidget);
     });
 
     // Regresión: el scope de dependencias estaba dentro de `home`, y
@@ -93,6 +106,28 @@ void main() {
         RoutbScopeDependencies.of(fieldContext).auth,
         isA<AuthRepository>(),
       );
+    });
+
+    testWidgets('el acceso y el registro muestran la marca', (tester) async {
+      final dependencies = _dependencies();
+      addTearDown(dependencies.dispose);
+
+      await tester.pumpWidget(RoutbApp(dependencies: dependencies));
+      await _startAuthFlow(tester);
+
+      expect(find.byType(RoutbLogo), findsOneWidget);
+
+      await tester.tap(find.text('¿No tienes cuenta? Regístrate'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
+
+      expect(find.byType(RoutbLogo), findsOneWidget);
+
+      await tester.tap(find.text('Soy pasajero'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
+
+      expect(find.byType(RoutbLogo), findsOneWidget);
     });
 
     testWidgets('el carrusel de acceso avanza entre las tres vistas', (

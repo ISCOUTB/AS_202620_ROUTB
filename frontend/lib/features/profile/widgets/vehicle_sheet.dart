@@ -94,10 +94,7 @@ class _VehicleSheetState extends State<_VehicleSheet> {
   bool _validate() {
     final modelError = validateVehicleModel(_model.text);
     final plateError = validateVehiclePlate(_plate.text);
-    final colorText = _color.text.trim();
-    final colorError = colorText.isEmpty
-        ? null
-        : validateVehicleColor(colorText);
+    final colorError = validateVehicleColor(_color.text);
 
     setState(() {
       _modelError = modelError;
@@ -114,7 +111,7 @@ class _VehicleSheetState extends State<_VehicleSheet> {
       final updated = await widget.auth.updateVehicle(
         model: _model.text,
         plate: normalizeVehiclePlate(_plate.text),
-        color: _color.text.trim().isEmpty ? null : _color.text,
+        color: _color.text,
       );
       if (!mounted) return;
       Navigator.of(context).pop(updated);
@@ -222,7 +219,7 @@ class _VehicleSheetState extends State<_VehicleSheet> {
           const SizedBox(height: 12),
           RoutbField(
             icon: Icons.palette_outlined,
-            hint: 'Color (opcional)',
+            hint: 'Color (ej. Gris)',
             controller: _color,
             textCapitalization: TextCapitalization.words,
             textInputAction: TextInputAction.done,
@@ -234,7 +231,8 @@ class _VehicleSheetState extends State<_VehicleSheet> {
           ),
           const SizedBox(height: 8),
           Text(
-            'La placa se guarda en el formato colombiano ABC-123.',
+            'El modelo, el color y la placa son obligatorios. La placa se '
+            'guarda en el formato colombiano de automóvil ABC-123.',
             style: RoutbText.copy(12, color: palette.muted),
           ),
           if (_hasVehicle) ...[

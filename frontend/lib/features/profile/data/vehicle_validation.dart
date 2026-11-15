@@ -38,6 +38,9 @@ String? validateVehicleModel(String value) {
 /// Mensaje para un color inválido, o `null` si es válido.
 String? validateVehicleColor(String value) {
   final trimmed = value.trim();
+  if (trimmed.isEmpty) {
+    return 'Ingresa el color del vehículo';
+  }
   if (trimmed.length < 2) {
     return 'El color debe tener al menos 2 caracteres';
   }

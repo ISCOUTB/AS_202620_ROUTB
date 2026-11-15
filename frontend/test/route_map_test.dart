@@ -67,6 +67,38 @@ void main() {
     },
   );
 
+  testWidgets('RouteMap dibuja la geometría exacta que entrega el backend', (
+    tester,
+  ) async {
+    const geometry = <LatLng>[
+      LatLng(10.4236, -75.5477),
+      LatLng(10.4100, -75.5300),
+      LatLng(10.371078, -75.466261),
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: RoutbTheme.light(),
+        home: const Scaffold(
+          body: RouteMap(
+            origin: 'Centro',
+            destination: 'UTB',
+            routePoints: geometry,
+            animateRoute: false,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final line = tester.widget<PolylineLayer>(find.byType(PolylineLayer));
+    expect(line.polylines.single.points, geometry);
+
+    final markerLayer = tester.widget<MarkerLayer>(find.byType(MarkerLayer));
+    expect(markerLayer.markers.first.point, geometry.first);
+    expect(markerLayer.markers.last.point, geometry.last);
+  });
+
   testWidgets(
     'RouteMap dibuja todas las paradas intermedias pasadas en waypoints',
     (tester) async {

@@ -35,6 +35,9 @@ def _crear_usuario(telefono: str, role: str = "passenger") -> tuple[int, str]:
             phone=telefono,
             hashed_password="hash",
             role=role,
+            vehicle_model="Chevrolet Spark" if role == "driver" else None,
+            vehicle_plate="XYZ-123" if role == "driver" else None,
+            vehicle_color="Gris" if role == "driver" else None,
         )
         db.add(user)
         db.commit()
@@ -352,6 +355,50 @@ def test_no_se_registran_tokens_en_logs():
             assert "secret_token_12345" not in record.getMessage()
     finally:
         logger.removeHandler(handler)
+
+
+def test_canal_android_por_evento():
+    """G21: las solicitudes nuevas usan un canal distinto al resto de avisos."""
+    from app.modules.notifications.application.send_notification import (
+        android_channel_for_event,
+    )
+
+    assert android_channel_for_event({"event": "request_created"}) == (
+        "routb_new_requests"
+    )
+    assert android_channel_for_event({"event": "request_accepted"}) == (
+        "routb_updates"
+    )
+    assert android_channel_for_event(None) == "routb_updates"
+
+
+def test_send_push_asigna_el_canal_de_solicitud_nueva():
+    """El mensaje FCM lleva el channel_id que Android necesita para vibrar distinto."""
+    from app.modules.notifications.application.send_notification import send_push
+
+    capturados = []
+
+    def _fake_send_each(messages, app):
+        capturados.extend(messages)
+        response = MagicMock()
+        response.success_count = len(messages)
+        response.failure_count = 0
+        response.responses = []
+        return response
+
+    with patch(
+        "app.modules.notifications.application.send_notification._get_app",
+        return_value=MagicMock(),
+    ), patch("firebase_admin.messaging.send_each", side_effect=_fake_send_each):
+        send_push(
+            ["fcm_canal_test"],
+            title="Nueva solicitud",
+            body="Un pasajero pidió cupo",
+            data={"event": "request_created"},
+        )
+
+    assert capturados
+    assert capturados[0].android.notification.channel_id == "routb_new_requests"
 
 
 def test_registro_de_token_genera_id_en_la_base():

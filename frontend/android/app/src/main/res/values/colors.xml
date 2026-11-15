@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Fondo de la pantalla de arranque nativa; coincide con
+         RoutbPalette.light.background para que no haya un salto de color
+         antes de que Flutter dibuje el splash. -->
+    <color name="routb_splash_background">#F1F5F9</color>
+</resources>

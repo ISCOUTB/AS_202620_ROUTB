@@ -25,7 +25,7 @@ logger.propagate = False
 app = FastAPI(
     title="ROUTB API",
     description="ROUTB",
-    version="0.9.0",
+    version="0.12.0",
 )
 
 @app.middleware("http")

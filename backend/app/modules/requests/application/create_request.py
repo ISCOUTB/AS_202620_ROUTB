@@ -10,10 +10,12 @@ from app.modules.requests.domain.exceptions import (
     ActiveRequestAlreadyExistsError,
     DriverCannotRequestError,
     NoAvailableSeatsError,
+    TripAlreadyDepartedError,
     TripNotActiveError,
 )
 from app.modules.requests.infrastructure.models import RequestStop, TripRequest
 from app.modules.trips.application import get_trip_request_context
+from app.modules.trips.application.departure import trip_has_departed
 
 
 def create_request(
@@ -33,6 +35,13 @@ def create_request(
 
     if trip.driver_id == passenger_id:
         raise DriverCannotRequestError("El conductor no puede solicitar cupo en su propio viaje")
+
+    if trip_has_departed(
+        departure_at=trip.departure_at,
+        departure_date=trip.departure_date,
+        departure_time=trip.departure_time,
+    ):
+        raise TripAlreadyDepartedError()
 
     if trip.available_seats < seat_count:
         raise NoAvailableSeatsError(

@@ -10,6 +10,7 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/services/whatsapp_launcher.dart';
 import '../../../core/theme/routb_palette.dart';
 import '../../../core/theme/routb_text.dart';
+import '../../../core/widgets/eta_label.dart';
 import '../../../core/widgets/routb_button.dart';
 import '../../../core/widgets/routb_card.dart';
 import '../../../core/widgets/routb_field.dart';
@@ -468,7 +469,7 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                                               color: palette.muted,
                                             ),
                                           ),
-                                        for (final stop in request.stops)
+                                        for (final stop in request.stops) ...[
                                           Text(
                                             '${stop.stopSequence == null ? '' : '${stop.stopSequence}. '}${stop.addressText} · ${stop.seats} ${stop.seats == 1 ? 'persona' : 'personas'}',
                                             maxLines: 2,
@@ -478,6 +479,17 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                                               color: palette.muted,
                                             ),
                                           ),
+                                          if (stop.etaEstimated != null)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                top: 1,
+                                              ),
+                                              child: EtaLabel(
+                                                eta: stop.etaEstimated!,
+                                                compact: true,
+                                              ),
+                                            ),
+                                        ],
                                       ],
                                     ),
                                   ),

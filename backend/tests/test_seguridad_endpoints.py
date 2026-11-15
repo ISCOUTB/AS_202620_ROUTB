@@ -31,6 +31,9 @@ def _crear_usuario(telefono: str, role: str = "driver") -> tuple[int, str]:
             phone=telefono,
             hashed_password="hash",
             role=role,
+            vehicle_model="Chevrolet Spark" if role == "driver" else None,
+            vehicle_plate="XYZ-123" if role == "driver" else None,
+            vehicle_color="Gris" if role == "driver" else None,
         )
         db.add(user)
         db.commit()

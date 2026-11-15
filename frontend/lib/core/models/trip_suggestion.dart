@@ -1,3 +1,7 @@
+import 'package:latlong2/latlong.dart';
+
+import 'route_points.dart';
+
 /// Viaje que el backend recomienda para una solicitud puerta a puerta.
 class TripSuggestion {
   const TripSuggestion({
@@ -14,6 +18,7 @@ class TripSuggestion {
     required this.walkDistanceM,
     required this.score,
     required this.degraded,
+    this.routePoints = const <LatLng>[],
   });
 
   factory TripSuggestion.fromJson(Map<String, dynamic> json) => TripSuggestion(
@@ -30,6 +35,7 @@ class TripSuggestion {
     walkDistanceM: (json['walk_distance_m'] as num? ?? 0).toDouble(),
     score: (json['score'] as num? ?? 1).toDouble(),
     degraded: json['degraded'] as bool? ?? false,
+    routePoints: routePointsFromJson(json['route_points']),
   );
 
   final int tripId;
@@ -45,4 +51,7 @@ class TripSuggestion {
   final double walkDistanceM;
   final double score;
   final bool degraded;
+
+  /// Geometría de la ruta del viaje sugerido.
+  final List<LatLng> routePoints;
 }

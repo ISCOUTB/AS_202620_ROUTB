@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from datetime import datetime
 
 from sqlalchemy.orm import Session
 
@@ -13,7 +12,6 @@ class UserIdentity:
     last_name: str
     phone: str
     role: str
-    location_consent_at: datetime | None
     vehicle_model: str | None = None
     vehicle_plate: str | None = None
     vehicle_color: str | None = None
@@ -30,7 +28,7 @@ def get_user_by_phone(db: Session, phone: str) -> UserCredentials | None:
         return None
     return UserCredentials(
         id=user.id, name=user.name, last_name=user.last_name, phone=user.phone,
-        role=user.role, location_consent_at=user.location_consent_at,
+        role=user.role,
         vehicle_model=user.vehicle_model,
         vehicle_plate=user.vehicle_plate,
         vehicle_color=user.vehicle_color,
@@ -44,7 +42,7 @@ def get_user_by_id(db: Session, user_id: int) -> UserIdentity | None:
         return None
     return UserIdentity(
         id=user.id, name=user.name, last_name=user.last_name, phone=user.phone,
-        role=user.role, location_consent_at=user.location_consent_at,
+        role=user.role,
         vehicle_model=user.vehicle_model,
         vehicle_plate=user.vehicle_plate,
         vehicle_color=user.vehicle_color,

@@ -1,24 +1,25 @@
 """Mide la latencia de un endpoint HTTP de ROUTB (Semana 14).
 
 El script ejecuta un calentamiento, varias rondas de peticiones secuenciales y
-calcula mínimo, promedio, p95 y máximo por ronda. Guarda el resultado crudo en
-JSON para que otra persona pueda contrastarlo con el umbral de arc42 sección 10.
+calcula mínimo, promedio, p95 y máximo por ronda. Imprime el resultado crudo en
+JSON por la salida estándar para que otra persona pueda contrastarlo con el
+umbral de arc42 sección 10; los mensajes de progreso van a ``stderr``.
 
 Uso recomendado desde la raíz del repositorio:
 
     backend/.venv/Scripts/python.exe scripts/medir_rendimiento.py ^
         --url http://127.0.0.1:8014/trips/ ^
         --warmup-url http://127.0.0.1:8014/health ^
-        --label local ^
-        --output docs/evidencia/medicion-semana14-local.json
+        --label local > docs/evidencia/medicion-semana14-local.json
 
 No requiere autenticación para ``GET /trips/``. Si el endpoint devuelve un
 código distinto de 200, la ronda se aborta para no mezclar errores con tiempos.
 
 Por seguridad, solo se miden URLs HTTP(S) cuyo host esté autorizado (por
-defecto, loopback) mediante ``--allow-host``, y el JSON de salida se escribe
-únicamente dentro de ``docs/evidencia/``. Las URLs con credenciales embebidas
-se rechazan.
+defecto, loopback) mediante ``--allow-host``. El script no abre ni escribe
+archivos: el JSON se redirige desde la consola. La antigua opción ``--output``
+solo se reconoce para indicar cómo migrar el comando. Las URLs con credenciales
+embebidas se rechazan.
 """
 
 from __future__ import annotations
@@ -39,6 +40,26 @@ import httpx
 REPO_ROOT = Path(__file__).resolve().parent.parent
 EVIDENCE_DIR = REPO_ROOT / "docs" / "evidencia"
 DEFAULT_ALLOWED_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+# Nombres de evidencia que aceptaba la antigua opción --output. Solo se usan
+# para guiar la migración al redireccionamiento de stdout; el script ya no
+# escribe archivos, así que no hay sink de path traversal (Sonar S8707).
+EVIDENCE_OUTPUTS = {
+    "medicion-semana14-dokploy.json": EVIDENCE_DIR / "medicion-semana14-dokploy.json",
+    "medicion-semana14-local.json": EVIDENCE_DIR / "medicion-semana14-local.json",
+}
+
+
+def _resolve_output_path(raw_path: str) -> Path:
+    """Traduce el antiguo ``--output`` al destino recomendado de redirección."""
+    name = os.path.basename(raw_path)
+    for allowed_name, allowed_path in EVIDENCE_OUTPUTS.items():
+        if name == allowed_name:
+            return allowed_path
+    allowed = ", ".join(sorted(EVIDENCE_OUTPUTS))
+    raise ValueError(
+        f"--output debe seleccionar uno de los archivos de evidencia "
+        f"permitidos: {allowed}"
+    )
 
 
 def _validate_target(
@@ -63,21 +84,6 @@ def _validate_target(
             f"Host no autorizado: {host!r}. Usa --allow-host para autorizarlo."
         )
     return target
-
-
-def _validate_output_path(raw_path: str) -> Path:
-    """Confina la escritura a docs/evidencia y bloquea rutas de escape."""
-    evidence_dir = EVIDENCE_DIR.resolve()
-    candidate = Path(raw_path)
-    if not candidate.is_absolute():
-        candidate = REPO_ROOT / candidate
-
-    resolved = candidate.resolve()
-    if resolved == evidence_dir or not resolved.is_relative_to(evidence_dir):
-        raise ValueError(
-            f"--output debe apuntar a un archivo dentro de {evidence_dir}"
-        )
-    return resolved
 
 
 def _percentile(sorted_values: list[float], percentile: float) -> float:
@@ -139,6 +145,120 @@ def _environment_snapshot() -> dict[str, object]:
     }
 
 
+def _reject_legacy_output(parser: argparse.ArgumentParser, raw_output: str | None) -> None:
+    if raw_output is None:
+        return
+    try:
+        destination = _resolve_output_path(raw_output)
+    except ValueError as exc:
+        parser.error(str(exc))
+    parser.error(
+        "--output ya no se usa: el JSON se imprime en la salida estándar. "
+        f"Repite el comando redirigiendo la salida a {destination}"
+    )
+
+
+def _allowed_hosts(
+    parser: argparse.ArgumentParser, raw_hosts: list[str] | None
+) -> set[str]:
+    allowed_hosts = set(DEFAULT_ALLOWED_HOSTS)
+    for host in raw_hosts or []:
+        normalized = host.strip().rstrip(".").lower()
+        if not normalized:
+            parser.error("--allow-host no puede estar vacío")
+        allowed_hosts.add(normalized)
+    return allowed_hosts
+
+
+def _target_urls(
+    parser: argparse.ArgumentParser,
+    raw_url: str,
+    raw_warmup_url: str | None,
+    allowed_hosts: set[str],
+) -> tuple[httpx.URL, httpx.URL]:
+    warmup_url = raw_warmup_url
+    if warmup_url is None:
+        base = raw_url.split("/trips", 1)[0]
+        warmup_url = f"{base}/health"
+    try:
+        return (
+            _validate_target(raw_url, allowed_hosts),
+            _validate_target(warmup_url, allowed_hosts),
+        )
+    except ValueError as exc:
+        parser.error(str(exc))
+
+
+def _warm_up(
+    client: httpx.Client, warmup_url: httpx.URL, wait_seconds: float
+) -> None:
+    response = client.get(warmup_url)
+    if response.status_code != 200:
+        raise RuntimeError(
+            f"El calentamiento {warmup_url} respondió "
+            f"{response.status_code}; se esperaba 200"
+        )
+    time.sleep(wait_seconds)
+
+
+def _measure_rounds(
+    client: httpx.Client,
+    target_url: httpx.URL,
+    requests_count: int,
+    repetitions: int,
+) -> list[dict[str, object]]:
+    rounds: list[dict[str, object]] = []
+    for number in range(1, repetitions + 1):
+        stats, status_codes, payload_items = _measure_round(
+            client, target_url, requests_count
+        )
+        rounds.append(
+            {
+                "round": number,
+                **stats,
+                "status_codes": status_codes,
+                "payload_items": payload_items,
+            }
+        )
+        print(
+            f"Ronda {number}: n={stats['n']} "
+            f"p95={stats['p95_ms']} ms max={stats['max_ms']} ms",
+            file=sys.stderr,
+        )
+    return rounds
+
+
+def _round_summary(
+    rounds: list[dict[str, object]], threshold_ms: float
+) -> tuple[list[float], float, str]:
+    p95_values = [float(item["p95_ms"]) for item in rounds]
+    worst_p95 = max(p95_values)
+    conclusion = "CUMPLE" if worst_p95 < threshold_ms else "NO CUMPLE"
+    return p95_values, worst_p95, conclusion
+
+
+def _print_summary(
+    rounds: list[dict[str, object]],
+    worst_p95: float,
+    threshold_ms: float,
+    conclusion: str,
+) -> None:
+    print(file=sys.stderr)
+    print("| Ronda | N | Mínimo | Promedio | p95 | Máximo |", file=sys.stderr)
+    print("|---|---:|---:|---:|---:|", file=sys.stderr)
+    for item in rounds:
+        print(
+            f"| {item['round']} | {item['n']} | {item['min_ms']} ms | "
+            f"{item['avg_ms']} ms | **{item['p95_ms']} ms** | {item['max_ms']} ms |",
+            file=sys.stderr,
+        )
+    print(file=sys.stderr)
+    print(f"p95 más alto de las rondas: {worst_p95} ms", file=sys.stderr)
+    print(f"Umbral: {threshold_ms} ms", file=sys.stderr)
+    print(f"Resultado: {conclusion}", file=sys.stderr)
+    print(file=sys.stderr)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--url", required=True, help="Endpoint que se mide")
@@ -159,8 +279,8 @@ def main() -> int:
     parser.add_argument("--label", required=True, help="Nombre del entorno medido")
     parser.add_argument(
         "--output",
-        required=True,
-        help="Archivo JSON dentro de docs/evidencia donde se guardan los resultados",
+        default=None,
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--allow-host",
@@ -174,63 +294,28 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    _reject_legacy_output(parser, args.output)
+
     if args.requests < 1 or args.repetitions < 1:
         parser.error("--requests y --repetitions deben ser mayores que cero")
 
-    allowed_hosts = set(DEFAULT_ALLOWED_HOSTS)
-    for host in args.allow_host or []:
-        normalized = host.strip().rstrip(".").lower()
-        if not normalized:
-            parser.error("--allow-host no puede estar vacío")
-        allowed_hosts.add(normalized)
-
-    warmup_url = args.warmup_url
-    if warmup_url is None:
-        base = args.url.split("/trips", 1)[0]
-        warmup_url = f"{base}/health"
-
-    try:
-        target_url = _validate_target(args.url, allowed_hosts)
-        warmup_target_url = _validate_target(warmup_url, allowed_hosts)
-        output_path = _validate_output_path(args.output)
-    except ValueError as exc:
-        parser.error(str(exc))
+    allowed_hosts = _allowed_hosts(parser, args.allow_host)
+    target_url, warmup_target_url = _target_urls(
+        parser, args.url, args.warmup_url, allowed_hosts
+    )
 
     environment = _environment_snapshot()
     environment["cpu_count"] = os.cpu_count()
 
-    rounds: list[dict[str, object]] = []
     started_at = datetime.now(timezone.utc)
 
     with httpx.Client(timeout=args.timeout, follow_redirects=False) as client:
-        warmup_response = client.get(warmup_target_url)
-        if warmup_response.status_code != 200:
-            raise RuntimeError(
-                f"El calentamiento {warmup_target_url} respondió "
-                f"{warmup_response.status_code}; se esperaba 200"
-            )
-        time.sleep(args.warmup_seconds)
+        _warm_up(client, warmup_target_url, args.warmup_seconds)
+        rounds = _measure_rounds(
+            client, target_url, args.requests, args.repetitions
+        )
 
-        for number in range(1, args.repetitions + 1):
-            stats, status_codes, payload_items = _measure_round(
-                client, target_url, args.requests
-            )
-            rounds.append(
-                {
-                    "round": number,
-                    **stats,
-                    "status_codes": status_codes,
-                    "payload_items": payload_items,
-                }
-            )
-            print(
-                f"Ronda {number}: n={stats['n']} "
-                f"p95={stats['p95_ms']} ms max={stats['max_ms']} ms"
-            )
-
-    p95_values = [float(item["p95_ms"]) for item in rounds]
-    worst_p95 = max(p95_values)
-    conclusion = "CUMPLE" if worst_p95 < args.threshold_ms else "NO CUMPLE"
+    p95_values, worst_p95, conclusion = _round_summary(rounds, args.threshold_ms)
     finished_at = datetime.now(timezone.utc)
 
     result = {
@@ -253,24 +338,13 @@ def main() -> int:
         },
     }
 
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(
-        json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-    )
+    _print_summary(rounds, worst_p95, args.threshold_ms, conclusion)
 
-    print()
-    print("| Ronda | N | Mínimo | Promedio | p95 | Máximo |")
-    print("|---|---:|---:|---:|---:|---:|")
-    for item in rounds:
-        print(
-            f"| {item['round']} | {item['n']} | {item['min_ms']} ms | "
-            f"{item['avg_ms']} ms | **{item['p95_ms']} ms** | {item['max_ms']} ms |"
-        )
-    print()
-    print(f"p95 más alto de las rondas: {worst_p95} ms")
-    print(f"Umbral: {args.threshold_ms} ms")
-    print(f"Resultado: {conclusion}")
-    print(f"Resultados crudos: {output_path}")
+    # El JSON es la única salida por stdout. Al no escribir archivos desde el
+    # script, no existe un sink de path traversal que Sonar pueda marcar.
+    # ensure_ascii=True (predeterminado) evita problemas de codificación al
+    # redirigir desde consolas con páginas de códigos distintas.
+    print(json.dumps(result, indent=2))
 
     return 0 if conclusion == "CUMPLE" else 1
 

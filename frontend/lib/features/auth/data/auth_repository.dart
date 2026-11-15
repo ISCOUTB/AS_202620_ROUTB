@@ -87,16 +87,11 @@ class AuthRepository {
     await _session.clear();
   }
 
-  /// Registra en el backend el consentimiento para usar geocodificación.
-  Future<void> grantLocationConsent() async {
-    await _api.post('/users/me/location-consent');
-  }
-
   /// `GET /auth/me`
   ///
   /// Perfil de solo lectura para la pantalla de Perfil: nombre completo,
-  /// teléfono, rol y estado del consentimiento de ubicación. Es la misma
-  /// información que devuelve el ingreso, pero siempre fresca.
+  /// teléfono, rol y datos del vehículo. Es la misma información que devuelve
+  /// el ingreso, pero siempre fresca.
   Future<UserProfile> fetchProfile() async {
     final response = await _api.get('/auth/me');
     if (response is! Map<String, dynamic>) {
@@ -105,10 +100,50 @@ class AuthRepository {
     return UserProfile.fromJson(response);
   }
 
-  /// Revoca el consentimiento y hace que el backend elimine las paradas de
-  /// solicitudes pendientes.
-  Future<void> revokeLocationConsent() async {
-    await _api.delete('/users/me/location-consent');
+  /// `PATCH /users/me`
+  ///
+  /// Actualiza nombre, apellido y teléfono del usuario autenticado. El
+  /// identificador sale del token: no hay forma de editar otra cuenta. El
+  /// teléfono debe seguir siendo único en el backend.
+  Future<UserProfile> updateProfile({
+    required String name,
+    required String lastName,
+    required String phone,
+  }) async {
+    final response = await _api.patch(
+      '/users/me',
+      body: <String, Object?>{
+        'name': name.trim(),
+        'last_name': lastName.trim(),
+        'phone': phone.trim(),
+      },
+    );
+    if (response is! Map<String, dynamic>) {
+      throw const ApiException(
+        'El servidor no devolvió el perfil actualizado.',
+      );
+    }
+    final profile = UserProfile.fromJson(response);
+    // El nombre también vive en la sesión local para el saludo inicial.
+    await _session.saveName(profile.name);
+    return profile;
+  }
+
+  /// `PATCH /users/me/password`
+  ///
+  /// Cambia la contraseña después de verificar la actual. La sesión abierta
+  /// sigue siendo válida hasta su vencimiento normal.
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    await _api.patch(
+      '/users/me/password',
+      body: <String, Object?>{
+        'current_password': currentPassword,
+        'new_password': newPassword,
+      },
+    );
   }
 
   /// `PATCH /users/me/vehicle`
@@ -134,6 +169,16 @@ class AuthRepository {
       );
     }
     return UserProfile.fromJson(response);
+  }
+
+  /// `DELETE /users/me`
+  ///
+  /// Borra la cuenta en el backend y limpia la sesión local. El servidor
+  /// rechaza la operación si hay rutas activas o solicitudes pendientes; en ese
+  /// caso lanza [ApiException] con el mensaje para mostrar en la app.
+  Future<void> deleteAccount() async {
+    await _api.delete('/users/me');
+    await _session.clear();
   }
 
   /// Devuelve la cuenta guardada en el dispositivo si sigue siendo válida en

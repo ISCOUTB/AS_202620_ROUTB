@@ -3,7 +3,7 @@
   "info": {
     "title": "ROUTB API",
     "description": "ROUTB",
-    "version": "0.9.0"
+    "version": "0.12.0"
   },
   "paths": {
     "/users/": {
@@ -47,17 +47,20 @@
         }
       }
     },
-    "/users/me/location-consent": {
-      "post": {
+    "/users/me": {
+      "delete": {
         "tags": [
           "users"
         ],
-        "summary": "Otorgar consentimiento de ubicación",
-        "description": "Registra que el usuario acepta el tratamiento de su ubicación.\n\nPersiste ``location_consent_at`` en la base de datos.",
-        "operationId": "post_location_consent_users_me_location_consent_post",
+        "summary": "Eliminar la cuenta del usuario autenticado",
+        "description": "Borra la cuenta y sus datos personales.\n\nSe rechaza con 409 si el usuario todavía tiene compromisos activos para no\ndejar viajes ni cupos huérfanos. Los viajes históricos del conductor se\nconservan anonimizados por la clave foránea ``ON DELETE SET NULL``.",
+        "operationId": "delete_my_account_users_me_delete",
         "responses": {
           "204": {
             "description": "Successful Response"
+          },
+          "409": {
+            "description": "La cuenta tiene rutas activas o solicitudes pendientes/aceptadas."
           }
         },
         "security": [
@@ -66,16 +69,92 @@
           }
         ]
       },
-      "delete": {
+      "patch": {
         "tags": [
           "users"
         ],
-        "summary": "Revocar consentimiento de ubicación",
-        "description": "Revoca el consentimiento de ubicación del usuario.\n\nCancela las solicitudes pendientes y borra las paradas almacenadas.",
-        "operationId": "delete_location_consent_users_me_location_consent_delete",
+        "summary": "Actualizar los datos personales del usuario autenticado",
+        "description": "Actualiza nombre, apellido y teléfono del propio usuario.\n\nEl identificador sale del token, así que no se pueden editar los datos de\notra persona. El teléfono sigue siendo único en la base de datos.",
+        "operationId": "update_my_profile_users_me_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Usuario no encontrado"
+          },
+          "409": {
+            "description": "El teléfono ya está registrado"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/users/me/password": {
+      "patch": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Cambiar la contraseña del usuario autenticado",
+        "description": "Cambia la contraseña tras verificar la actual.\n\nNo se emite un token nuevo: la sesión abierta sigue siendo válida hasta su\nvencimiento normal.",
+        "operationId": "change_my_password_users_me_password_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordUpdate"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "204": {
             "description": "Successful Response"
+          },
+          "400": {
+            "description": "La contraseña actual no es correcta"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -165,8 +244,8 @@
               }
             }
           },
-          "403": {
-            "description": "location_consent_required"
+          "409": {
+            "description": "vehicle_required"
           },
           "422": {
             "description": "Validation Error",
@@ -539,6 +618,9 @@
               }
             }
           },
+          "409": {
+            "description": "El viaje ya salió o no tiene cupos suficientes"
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -861,9 +943,6 @@
                 }
               }
             }
-          },
-          "403": {
-            "description": "location_consent_required"
           },
           "422": {
             "description": "Coordenadas o parámetros inválidos"
@@ -1216,6 +1295,14 @@
             "type": "array",
             "title": "Stops",
             "default": []
+          },
+          "route_points": {
+            "items": {
+              "$ref": "#/components/schemas/RoutePoint"
+            },
+            "type": "array",
+            "title": "Route Points",
+            "description": "Puntos (lat, lng) de la ruta calculada para el viaje."
           }
         },
         "type": "object",
@@ -1232,6 +1319,59 @@
         ],
         "title": "MyRequestResponse",
         "description": "Solicitud propia del pasajero con una foto del viaje.\n\nSe expone plana y no anidada porque el pasajero la lee desde su telefono y\nnecesita solo los datos que caben en su pantalla. El viaje viaja dentro\nporque ``GET /trips/`` deja de devolverlo cuando se ocupa el ultimo cupo."
+      },
+      "PasswordUpdate": {
+        "properties": {
+          "current_password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Current Password"
+          },
+          "new_password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "New Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "current_password",
+          "new_password"
+        ],
+        "title": "PasswordUpdate",
+        "description": "Cambio de contraseña con verificación de la contraseña actual."
+      },
+      "ProfileUpdate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 50,
+            "minLength": 2,
+            "title": "Name"
+          },
+          "last_name": {
+            "type": "string",
+            "maxLength": 50,
+            "minLength": 2,
+            "title": "Last Name"
+          },
+          "phone": {
+            "type": "string",
+            "pattern": "^(?:\\+?57)?3\\d{9}$",
+            "title": "Phone",
+            "description": "Celular colombiano de 10 dígitos. Acepta los formatos 3XXXXXXXXX, 573XXXXXXXXX y +573XXXXXXXXX después de retirar espacios y guiones."
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "last_name",
+          "phone"
+        ],
+        "title": "ProfileUpdate",
+        "description": "Datos personales que el usuario puede editar desde su perfil."
       },
       "RequestStopCreate": {
         "properties": {
@@ -1325,6 +1465,29 @@
           "address_text"
         ],
         "title": "RequestStopResponse"
+      },
+      "RoutePoint": {
+        "properties": {
+          "lat": {
+            "type": "number",
+            "maximum": 90.0,
+            "minimum": -90.0,
+            "title": "Lat"
+          },
+          "lng": {
+            "type": "number",
+            "maximum": 180.0,
+            "minimum": -180.0,
+            "title": "Lng"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lat",
+          "lng"
+        ],
+        "title": "RoutePoint",
+        "description": "Punto de una geometría de ruta, en orden latitud/longitud."
       },
       "SuggestionItem": {
         "properties": {
@@ -1423,6 +1586,14 @@
             "type": "boolean",
             "title": "Degraded",
             "default": false
+          },
+          "route_points": {
+            "items": {
+              "$ref": "#/components/schemas/RoutePoint"
+            },
+            "type": "array",
+            "title": "Route Points",
+            "description": "Puntos (lat, lng) de la ruta del viaje sugerido."
           }
         },
         "type": "object",
@@ -1886,6 +2057,14 @@
             },
             "type": "array",
             "title": "Requests"
+          },
+          "route_points": {
+            "items": {
+              "$ref": "#/components/schemas/RoutePoint"
+            },
+            "type": "array",
+            "title": "Route Points",
+            "description": "Puntos (lat, lng) de la ruta calculada por el backend. Vacío en viajes sin geometría."
           }
         },
         "type": "object",
@@ -1969,18 +2148,6 @@
               "driver"
             ],
             "title": "Role"
-          },
-          "location_consent_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Location Consent At"
           },
           "vehicle_model": {
             "anyOf": [

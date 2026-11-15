@@ -3,6 +3,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.shared.schemas import RoutePoint
+
 
 class SuggestionItem(BaseModel):
     trip_id: int
@@ -22,3 +24,7 @@ class SuggestionItem(BaseModel):
     available_seats: int
     total_seats: int
     degraded: bool = False
+    route_points: list[RoutePoint] = Field(
+        default_factory=list,
+        description="Puntos (lat, lng) de la ruta del viaje sugerido.",
+    )

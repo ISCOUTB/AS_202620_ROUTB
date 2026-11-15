@@ -31,6 +31,9 @@ class RouteMap extends StatefulWidget {
     this.waypointCoordinate,
     this.waypoints = const <String>[],
     this.waypointCoordinates = const <LatLng>[],
+    this.originCoordinate,
+    this.destinationCoordinate,
+    this.routePoints = const <LatLng>[],
     this.height = 160,
     this.phase,
     this.showPhase = false,
@@ -57,6 +60,22 @@ class RouteMap extends StatefulWidget {
 
   /// Lista directa de coordenadas de paradas intermedias.
   final List<LatLng> waypointCoordinates;
+
+  /// Coordenada exacta del origen, si ya se conoce.
+  ///
+  /// Evita geocodificar el texto cuando la pantalla tiene el punto real (por
+  /// ejemplo, el elegido en el buscador de direcciones).
+  final LatLng? originCoordinate;
+
+  /// Coordenada exacta del destino, si ya se conoce.
+  final LatLng? destinationCoordinate;
+
+  /// Geometría completa de la ruta calculada por el backend.
+  ///
+  /// Cuando trae al menos dos puntos se dibuja tal cual: el mapa no vuelve a
+  /// pedir la ruta a Google ni recalcula el trayecto. Si está vacía, se conserva
+  /// el comportamiento anterior de resolver origen, destino y vía.
+  final List<LatLng> routePoints;
 
   /// Alto del contenedor.
   final double height;
@@ -105,11 +124,13 @@ class _RouteMapState extends State<RouteMap> {
       widget.waypoint!.trim(),
   ];
 
+  bool get _hasRouteGeometry => widget.routePoints.length >= 2;
+
   @override
   void initState() {
     super.initState();
     _applyBestKnownPoints();
-    _lookupDone = !_useRemote;
+    _lookupDone = !_useRemote || _hasRouteGeometry;
     _scheduleResolve();
   }
 
@@ -119,16 +140,20 @@ class _RouteMapState extends State<RouteMap> {
     final waypointsChanged =
         !listEquals(oldWidget.waypoints, widget.waypoints) ||
         !listEquals(oldWidget.waypointCoordinates, widget.waypointCoordinates);
+    final routeChanged = !listEquals(oldWidget.routePoints, widget.routePoints);
     if (oldWidget.origin == widget.origin &&
         oldWidget.destination == widget.destination &&
         oldWidget.waypoint == widget.waypoint &&
         oldWidget.waypointCoordinate == widget.waypointCoordinate &&
-        !waypointsChanged) {
+        oldWidget.originCoordinate == widget.originCoordinate &&
+        oldWidget.destinationCoordinate == widget.destinationCoordinate &&
+        !waypointsChanged &&
+        !routeChanged) {
       return;
     }
     setState(() {
       _applyBestKnownPoints();
-      _lookupDone = !_useRemote;
+      _lookupDone = !_useRemote || _hasRouteGeometry;
     });
     _scheduleResolve();
   }
@@ -143,10 +168,15 @@ class _RouteMapState extends State<RouteMap> {
 
   void _applyBestKnownPoints() {
     final locator = PlaceLocator.instance;
+    final route = widget.routePoints;
     _start =
+        widget.originCoordinate ??
+        (route.isNotEmpty ? route.first : null) ??
         locator.cachedPoint(widget.origin) ??
         PlaceLocator.catalogPoint(widget.origin);
     _end =
+        widget.destinationCoordinate ??
+        (route.isNotEmpty ? route.last : null) ??
         locator.cachedPoint(widget.destination) ??
         PlaceLocator.catalogPoint(widget.destination);
 
@@ -166,7 +196,7 @@ class _RouteMapState extends State<RouteMap> {
     }
 
     _waypoints = points;
-    _road = null;
+    _road = _hasRouteGeometry ? List<LatLng>.unmodifiable(route) : null;
   }
 
   void _scheduleResolve() {
@@ -181,6 +211,9 @@ class _RouteMapState extends State<RouteMap> {
   Future<void> _resolve(int epoch) async {
     if (!_useRemote) return;
 
+    // La geometría ya viene del backend: se conserva la línea y solo se
+    // resuelven las paradas para poner sus marcadores.
+    final keepRoute = _hasRouteGeometry;
     final originText = widget.origin;
     final destinationText = widget.destination;
     final texts = _allWaypointTexts;
@@ -215,15 +248,17 @@ class _RouteMapState extends State<RouteMap> {
     }
 
     setState(() {
-      _start = start;
-      _end = end;
+      if (!keepRoute) {
+        _start = start;
+        _end = end;
+        _road = null;
+      }
       _waypoints = resolvedWaypoints;
-      _road = null;
       _lookupDone = true;
     });
     _fitCamera();
 
-    if (start == null || end == null) return;
+    if (keepRoute || start == null || end == null) return;
 
     List<LatLng>? road;
     if (resolvedWaypoints.isNotEmpty) {
@@ -245,6 +280,7 @@ class _RouteMapState extends State<RouteMap> {
       start: _start,
       end: _end,
       waypoints: _waypoints,
+      route: _road,
       width: size.width,
       height: size.height == 0 ? widget.height : size.height,
     );
@@ -481,6 +517,7 @@ class _OsmMap extends StatelessWidget {
           start: start,
           end: end,
           waypoints: allWaypoints,
+          route: road,
           width: constraints.maxWidth,
           height: constraints.maxHeight,
         );
@@ -705,10 +742,11 @@ class _TripCamera {
     required LatLng? end,
     LatLng? waypoint,
     List<LatLng>? waypoints,
+    List<LatLng>? route,
     required double width,
     required double height,
   }) {
-    final points = <LatLng>[?start, ?end, ?waypoint, ...?waypoints];
+    final points = <LatLng>[?start, ?end, ?waypoint, ...?waypoints, ...?route];
     if (points.isEmpty) {
       return _TripCamera(center: Zones.campusPoint, zoom: 13);
     }

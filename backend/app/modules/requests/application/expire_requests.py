@@ -1,12 +1,10 @@
 """Vencimiento perezoso de solicitudes cuya hora de salida ya pasó."""
 
-from datetime import datetime, time
-
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.timezone import colombia_now
 from app.modules.requests.infrastructure.models import TripRequest
-from app.modules.trips.application.create_trip import _parse_departure_to_timestamptz
+from app.modules.trips.application.departure import trip_departure_at
 
 
 def expire_stale_requests(db: Session, request_id: int | None = None) -> int:
@@ -24,14 +22,12 @@ def expire_stale_requests(db: Session, request_id: int | None = None) -> int:
         trip = request.trip
         if trip is None:
             continue
-        departure = trip.departure_at or _parse_departure_to_timestamptz(
-            trip.departure_date, trip.departure_time or ""
+        departure = trip_departure_at(
+            departure_at=trip.departure_at,
+            departure_date=trip.departure_date,
+            departure_time=trip.departure_time,
         )
-        if departure is None and trip.departure_date is not None:
-            departure = datetime.combine(
-                trip.departure_date, time.max, tzinfo=now.tzinfo
-            )
-        if departure <= now:
+        if departure is not None and departure <= now:
             request.status = "expired"
             expired += 1
     if expired:

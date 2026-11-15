@@ -14,3 +14,8 @@ class TripNotAuthorizedError(ForbiddenException):
 class NoSeatsAvailableError(ConflictException):
     def __init__(self, message: str = "No hay cupos disponibles"):
         super().__init__(message)
+
+
+class VehicleRequiredError(ConflictException):
+    def __init__(self, message: str = "vehicle_required"):
+        super().__init__(message)

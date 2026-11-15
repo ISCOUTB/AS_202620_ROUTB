@@ -10,7 +10,7 @@ aquí solo vive lo mecánico.
 from fastapi.testclient import TestClient
 
 from app.core.database import SessionLocal
-from app.core.timezone import colombia_now, colombia_today
+from app.core.timezone import colombia_today
 from app.main import app
 from app.modules.auth.application.tokens import create_access_token
 from app.modules.requests.infrastructure.models import TripRequest
@@ -32,18 +32,15 @@ def crear_usuario(
     role: str = "passenger",
     nombre: str = "Test",
     apellido: str = "Usuario",
-    consentimiento: str | None = "auto",
+    vehiculo: bool = True,
 ) -> tuple[int, str]:
     """Crea un usuario y devuelve `(id, token)`.
 
-    Con `consentimiento="auto"` (valor por defecto) los pasajeros nacen con
-    consentimiento de ubicación y los conductores sin él; con
-    `consentimiento=None` nadie lo tiene. Así se conservan los dos
-    comportamientos que las pruebas ya usaban.
+    Los conductores nacen con un vehículo completo porque publicar lo exige
+    (N2). Pasar ``vehiculo=False`` deja al conductor sin datos para probar el
+    rechazo del servidor.
     """
-    consent_at = None
-    if consentimiento == "auto" and role != "driver":
-        consent_at = colombia_now()
+    has_vehicle = role == "driver" and vehiculo
     with SessionLocal() as db:
         user = User(
             name=nombre,
@@ -51,7 +48,9 @@ def crear_usuario(
             phone=telefono,
             hashed_password="hash",
             role=role,
-            location_consent_at=consent_at,
+            vehicle_model="Chevrolet Spark" if has_vehicle else None,
+            vehicle_plate="XYZ-123" if has_vehicle else None,
+            vehicle_color="Gris" if has_vehicle else None,
         )
         db.add(user)
         db.commit()

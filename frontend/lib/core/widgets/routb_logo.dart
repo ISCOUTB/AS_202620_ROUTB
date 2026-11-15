@@ -11,10 +11,10 @@ import 'package:flutter/material.dart';
 /// | [onHero] | oscuro | `routb_marca_blanca.png` |
 /// | [onSurface] | claro | `routb_marca_oscura.png` |
 enum RoutbLogoVariant {
-  /// Marca en blanco, para el hero y el splash en tema oscuro.
+  /// Marca en blanco, para fondos oscuros.
   onHero,
 
-  /// Marca en tinta, para el acceso y el splash en tema claro.
+  /// Marca en tinta, para fondos claros.
   onSurface;
 
   /// Ruta del asset.
@@ -43,14 +43,14 @@ const double kRoutbLogoAspectRatio = 1.0;
 /// Símbolo de ROUTB.
 ///
 /// ```dart
-/// const RoutbLogo(width: 84)
+/// const RoutbLogo(variant: RoutbLogoVariant.onSurface, width: 84)
 /// ```
 class RoutbLogo extends StatelessWidget {
   const RoutbLogo({
     required this.variant,
     this.width,
     this.height,
-    this.semanticLabel = 'ROUTB',
+    this.semanticLabel = 'Símbolo de ROUTB',
     super.key,
   });
 

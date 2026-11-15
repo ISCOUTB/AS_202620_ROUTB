@@ -27,9 +27,7 @@ def _stop(seats: int = 1) -> dict:
 # ---------------------------------------------------------------------------
 
 def _crear_usuario(telefono: str, role: str = "passenger") -> tuple[int, str]:
-    return _crear_usuario_base(
-        telefono, role, apellido="Assignment", consentimiento=None
-    )
+    return _crear_usuario_base(telefono, role, apellido="Assignment")
 
 
 def _limpiar(*user_ids: int) -> None:

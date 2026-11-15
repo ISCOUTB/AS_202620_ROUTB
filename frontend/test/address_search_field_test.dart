@@ -5,6 +5,18 @@ import 'package:frontend/core/theme/routb_theme.dart';
 import 'package:frontend/core/widgets/address_search_field.dart';
 import 'package:latlong2/latlong.dart';
 
+class _FailingGoogleMapsService extends GoogleMapsService {
+  _FailingGoogleMapsService() : super(apiKey: 'test-key');
+
+  @override
+  Future<List<GooglePlaceSuggestion>> autocomplete(
+    String query, {
+    Future<void>? abortTrigger,
+  }) async {
+    throw Exception('Google Maps no disponible');
+  }
+}
+
 class _FakeGoogleMapsService extends GoogleMapsService {
   _FakeGoogleMapsService() : super(apiKey: 'test-key');
 
@@ -195,6 +207,40 @@ void main() {
       expect(selected?.lat, 10.4130);
       expect(selected?.lng, -75.5350);
       expect(selected?.addressText, 'Manga, Cartagena');
+    },
+  );
+
+  testWidgets(
+    'si Google Maps falla ofrece el catálogo de barrios como respaldo',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: RoutbTheme.light(),
+          home: Scaffold(
+            body: AddressSearchField(
+              googleMapsService: _FailingGoogleMapsService(),
+              onLocationSelected: (_) {},
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byType(TextField));
+      await tester.pump();
+      await tester.enterText(find.byType(TextField), 'zzzz');
+      await tester.pump();
+      await tester.tap(find.text('Buscar'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Google Maps no respondió · elige tu barrio'),
+        findsOneWidget,
+      );
+      expect(find.byType(ListTile), findsWidgets);
+      expect(
+        find.textContaining('No se pudo consultar Google Maps'),
+        findsOneWidget,
+      );
     },
   );
 

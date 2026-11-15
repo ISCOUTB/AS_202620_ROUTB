@@ -19,7 +19,7 @@ from app.modules.users.infrastructure.models import User
 client = TestClient(app)
 
 
-def _create_user(role="passenger", has_consent=True) -> tuple[User, str]:
+def _create_user(role="passenger") -> tuple[User, str]:
     db = SessionLocal()
     phone = f"300{uuid4().int % 10_000_000:07d}"
     user = User(
@@ -28,7 +28,6 @@ def _create_user(role="passenger", has_consent=True) -> tuple[User, str]:
         phone=phone,
         hashed_password="hash",
         role=role,
-        location_consent_at=colombia_now() if has_consent else None,
     )
     db.add(user)
     db.commit()
@@ -92,26 +91,9 @@ def _create_trip_with_route(
     return saved
 
 
-def test_matching_requires_location_consent():
-    """Sin consentimiento de ubicación, debe responder 403 location_consent_required."""
-    _, token = _create_user(role="passenger", has_consent=False)
-    resp = client.get(
-        "/matching/suggestions",
-        params={
-            "direction": "to_campus",
-            "points": "10.4236,-75.5478",
-            "date": str(colombia_today()),
-            "time": "07:00 AM",
-        },
-        headers={"Authorization": f"Bearer {token}"},
-    )
-    assert resp.status_code == 403
-    assert resp.json()["detail"] == "location_consent_required"
-
-
 def test_matching_accepts_points_outside_default_bbox():
     """Puntos fuera del BBOX de Cartagena siguen siendo aceptados si son coordenadas válidas."""
-    _, token = _create_user(role="passenger", has_consent=True)
+    _, token = _create_user(role="passenger")
     # Coordenadas en Bogotá
     resp = client.get(
         "/matching/suggestions",
@@ -129,7 +111,7 @@ def test_matching_accepts_points_outside_default_bbox():
 
 def test_matching_empty_results_returns_200_empty_list():
     """Si no hay viajes para mañana, responde 200 []."""
-    _, token = _create_user(role="passenger", has_consent=True)
+    _, token = _create_user(role="passenger")
     tomorrow = colombia_today() + timedelta(days=1)
     resp = client.get(
         "/matching/suggestions",
@@ -147,7 +129,7 @@ def test_matching_empty_results_returns_200_empty_list():
 
 def test_matching_rechaza_fecha_fuera_de_hoy_manana():
     """La búsqueda solo admite hoy o mañana (ADR 0016)."""
-    _, token = _create_user(role="passenger", has_consent=True)
+    _, token = _create_user(role="passenger")
     resp = client.get(
         "/matching/suggestions",
         params={
@@ -164,8 +146,8 @@ def test_matching_rechaza_fecha_fuera_de_hoy_manana():
 
 def test_matching_suggests_compatible_trip():
     """Viaje compatible en ruta devuelve sugerencia con score y eta."""
-    driver, _ = _create_user(role="driver", has_consent=True)
-    passenger, p_token = _create_user(role="passenger", has_consent=True)
+    driver, _ = _create_user(role="driver")
+    passenger, p_token = _create_user(role="passenger")
 
     today = colombia_today()
     # Mantener el viaje aislado de datos persistentes de otras ejecuciones.
@@ -205,11 +187,18 @@ def test_matching_suggests_compatible_trip():
     assert "score" in item
     assert "detour_minutes" in item
     assert item["eta_pickup"] is not None
+    # G14: la sugerencia incluye la geometría para pintarla en el mapa.
+    assert len(item["route_points"]) >= 2
+    assert any(
+        point["lat"] == pytest.approx(origin_lat)
+        and point["lng"] == pytest.approx(origin_lng)
+        for point in item["route_points"]
+    )
 
 
 def test_matching_excludes_driver_own_trip():
     """El conductor no puede recibir su propio viaje como sugerencia."""
-    driver, d_token = _create_user(role="driver", has_consent=True)
+    driver, d_token = _create_user(role="driver")
     today = colombia_today()
     trip = _create_trip_with_route(
         driver_id=driver.id,
@@ -235,8 +224,8 @@ def test_matching_excludes_driver_own_trip():
 
 def test_matching_excludes_legacy_trips_without_route():
     """Viajes legados sin route_geom no deben aparecer en las sugerencias."""
-    driver, _ = _create_user(role="driver", has_consent=True)
-    _, p_token = _create_user(role="passenger", has_consent=True)
+    driver, _ = _create_user(role="driver")
+    _, p_token = _create_user(role="passenger")
 
     db = SessionLocal()
     today = colombia_today()
@@ -275,9 +264,9 @@ def test_matching_excludes_legacy_trips_without_route():
 
 def test_matching_ordenado_por_score():
     """Los resultados deben estar ordenados por score ascendente (mejor score primero)."""
-    _, token = _create_user(role="passenger", has_consent=True)
-    driver1, _ = _create_user(role="driver", has_consent=True)
-    driver2, _ = _create_user(role="driver", has_consent=True)
+    _, token = _create_user(role="passenger")
+    driver1, _ = _create_user(role="driver")
+    driver2, _ = _create_user(role="driver")
     today = colombia_today()
 
     # Crear dos viajes: uno cerca y otro más lejos del punto del pasajero
@@ -313,8 +302,8 @@ def test_matching_ordenado_por_score():
 
 def test_matching_modo_relajado_mas_resultados():
     """El modo relajado (relaxed=true) usa radio mayor y ventana horaria más amplia."""
-    driver, _ = _create_user(role="driver", has_consent=True)
-    _, p_token = _create_user(role="passenger", has_consent=True)
+    driver, _ = _create_user(role="driver")
+    _, p_token = _create_user(role="passenger")
     today = colombia_today()
 
     # Viaje con origen algo alejado del punto del pasajero
@@ -374,8 +363,8 @@ def test_matching_ambos_sentidos(
     monkeypatch, direction, origin_coords, dest_coords, point
 ):
     """Se puede consultar en ambos sentidos sin depender de OSRM."""
-    driver, _ = _create_user(role="driver", has_consent=True)
-    _, p_token = _create_user(role="passenger", has_consent=True)
+    driver, _ = _create_user(role="driver")
+    _, p_token = _create_user(role="passenger")
     today = colombia_today()
 
     monkeypatch.setattr(
@@ -412,7 +401,7 @@ def test_matching_ambos_sentidos(
 
 def test_matching_seat_count_opciones():
     """seat_count de 1 a 4 debe ser aceptado; fuera de rango → 422."""
-    _, token = _create_user(role="passenger", has_consent=True)
+    _, token = _create_user(role="passenger")
     today = colombia_today()
 
     for seat in range(1, 5):
@@ -446,8 +435,8 @@ def test_matching_seat_count_opciones():
 
 def test_matching_es_solo_lectura():
     """El matching no modifica nada en la base de datos (solo lectura)."""
-    driver, _ = _create_user(role="driver", has_consent=True)
-    _, p_token = _create_user(role="passenger", has_consent=True)
+    driver, _ = _create_user(role="driver")
+    _, p_token = _create_user(role="passenger")
     today = colombia_today()
 
     trip = _create_trip_with_route(
@@ -498,8 +487,8 @@ def test_matching_response_remains_contractual(
     monkeypatch, case, osrm_result, expected_degraded
 ):
     """Valida una respuesta contractual con OSRM disponible o con timeout."""
-    driver, _ = _create_user(role="driver", has_consent=True)
-    _, passenger_token = _create_user(role="passenger", has_consent=True)
+    driver, _ = _create_user(role="driver")
+    _, passenger_token = _create_user(role="passenger")
     today = colombia_today()
     # Usar una zona distinta por caso y una variación suficientemente amplia:
     # `_coords_key` redondea a 5 decimales y la base de pruebas puede conservar

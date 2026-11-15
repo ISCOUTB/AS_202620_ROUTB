@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../core/constants/zones.dart';
 import '../../../core/models/travel_time.dart';
@@ -12,6 +13,7 @@ import '../../../core/widgets/routb_card.dart';
 import '../../../core/widgets/routb_field.dart';
 import '../../../core/widgets/routb_seats.dart';
 import '../../../core/widgets/routb_sheet.dart';
+import '../../../core/widgets/route_map.dart';
 
 /// Ruta en construcción dentro de la hoja de publicación.
 ///
@@ -124,6 +126,43 @@ Future<DraftRoute?> showPublishRouteSheet({
       ),
     ),
   );
+}
+
+/// Vista compacta del trayecto antes de publicar (G10).
+///
+/// Reutiliza [RouteMap] con las coordenadas ya elegidas en el formulario. Si el
+/// conductor todavía no marcó su punto, la hoja no construye este widget.
+class PublishRouteMapPreview extends StatelessWidget {
+  const PublishRouteMapPreview({
+    required this.origin,
+    required this.destination,
+    required this.originCoordinate,
+    required this.destinationCoordinate,
+    this.height = 140,
+    super.key,
+  });
+
+  final String origin;
+  final String destination;
+  final LatLng originCoordinate;
+  final LatLng destinationCoordinate;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: RouteMap(
+        origin: origin,
+        destination: destination,
+        originCoordinate: originCoordinate,
+        destinationCoordinate: destinationCoordinate,
+        height: height,
+        animateRoute: true,
+        showAttribution: false,
+      ),
+    );
+  }
 }
 
 class _PublishSheet extends StatefulWidget {
@@ -249,6 +288,25 @@ class _PublishSheetState extends State<_PublishSheet> {
                   onLocationCleared: () =>
                       setState(() => _draft.driverPoint = null),
                 ),
+                if (_draft.driverPoint != null) ...[
+                  const SizedBox(height: 12),
+                  PublishRouteMapPreview(
+                    origin: _draft.origin,
+                    destination: _draft.destination,
+                    originCoordinate: _draft.toCampus
+                        ? LatLng(
+                            _draft.driverPoint!.lat,
+                            _draft.driverPoint!.lng,
+                          )
+                        : Zones.campusPoint,
+                    destinationCoordinate: _draft.toCampus
+                        ? Zones.campusPoint
+                        : LatLng(
+                            _draft.driverPoint!.lat,
+                            _draft.driverPoint!.lng,
+                          ),
+                  ),
+                ],
               ],
             ),
           ),

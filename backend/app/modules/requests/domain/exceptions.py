@@ -36,6 +36,11 @@ class NoAvailableSeatsError(ConflictException):
         super().__init__(message)
 
 
+class TripAlreadyDepartedError(ConflictException):
+    def __init__(self, message: str = "El viaje ya salió y no acepta solicitudes"):
+        super().__init__(message)
+
+
 class NoSeatsToAcceptError(ConflictException):
     def __init__(self, message: str = "No hay cupos disponibles para aceptar más pasajeros"):
         super().__init__(message)

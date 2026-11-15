@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../app/dependencies.dart';
 import '../../../core/models/trip_schedule.dart';
@@ -12,6 +13,7 @@ import '../../../core/widgets/routb_card.dart';
 import '../../../core/widgets/routb_sheet.dart';
 import '../../../core/widgets/routb_toast.dart';
 import '../../trips/data/trip_repository.dart';
+import 'suggestions_map.dart';
 
 class SuggestionsScreen extends StatefulWidget {
   const SuggestionsScreen({this.initialDirection, this.initialDate, super.key});
@@ -288,6 +290,17 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> {
                 ),
               ),
             const SizedBox(height: 16),
+            if (_suggestions.isNotEmpty) ...[
+              SuggestionsMap(
+                suggestions: _suggestions,
+                passengerPoints: <LatLng>[
+                  for (final stop in _stops)
+                    if (stop.location != null)
+                      LatLng(stop.location!.lat, stop.location!.lng),
+                ],
+              ),
+              const SizedBox(height: 12),
+            ],
             for (final suggestion in _suggestions) _suggestionCard(suggestion),
             if (_suggestions.isNotEmpty)
               Center(

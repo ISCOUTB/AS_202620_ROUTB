@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, Index, Integer, String
+from sqlalchemy import Column, Index, Integer, String
 from app.core.database import Base
 
 
@@ -13,7 +13,6 @@ class User(Base):
     phone = Column(String, nullable=False)
     hashed_password = Column(String, nullable=False)
     role = Column(String, nullable=False, default="passenger", server_default="passenger")
-    location_consent_at = Column(DateTime(timezone=True), nullable=True)
     vehicle_model = Column(String(50), nullable=True)
     vehicle_plate = Column(String(10), nullable=True)
     vehicle_color = Column(String(30), nullable=True)

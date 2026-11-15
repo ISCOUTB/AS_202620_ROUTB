@@ -45,6 +45,7 @@ class MyTripScreen extends StatefulWidget {
 
 class _MyTripScreenState extends State<MyTripScreen> {
   late MyRequest _request = widget.request;
+  DateTime _lastSyncedAt = DateTime.now();
   bool _busy = false;
   bool _refreshing = false;
   Timer? _pollTimer;
@@ -82,11 +83,16 @@ class _MyTripScreenState extends State<MyTripScreen> {
         (r) => r.id == _request.id,
         orElse: () => _request,
       );
+      _lastSyncedAt = DateTime.now();
       if (current != _request) {
         setState(() => _request = current);
         if (!current.isActive) {
           _pollTimer?.cancel();
         }
+      } else {
+        // La frescura también avanza cuando el sondeo confirma que no hubo
+        // cambios: lo importante es que la pantalla sigue sincronizada.
+        setState(() {});
       }
     } catch (_) {
       // Ignorar errores de sondeo en segundo plano
@@ -183,11 +189,18 @@ class _MyTripScreenState extends State<MyTripScreen> {
                       origin: _request.origin,
                       destination: _request.destination,
                       waypoints: _request.waypoints,
+                      routePoints: _request.routePoints,
                       height: 200,
                       interactive: true,
                     ),
                     const SizedBox(height: 12),
-                    Center(child: MyTripStatusPill(request: _request)),
+                    Center(
+                      child: MyTripStatusSummary(
+                        request: _request,
+                        lastUpdated: _request.isActive ? _lastSyncedAt : null,
+                        center: true,
+                      ),
+                    ),
                     const SizedBox(height: 16),
 
                     RoutbCard(
@@ -276,6 +289,7 @@ class _MyTripScreenState extends State<MyTripScreen> {
                               InitialsAvatar(
                                 name: _request.driverName ?? '?',
                                 initials: _request.driverInitials,
+                                size: 60,
                               ),
                               const SizedBox(width: 12),
                               Expanded(
@@ -331,7 +345,11 @@ class _MyTripScreenState extends State<MyTripScreen> {
                                 ),
                             ],
                           ),
-                          if (_request.hasVehicleInfo) ...[
+                          // La ficha del vehículo es privada: solo se muestra
+                          // cuando el cupo quedó confirmado, aunque el backend
+                          // ya la filtre.
+                          if (_request.isConfirmed &&
+                              _request.hasVehicleInfo) ...[
                             const SizedBox(height: 12),
                             Align(
                               alignment: Alignment.centerLeft,
