@@ -208,15 +208,23 @@ def main() -> int:
         warmup_target_url = _validate_target(warmup_url, allowed_hosts)
         _validate_output_path(args.output)
         # Se reconstruye la ruta del sink con la carpeta confiable y
-        # ``os.path.basename``, que Sonar reconoce como saneador de rutas
-        # (S8707). ``Path.name`` no bastaba para su motor de taint.
+        # ``os.path.basename``, y se canonicaliza el resultado con
+        # ``Path.resolve()``, que Sonar reconoce como saneador de rutas
+        # (S8707). La contención se vuelve a comprobar sobre la ruta ya
+        # resuelta para no depender solo del motor de taint.
+        evidence_dir = EVIDENCE_DIR.resolve()
         output_name = os.path.basename(args.output)
         if _OUTPUT_NAME_RE.fullmatch(output_name) is None:
             raise ValueError(
                 "--output debe tener un nombre de archivo simple: letras, "
                 "números, punto, guion o guion bajo"
             )
-        safe_output_path = EVIDENCE_DIR.resolve() / output_name
+        safe_output_path = (evidence_dir / output_name).resolve()
+        if safe_output_path.parent != evidence_dir:
+            raise ValueError(
+                f"--output debe ser un archivo directamente dentro de "
+                f"{evidence_dir}"
+            )
     except ValueError as exc:
         parser.error(str(exc))
 
