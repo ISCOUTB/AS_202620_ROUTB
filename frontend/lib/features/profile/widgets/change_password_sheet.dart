@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/routb_palette.dart';
-import '../../../core/theme/routb_text.dart';
 import '../../../core/widgets/routb_button.dart';
 import '../../../core/widgets/routb_card.dart';
 import '../../../core/widgets/routb_field.dart';
@@ -123,8 +122,6 @@ class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.palette;
-
     return RoutbSheetScaffold(
       title: 'Cambiar contraseña',
       subtitle: 'Primero confirma la contraseña que usas hoy.',
@@ -133,8 +130,8 @@ class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const RoutbHint(
-            'La nueva contraseña debe tener al menos 8 caracteres. No cierres '
-            'la sesión: tus viajes y solicitudes siguen igual.',
+            'La nueva contraseña debe tener al menos 8 caracteres.',
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
           ),
           const SizedBox(height: 16),
           RoutbField(
@@ -174,12 +171,6 @@ class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
               }
             },
             onSubmitted: (_) => _save(),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Si no recuerdas tu contraseña actual, no podemos cambiarla desde '
-            'aquí. Cierra sesión y vuelve a intentarlo cuando la tengas.',
-            style: RoutbText.copy(12, color: palette.muted, height: 1.4),
           ),
         ],
       ),

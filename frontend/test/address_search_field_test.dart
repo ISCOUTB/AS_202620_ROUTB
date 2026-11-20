@@ -210,6 +210,34 @@ void main() {
     },
   );
 
+  testWidgets('elegir Turbaco no le agrega «Cartagena» al rótulo', (
+    tester,
+  ) async {
+    SelectedLocation? selected;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: RoutbTheme.light(),
+        home: Scaffold(
+          body: AddressSearchField(
+            onLocationSelected: (location) => selected = location,
+            onLocationCleared: () => selected = null,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byType(TextField));
+    await tester.pump();
+    await tester.enterText(find.byType(TextField), 'Turbaco');
+    await tester.pump();
+    await tester.tap(find.widgetWithText(ListTile, 'Turbaco'));
+    await tester.pumpAndSettle();
+
+    expect(selected?.lat, 10.3340);
+    expect(selected?.lng, -75.4160);
+    expect(selected?.addressText, 'Turbaco');
+  });
+
   testWidgets(
     'si Google Maps falla ofrece el catálogo de barrios como respaldo',
     (tester) async {

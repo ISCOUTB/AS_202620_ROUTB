@@ -156,10 +156,39 @@ void main() {
     expect(find.text('Completados'), findsOneWidget);
     expect(find.text('Cancelados'), findsOneWidget);
     expect(find.byType(MyTripCard), findsNWidgets(3));
-    expect(find.text('Conductor: Luis Activo'), findsNothing);
-    expect(find.text('Conductor: Luis Completó'), findsOneWidget);
-    expect(find.text('Conductor: Luis Rechazó'), findsOneWidget);
-    expect(find.text('Conductor: Luis Canceló'), findsOneWidget);
+    expect(find.textContaining('Conductor:'), findsNothing);
+    expect(find.text('Luis Completó'), findsNothing);
+    expect(find.text('Luis Rechazó'), findsNothing);
+    expect(find.text('Luis Canceló'), findsNothing);
+  });
+
+  testWidgets('el detalle del historial no muestra al conductor', (
+    tester,
+  ) async {
+    final api = _PassengerApi(<Map<String, dynamic>>[
+      _requestJson(
+        id: 2,
+        status: 'accepted',
+        dayOffset: -1,
+        driver: 'Luis Completó',
+      ),
+    ]);
+    final dependencies = _dependencies(api);
+    addTearDown(dependencies.dispose);
+
+    await tester.pumpWidget(_app(dependencies));
+    await _settle(tester);
+
+    await tester.tap(_tab('Historial'));
+    await _settle(tester);
+
+    await tester.tap(find.byType(MyTripCard).first);
+    await _settle(tester);
+
+    expect(find.text('Mi viaje'), findsOneWidget);
+    expect(find.text('Tu conductor'), findsNothing);
+    expect(find.text('Luis Completó'), findsNothing);
+    expect(find.text('3015550002'), findsNothing);
   });
 
   testWidgets('el historial vacío muestra un estado claro', (tester) async {

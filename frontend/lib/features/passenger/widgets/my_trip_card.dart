@@ -164,14 +164,14 @@ class MyTripCard extends StatelessWidget {
     this.onCancel,
     this.busy = false,
     this.lastUpdated,
+    this.showDriver = true,
     super.key,
   });
 
   /// Solicitud que se resume.
   final MyRequest request;
 
-  /// Acción al pulsar: abrir el detalle. `null` deja la tarjeta solo de
-  /// consulta, como en el historial.
+  /// Acción al pulsar: abrir el detalle. `null` deja la tarjeta sin acción.
   final VoidCallback? onTap;
 
   /// Cancelación rápida desde la tarjeta. `null` oculta el botón.
@@ -182,6 +182,12 @@ class MyTripCard extends StatelessWidget {
 
   /// Momento del último sondeo exitoso, si el sondeo está activo.
   final DateTime? lastUpdated;
+
+  /// `false` oculta al conductor, su teléfono y el vehículo.
+  ///
+  /// El historial conserva el trayecto y el estado, pero no la identidad del
+  /// conductor.
+  final bool showDriver;
 
   /// Solo las solicitudes pendientes y retirables se cancelan desde aquí.
   bool get _canCancel =>
@@ -205,11 +211,26 @@ class MyTripCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              InitialsAvatar(
-                name: request.driverName ?? '?',
-                initials: request.driverInitials,
-                size: 44,
-              ),
+              if (showDriver)
+                InitialsAvatar(
+                  name: request.driverName ?? '?',
+                  initials: request.driverInitials,
+                  size: 44,
+                )
+              else
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: palette.brandSurface,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(
+                    Icons.route_rounded,
+                    size: 20,
+                    color: palette.brand,
+                  ),
+                ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -231,7 +252,7 @@ class MyTripCard extends StatelessWidget {
                         style: RoutbText.headline(15, color: palette.ink),
                       ),
                     ),
-                    if (request.hasDriverName) ...[
+                    if (showDriver && request.hasDriverName) ...[
                       const SizedBox(height: 2),
                       Text(
                         'Conductor: ${request.driverName}',
@@ -261,7 +282,9 @@ class MyTripCard extends StatelessWidget {
                     ),
                     // La ficha del vehículo es privada: solo se muestra cuando
                     // el cupo quedó confirmado, aunque el backend ya la filtre.
-                    if (request.isConfirmed && request.hasVehicleInfo) ...[
+                    if (showDriver &&
+                        request.isConfirmed &&
+                        request.hasVehicleInfo) ...[
                       const SizedBox(height: 6),
                       RoutbVehicleBadge(
                         info: request.vehicleInfo!,

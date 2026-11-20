@@ -170,7 +170,25 @@ void main() {
       expect(find.text('Modo de pantalla'), findsOneWidget);
       expect(find.text('Claro'), findsOneWidget);
       expect(find.text('Oscuro'), findsOneWidget);
-      expect(find.text('Sistema'), findsOneWidget);
+      expect(find.text('Predeterminado del sistema'), findsOneWidget);
+      expect(
+        find.text('Mejor visibilidad en ambientes muy iluminados.'),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Más cómodo para la vista y ahorra batería.'),
+        findsOneWidget,
+      );
+
+      // Las opciones se apilan en vertical, no en una fila de chips.
+      final claroY = tester.getTopLeft(find.text('Claro')).dy;
+      final oscuroY = tester.getTopLeft(find.text('Oscuro')).dy;
+      final sistemaY = tester
+          .getTopLeft(find.text('Predeterminado del sistema'))
+          .dy;
+      expect(claroY, lessThan(oscuroY));
+      expect(oscuroY, lessThan(sistemaY));
+
       expect(find.text('Permisos'), findsOneWidget);
       expect(find.text('Editar cuenta'), findsOneWidget);
       expect(find.text('Editar perfil'), findsNothing);
@@ -352,9 +370,20 @@ void main() {
       await _settle(tester);
       await _scrollToVehicle(tester);
 
-      expect(find.text('Chevrolet Spark · Gris (XYZ-123)'), findsOneWidget);
+      final vehicleLabel = find.text('Chevrolet Spark · Gris (XYZ-123)');
+      final editVehicle = find.text('Editar vehículo');
+      expect(vehicleLabel, findsOneWidget);
+      // La acción queda a la derecha del nombre y centrada con él.
+      expect(
+        tester.getCenter(editVehicle).dx,
+        greaterThan(tester.getCenter(vehicleLabel).dx),
+      );
+      expect(
+        tester.getCenter(editVehicle).dy,
+        closeTo(tester.getCenter(vehicleLabel).dy, 1),
+      );
 
-      await tester.tap(find.text('Editar vehículo'));
+      await tester.tap(editVehicle);
       await _settle(tester);
       await tester.drag(
         find.byType(SingleChildScrollView).last,

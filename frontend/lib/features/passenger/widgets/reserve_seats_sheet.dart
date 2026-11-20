@@ -84,7 +84,6 @@ class _ReserveSeatsSheet extends StatefulWidget {
 class _ReserveSeatsSheetState extends State<_ReserveSeatsSheet> {
   int _seatCount = 1;
   SelectedLocation? _location;
-  String _placeType = 'door';
   bool _submitting = false;
 
   Trip get _trip => widget.trip;
@@ -114,7 +113,9 @@ class _ReserveSeatsSheetState extends State<_ReserveSeatsSheet> {
       ? <RequestStopInput>[
           RequestStopInput(
             seats: _seatCount,
-            placeType: _placeType,
+            // El tipo de punto dejó de preguntarse: la dirección basta. La API
+            // sigue exigiendo el campo, así que se envía el valor por defecto.
+            placeType: 'door',
             location: SelectedLocation(
               lat: _location!.lat,
               lng: _location!.lng,
@@ -270,19 +271,6 @@ class _ReserveSeatsSheetState extends State<_ReserveSeatsSheet> {
                   onLocationSelected: (location) =>
                       setState(() => _location = location),
                   onLocationCleared: () => setState(() => _location = null),
-                ),
-                const SizedBox(height: 16),
-                // Tipo de punto (en la puerta / punto de encuentro)
-                const _SectionLabel(title: 'Tipo de punto'),
-                RoutbSegmented<String>(
-                  options: const <({String value, String label})>[
-                    (value: 'door', label: 'En la puerta'),
-                    (value: 'meeting_point', label: 'Punto de encuentro'),
-                  ],
-                  value: _placeType,
-                  onChanged: (value) {
-                    if (!_submitting) setState(() => _placeType = value);
-                  },
                 ),
               ],
             ),

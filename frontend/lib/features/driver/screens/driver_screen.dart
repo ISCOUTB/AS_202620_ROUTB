@@ -18,6 +18,7 @@ import '../../../core/widgets/routb_anim.dart';
 import '../../../core/widgets/routb_button.dart';
 import '../../../core/widgets/routb_card.dart';
 import '../../../core/widgets/routb_hero.dart';
+import '../../../core/widgets/routb_history_section.dart';
 import '../../../core/widgets/routb_nav_bar.dart';
 import '../../../core/widgets/routb_section_header.dart';
 import '../../../core/widgets/routb_seats.dart';
@@ -611,6 +612,7 @@ class _DriverScreenState extends State<DriverScreen>
                   _DriverTab.history => _HistoryTab(
                     state: _state,
                     onRefresh: _load,
+                    onOpen: _openHistoryDetail,
                   ),
                   _DriverTab.security => SecurityScreen(
                     role: UserRole.driver,
@@ -650,6 +652,20 @@ class _DriverScreenState extends State<DriverScreen>
       ),
     );
     if (mounted) await _load();
+  }
+
+  /// Abre una ruta del historial solo para consultarla.
+  Future<void> _openHistoryDetail(Trip trip) async {
+    await Navigator.of(context).push(
+      RoutbPageRoute<void>(
+        child: RouteDetailScreen(
+          trip: trip,
+          readOnly: true,
+          onChanged: (_) {},
+          onCancelled: () {},
+        ),
+      ),
+    );
   }
 }
 
@@ -1009,10 +1025,15 @@ class _NewRouteButton extends StatelessWidget {
 /// Sigue el mismo esquema que «Mis viajes» del pasajero: un hero con la cuenta
 /// y debajo la lista. Las rutas vigentes siguen en «Mis rutas».
 class _HistoryTab extends StatelessWidget {
-  const _HistoryTab({required this.state, required this.onRefresh});
+  const _HistoryTab({
+    required this.state,
+    required this.onRefresh,
+    required this.onOpen,
+  });
 
   final DriverState state;
   final Future<void> Function() onRefresh;
+  final ValueChanged<Trip> onOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -1020,7 +1041,7 @@ class _HistoryTab extends StatelessWidget {
       children: [
         const RoutbSectionHeader(
           title: 'Historial',
-          subtitle: 'Rutas canceladas o que ya pasaron',
+          subtitle: 'Rutas completadas y canceladas',
         ),
         Expanded(
           child: switch (state.status) {
@@ -1032,6 +1053,7 @@ class _HistoryTab extends StatelessWidget {
             DriverStatus.ready => _HistoryList(
               trips: state.history,
               onRefresh: onRefresh,
+              onOpen: onOpen,
             ),
           },
         ),
@@ -1042,13 +1064,35 @@ class _HistoryTab extends StatelessWidget {
 
 /// Lista del historial, o su estado vacío, con «deslizar para actualizar».
 class _HistoryList extends StatelessWidget {
-  const _HistoryList({required this.trips, required this.onRefresh});
+  const _HistoryList({
+    required this.trips,
+    required this.onRefresh,
+    required this.onOpen,
+  });
 
   final List<Trip> trips;
   final Future<void> Function() onRefresh;
+  final ValueChanged<Trip> onOpen;
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
+    final now = DateTime.now();
+    final completed = <Trip>[];
+    final cancelled = <Trip>[];
+    for (final trip in trips) {
+      if (trip.phaseAt(now) == TripPhase.cancelled) {
+        cancelled.add(trip);
+      } else {
+        completed.add(trip);
+      }
+    }
+
+    Widget tile(Trip trip) => Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: HistoryRouteTile(trip: trip, onTap: () => onOpen(trip)),
+    );
+
     return RefreshIndicator(
       onRefresh: onRefresh,
       child: trips.isEmpty
@@ -1061,20 +1105,33 @@ class _HistoryList extends StatelessWidget {
                 RoutbEmptyState(
                   icon: Icons.history_rounded,
                   message:
-                      'Aquí aparecen las rutas que cancelaste y las que ya '
-                      'pasaron. Las vigentes siguen en «Mis rutas».',
+                      'Todavía no tienes rutas completadas ni canceladas. '
+                      'Las vigentes siguen en «Mis rutas».',
                 ),
               ],
             )
-          : ListView.builder(
+          : ListView(
               key: const PageStorageKey<String>('driver-history'),
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(14, 16, 14, 24),
-              itemCount: trips.length,
-              itemBuilder: (context, index) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: HistoryRouteTile(trip: trips[index]),
-              ),
+              padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
+              children: [
+                if (completed.isNotEmpty)
+                  RoutbHistorySection(
+                    title: 'Completadas',
+                    icon: Icons.check_circle_outline_rounded,
+                    color: palette.mint,
+                    count: completed.length,
+                    children: [for (final trip in completed) tile(trip)],
+                  ),
+                if (cancelled.isNotEmpty)
+                  RoutbHistorySection(
+                    title: 'Canceladas',
+                    icon: Icons.cancel_outlined,
+                    color: palette.rose,
+                    count: cancelled.length,
+                    children: [for (final trip in cancelled) tile(trip)],
+                  ),
+              ],
             ),
     );
   }

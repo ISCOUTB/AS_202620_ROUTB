@@ -226,7 +226,11 @@ Future<void> _openEditAccount(WidgetTester tester) async {
 
 /// Baja hasta el final de la lista del perfil para alcanzar el botón de salir.
 Future<void> _scrollToLogout(WidgetTester tester) async {
-  await tester.drag(find.byType(ListView), const Offset(0, -500));
+  await tester.scrollUntilVisible(
+    find.text('Cerrar sesión'),
+    300,
+    scrollable: find.byType(Scrollable).first,
+  );
   await _settle(tester);
 }
 
@@ -499,7 +503,8 @@ void main() {
       expect(find.text('Llamar al 123'), findsOneWidget);
       expect(find.text('Soporte'), findsOneWidget);
       expect(find.text('Contactos de emergencia'), findsOneWidget);
-      expect(find.text('Información de seguridad'), findsOneWidget);
+      expect(find.text('Consejos para conductores'), findsOneWidget);
+      expect(find.text('Consejos para pasajeros'), findsNothing);
       expect(tester.takeException(), isNull);
     });
   });

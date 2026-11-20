@@ -111,8 +111,10 @@ class MyRequest {
       tripId: json['trip_id'] as int? ?? 0,
       seatCount: json['seat_count'] as int? ?? 1,
       status: SeatRequestStatus.fromWire(json['status'] as String?),
-      origin: (json['origin'] as String?)?.trim() ?? '',
-      destination: (json['destination'] as String?)?.trim() ?? '',
+      origin: Zones.displayAddress((json['origin'] as String?)?.trim() ?? ''),
+      destination: Zones.displayAddress(
+        (json['destination'] as String?)?.trim() ?? '',
+      ),
       rawDeparture: rawDeparture,
       departure: TravelTime.tryParse(rawDeparture),
       departureDate: DateTime.tryParse(json['departure_date'] as String? ?? ''),

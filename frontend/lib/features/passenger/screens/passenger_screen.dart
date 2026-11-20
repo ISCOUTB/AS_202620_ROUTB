@@ -18,6 +18,7 @@ import '../../../core/widgets/route_map.dart';
 import '../../../core/widgets/routb_anim.dart';
 import '../../../core/widgets/routb_button.dart';
 import '../../../core/widgets/routb_hero.dart';
+import '../../../core/widgets/routb_history_section.dart';
 import '../../../core/widgets/routb_nav_bar.dart';
 import '../../../core/widgets/routb_section_header.dart';
 import '../../../core/widgets/routb_seats.dart';
@@ -964,7 +965,7 @@ class _PassengerHero extends StatelessWidget {
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              '¿A dónde vas? Buscar ruta y paradas',
+                              '¿A dónde vas? Encuentra tu viaje',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: RoutbText.copy(
@@ -1509,57 +1510,22 @@ class _HistorySection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.palette;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return RoutbHistorySection(
+      title: title,
+      icon: icon,
+      color: color,
+      count: requests.length,
+      children: [
+        for (final request in requests)
           Padding(
-            padding: const EdgeInsets.fromLTRB(4, 2, 4, 8),
-            child: Row(
-              children: [
-                Icon(icon, size: 18, color: color),
-                const SizedBox(width: 7),
-                Text(
-                  title,
-                  style: RoutbText.copy(
-                    15,
-                    color: palette.ink,
-                    weight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: palette.surface,
-                    borderRadius: BorderRadius.circular(99),
-                    border: Border.all(color: palette.line),
-                  ),
-                  child: Text(
-                    '${requests.length}',
-                    style: RoutbText.copy(
-                      11,
-                      color: palette.muted,
-                      weight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
+            padding: const EdgeInsets.only(bottom: 10),
+            child: MyTripCard(
+              request: request,
+              showDriver: false,
+              onTap: () => onOpen(request),
             ),
           ),
-          for (final request in requests)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: MyTripCard(request: request, onTap: () => onOpen(request)),
-            ),
-        ],
-      ),
+      ],
     );
   }
 }

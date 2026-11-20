@@ -243,10 +243,12 @@ class _PublishSheetState extends State<_PublishSheet> {
                   onChanged: (value) => setState(() => _draft.toCampus = value),
                 ),
                 const SizedBox(height: 12),
-                DateQuickPicker(
-                  value: _draft.departureDate,
-                  onChanged: (date) =>
-                      setState(() => _draft.departureDate = date),
+                Center(
+                  child: DateQuickPicker(
+                    value: _draft.departureDate,
+                    onChanged: (date) =>
+                        setState(() => _draft.departureDate = date),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 DepartureStepper(
@@ -267,8 +269,8 @@ class _PublishSheetState extends State<_PublishSheet> {
               children: [
                 SectionLabel(
                   title: _draft.toCampus
-                      ? 'Punto de salida en Cartagena'
-                      : 'Punto de llegada en Cartagena',
+                      ? 'Punto de salida'
+                      : 'Punto de llegada',
                   trailing: _draft.driverPoint != null
                       ? _draft.zone.name
                       : 'Obligatorio',
@@ -345,11 +347,6 @@ class _PublishSheetState extends State<_PublishSheet> {
                 ],
               ],
             ),
-          ),
-
-          const RoutbHint(
-            'El trayecto se calcula y publica con base en el barrio y las paradas.',
-            margin: EdgeInsets.only(top: 14),
           ),
         ],
       ),

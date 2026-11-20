@@ -25,7 +25,11 @@ class SafetyInfoScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: palette.background,
-      appBar: AppBar(title: const Text('Información de seguridad')),
+      appBar: AppBar(
+        title: Text(
+          passenger ? 'Consejos para pasajeros' : 'Consejos para conductores',
+        ),
+      ),
       body: SafeArea(
         top: false,
         child: Center(

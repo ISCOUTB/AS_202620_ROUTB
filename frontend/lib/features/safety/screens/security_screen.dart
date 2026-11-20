@@ -20,8 +20,8 @@ import 'support_screen.dart';
 /// Pestaña Seguridad, igual para pasajeros y conductores.
 ///
 /// Arriba va el botón rojo para llamar al 123, separado del resto. Debajo, tres
-/// entradas: Soporte, Contactos de emergencia e Información de seguridad. La
-/// pantalla no depende de que haya un viaje activo.
+/// entradas: Soporte, Contactos de emergencia y consejos de seguridad según el
+/// rol. La pantalla no depende de que haya un viaje activo.
 class SecurityScreen extends StatefulWidget {
   const SecurityScreen({
     required this.role,
@@ -112,9 +112,15 @@ class _SecurityScreenState extends State<SecurityScreen> {
     if (mounted) await _loadContactCount();
   }
 
+  Future<void> _openSafetyInfo() async {
+    await Navigator.of(context)
+        .push(RoutbPageRoute<void>(child: SafetyInfoScreen(role: widget.role)));
+  }
+
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final driver = widget.role == UserRole.driver;
 
     return Column(
       children: [
@@ -157,18 +163,20 @@ class _SecurityScreenState extends State<SecurityScreen> {
                       onTap: _openContacts,
                     ),
                     _entryDivider(palette),
-                    _SafetyEntry(
-                      icon: Icons.shield_outlined,
-                      title: 'Información de seguridad',
-                      subtitle: widget.role == UserRole.driver
-                          ? 'Consejos para conducir y recibir pasajeros'
-                          : 'Consejos para viajar con tranquilidad',
-                      onTap: () => Navigator.of(context).push(
-                        RoutbPageRoute<void>(
-                          child: SafetyInfoScreen(role: widget.role),
-                        ),
+                    if (driver)
+                      _SafetyEntry(
+                        icon: Icons.directions_car_rounded,
+                        title: 'Consejos para conductores',
+                        subtitle: 'Recomendaciones para una ruta segura',
+                        onTap: _openSafetyInfo,
+                      )
+                    else
+                      _SafetyEntry(
+                        icon: Icons.person_outline_rounded,
+                        title: 'Consejos para pasajeros',
+                        subtitle: 'Viaja con tranquilidad y confianza',
+                        onTap: _openSafetyInfo,
                       ),
-                    ),
                   ],
                 ),
               ),

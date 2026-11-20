@@ -58,6 +58,27 @@ void main() {
     expect(uris.single.path, '123');
   });
 
+  testWidgets('los consejos de seguridad dependen del rol', (tester) async {
+    await tester.pumpWidget(
+      _tab(SecurityScreen(role: UserRole.driver, userName: 'Carlos')),
+    );
+    await _settle(tester);
+
+    expect(find.text('Consejos para conductores'), findsOneWidget);
+    expect(find.text('Recomendaciones para una ruta segura'), findsOneWidget);
+    expect(find.text('Consejos para pasajeros'), findsNothing);
+
+    await tester.pumpWidget(
+      _tab(SecurityScreen(role: UserRole.passenger, userName: 'Ana')),
+    );
+    await _settle(tester);
+
+    expect(find.text('Consejos para pasajeros'), findsOneWidget);
+    expect(find.text('Viaja con tranquilidad y confianza'), findsOneWidget);
+    expect(find.text('Consejos para conductores'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('con viaje activo el mensaje de emergencia incluye la ruta', (
     tester,
   ) async {
@@ -151,6 +172,7 @@ void main() {
       _app(const SafetyInfoScreen(role: UserRole.passenger)),
     );
     await _settle(tester);
+    expect(find.text('Consejos para pasajeros'), findsOneWidget);
     expect(find.text('Antes de subir'), findsOneWidget);
     expect(find.text('Antes de publicar'), findsNothing);
 
@@ -158,6 +180,7 @@ void main() {
       _app(const SafetyInfoScreen(role: UserRole.driver)),
     );
     await _settle(tester);
+    expect(find.text('Consejos para conductores'), findsOneWidget);
     expect(find.text('Antes de publicar'), findsOneWidget);
     expect(find.text('Antes de subir'), findsNothing);
   });
@@ -188,10 +211,10 @@ void main() {
     expect(find.text('Llamar al 123'), findsOneWidget);
     expect(find.text('Soporte'), findsOneWidget);
     expect(find.text('Contactos de emergencia'), findsOneWidget);
-    expect(find.text('Información de seguridad'), findsOneWidget);
+    expect(find.text('Consejos para pasajeros'), findsOneWidget);
     // La última entrada queda por encima de la barra, sin scroll.
     expect(
-      tester.getBottomRight(find.text('Información de seguridad')).dy,
+      tester.getBottomRight(find.text('Consejos para pasajeros')).dy,
       lessThan(568 - 84),
     );
     expect(tester.takeException(), isNull);

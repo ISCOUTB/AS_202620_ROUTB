@@ -287,7 +287,7 @@ void main() {
         expect(find.byType(RouteMap), findsNothing);
         expect(find.text('Abrir mapa'), findsNothing);
         expect(
-          find.text('¿A dónde vas? Buscar ruta y paradas'),
+          find.text('¿A dónde vas? Encuentra tu viaje'),
           findsOneWidget,
         );
       },
@@ -810,7 +810,7 @@ void main() {
 
       await _scrollToEnd(tester);
       expect(
-        find.textContaining('El conductor canceló la ruta'),
+        find.textContaining('Tu solicitud ya no tiene sentido'),
         findsOneWidget,
       );
     });

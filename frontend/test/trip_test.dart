@@ -289,6 +289,21 @@ void main() {
       expect(Trip.fromJson(tripPayload()).routeLabel, 'Centro → UTB');
     });
 
+    test('corrige el rótulo antiguo de Turbaco al leer el viaje', () {
+      final trip = Trip.fromJson(
+        tripPayload(origin: 'Turbaco, Cartagena', destination: 'UTB'),
+      );
+      expect(trip.routeLabel, 'Turbaco → UTB');
+      expect(trip.originZone?.name, 'Turbaco');
+    });
+
+    test('no toca los rótulos de los barrios de Cartagena', () {
+      final trip = Trip.fromJson(
+        tripPayload(origin: 'Manga, Cartagena', destination: 'UTB'),
+      );
+      expect(trip.routeLabel, 'Manga, Cartagena → UTB');
+    });
+
     test('reconoce las rutas que tocan la universidad', () {
       expect(Trip.fromJson(tripPayload()).touchesCampus, isTrue);
       expect(

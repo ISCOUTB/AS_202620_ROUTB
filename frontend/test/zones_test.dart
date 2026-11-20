@@ -63,7 +63,9 @@ void main() {
       expect(normalized.toSet().length, normalized.length);
       expect(Zones.neighborhoodNames, contains('La Boquilla'));
       expect(Zones.neighborhoodNames, contains('El Pozón'));
-      expect(Zones.neighborhoodNames, contains('Tierrabomba'));
+      expect(Zones.neighborhoodNames, isNot(contains('Tierrabomba')));
+      expect(Zones.neighborhoodNames, isNot(contains('Bocachica')));
+      expect(Zones.neighborhoodNames, isNot(contains('Caño del Oro')));
       expect(Zones.neighborhoodNames, contains('Pontezuela'));
     });
 
@@ -140,6 +142,19 @@ void main() {
       expect(Zones.campusPoint.latitude, Zones.campus.latitude);
       expect(Zones.campusPoint.longitude, Zones.campus.longitude);
       expect(Zones.pointOf(Zones.campus).latitude, Zones.campus.latitude);
+    });
+
+    test('Turbaco no se rotula como parte de Cartagena', () {
+      expect(Zones.addressLabel('Turbaco'), 'Turbaco');
+      expect(Zones.addressLabel('Turbaco, Cartagena'), 'Turbaco');
+      expect(Zones.displayAddress('Turbaco, Cartagena'), 'Turbaco');
+      expect(Zones.addressLabel('turbaco'), 'turbaco');
+    });
+
+    test('los barrios de Cartagena conservan la ciudad como contexto', () {
+      expect(Zones.addressLabel('Manga'), 'Manga, Cartagena');
+      expect(Zones.addressLabel('Manga, Cartagena'), 'Manga, Cartagena');
+      expect(Zones.displayAddress('Manga, Cartagena'), 'Manga, Cartagena');
     });
 
     test('normalize quita tildes, baja la caja y limpia espacios', () {

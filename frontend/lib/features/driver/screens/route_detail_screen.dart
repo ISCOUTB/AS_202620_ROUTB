@@ -36,6 +36,7 @@ class RouteDetailScreen extends StatefulWidget {
     required this.trip,
     required this.onChanged,
     required this.onCancelled,
+    this.readOnly = false,
     super.key,
   });
 
@@ -47,6 +48,12 @@ class RouteDetailScreen extends StatefulWidget {
 
   /// Se avisa cuando la ruta se canceló, para sacarla de la lista del conductor.
   final VoidCallback onCancelled;
+
+  /// `true` para consultar una ruta del historial sin acciones.
+  ///
+  /// Oculta la cancelación y las respuestas a solicitudes: una ruta pasada o
+  /// cancelada ya no se gestiona desde aquí.
+  final bool readOnly;
 
   @override
   State<RouteDetailScreen> createState() => _RouteDetailScreenState();
@@ -381,7 +388,8 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                     ),
                   ),
 
-                  if (_trip.requests.pending.isNotEmpty) ...[
+                  if (!widget.readOnly &&
+                      _trip.requests.pending.isNotEmpty) ...[
                     const SizedBox(height: 14),
                     RoutbCard(
                       child: Column(
@@ -507,14 +515,16 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                     ),
                   ),
 
-                  const SizedBox(height: 20),
-                  RoutbButton(
-                    label: 'Cancelar ruta',
-                    icon: Icons.close_rounded,
-                    variant: RoutbButtonVariant.danger,
-                    busy: _busy,
-                    onPressed: _cancel,
-                  ),
+                  if (!widget.readOnly) ...[
+                    const SizedBox(height: 20),
+                    RoutbButton(
+                      label: 'Cancelar ruta',
+                      icon: Icons.close_rounded,
+                      variant: RoutbButtonVariant.danger,
+                      busy: _busy,
+                      onPressed: _cancel,
+                    ),
+                  ],
                 ],
               ),
             ),

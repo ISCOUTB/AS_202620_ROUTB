@@ -580,13 +580,16 @@ class _ChevronButton extends StatelessWidget {
 
 /// Fila del historial del conductor: una ruta cancelada o ya pasada.
 ///
-/// Es solo informativa —no se cancela ni se selecciona— y resume el trayecto,
-/// su fecha y cuántos pasajeros quedaron confirmados.
+/// Resume el trayecto, su fecha y cuántos pasajeros quedaron confirmados. Al
+/// pulsarla se abre el detalle en modo de consulta.
 class HistoryRouteTile extends StatelessWidget {
-  const HistoryRouteTile({required this.trip, super.key});
+  const HistoryRouteTile({required this.trip, this.onTap, super.key});
 
   /// Ruta del historial.
   final Trip trip;
+
+  /// Abre el detalle de la ruta. `null` deja la fila solo informativa.
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -609,98 +612,116 @@ class HistoryRouteTile extends StatelessWidget {
     final accentColor = isCancelled ? palette.rose : palette.mint;
 
     return Container(
-      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: palette.card,
         borderRadius: BorderRadius.circular(RoutbTheme.radiusRoute),
         border: Border.all(color: palette.line.withValues(alpha: 0.7)),
         boxShadow: palette.cardShadow,
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: accentColor.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              isCancelled
-                  ? Icons.cancel_outlined
-                  : Icons.check_circle_outline_rounded,
-              size: 20,
-              color: accentColor,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(RoutbTheme.radiusRoute),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(RoutbTheme.radiusRoute),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
               children: [
-                Text(
-                  trip.routeLabel,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: RoutbText.headline(15, color: palette.ink),
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: accentColor.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    isCancelled
+                        ? Icons.cancel_outlined
+                        : Icons.check_circle_outline_rounded,
+                    size: 20,
+                    color: accentColor,
+                  ),
                 ),
-                const SizedBox(height: 3),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.schedule_rounded,
-                      size: 13,
-                      color: palette.muted,
-                    ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        '${trip.departureDateLabel} · ${trip.departureLabel}',
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        trip.routeLabel,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: RoutbText.copy(12, color: palette.muted),
+                        style: RoutbText.headline(15, color: palette.ink),
                       ),
-                    ),
-                  ],
-                ),
-                if (confirmed > 0) ...[
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.people_alt_outlined,
-                        size: 13,
-                        color: palette.brand,
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          confirmed == 1
-                              ? '1 pasajero confirmado'
-                              : '$confirmed pasajeros confirmados',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: RoutbText.copy(
-                            12,
-                            color: palette.ink,
-                            weight: FontWeight.w600,
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.schedule_rounded,
+                            size: 13,
+                            color: palette.muted,
                           ),
-                        ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              '${trip.departureDateLabel} · ${trip.departureLabel}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: RoutbText.copy(12, color: palette.muted),
+                            ),
+                          ),
+                        ],
                       ),
+                      if (confirmed > 0) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.people_alt_outlined,
+                              size: 13,
+                              color: palette.brand,
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                confirmed == 1
+                                    ? '1 pasajero confirmado'
+                                    : '$confirmed pasajeros confirmados',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: RoutbText.copy(
+                                  12,
+                                  color: palette.ink,
+                                  weight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                RoutbStatusPill(
+                  label: phase.label,
+                  background: pillBackground,
+                  foreground: pillForeground,
+                ),
+                if (onTap != null) ...[
+                  const SizedBox(width: 6),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 18,
+                    color: palette.brand,
                   ),
                 ],
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          RoutbStatusPill(
-            label: phase.label,
-            background: pillBackground,
-            foreground: pillForeground,
-          ),
-        ],
+        ),
       ),
     );
   }

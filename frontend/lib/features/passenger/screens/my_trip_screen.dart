@@ -278,89 +278,95 @@ class _MyTripScreenState extends State<MyTripScreen> {
                       ),
                     ),
 
-                    const SizedBox(height: 14),
-                    RoutbCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const RoutbCardHeader(title: 'Tu conductor'),
-                          Row(
-                            children: [
-                              InitialsAvatar(
-                                name: _request.driverName ?? '?',
-                                initials: _request.driverInitials,
-                                size: 60,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      _request.hasDriverName
-                                          ? _request.driverName!
-                                          : 'Conductor sin asignar',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: RoutbText.headline(
-                                        15,
-                                        color: palette.ink,
-                                      ),
-                                    ),
-                                    if (_request.hasDriverPhone)
+                    // El conductor solo se muestra mientras el viaje sigue
+                    // activo. En el historial queda fuera, igual que en la
+                    // tarjeta del listado.
+                    if (_request.isActive) ...[
+                      const SizedBox(height: 14),
+                      RoutbCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const RoutbCardHeader(title: 'Tu conductor'),
+                            Row(
+                              children: [
+                                InitialsAvatar(
+                                  name: _request.driverName ?? '?',
+                                  initials: _request.driverInitials,
+                                  size: 60,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
                                       Text(
-                                        _request.driverPhone!,
+                                        _request.hasDriverName
+                                            ? _request.driverName!
+                                            : 'Conductor sin asignar',
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
-                                        style: RoutbText.copy(
-                                          12,
-                                          color: palette.muted,
-                                        ),
-                                      )
-                                    else
-                                      Text(
-                                        'Teléfono no disponible',
-                                        style: RoutbText.copy(
-                                          12,
-                                          color: palette.muted,
+                                        style: RoutbText.headline(
+                                          15,
+                                          color: palette.ink,
                                         ),
                                       ),
-                                  ],
+                                      if (_request.hasDriverPhone)
+                                        Text(
+                                          _request.driverPhone!,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: RoutbText.copy(
+                                            12,
+                                            color: palette.muted,
+                                          ),
+                                        )
+                                      else
+                                        Text(
+                                          'Teléfono no disponible',
+                                          style: RoutbText.copy(
+                                            12,
+                                            color: palette.muted,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              if (_request.hasDriverPhone &&
-                                  _request.isConfirmed)
-                                WhatsAppButton(
-                                  phone: _request.driverPhone!,
-                                  message:
-                                      'Hola ${_request.driverName ?? ''}, te contacto desde ROUTB sobre el viaje ${_request.routeLabel} (${_request.departureLabel}).',
-                                  compact: true,
-                                )
-                              else if (_request.hasDriverPhone)
-                                Icon(
-                                  Icons.phone_rounded,
-                                  size: 18,
-                                  color: palette.muted,
-                                ),
-                            ],
-                          ),
-                          // La ficha del vehículo es privada: solo se muestra
-                          // cuando el cupo quedó confirmado, aunque el backend
-                          // ya la filtre.
-                          if (_request.isConfirmed &&
-                              _request.hasVehicleInfo) ...[
-                            const SizedBox(height: 12),
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: RoutbVehicleBadge(
-                                info: _request.vehicleInfo!,
-                              ),
+                                if (_request.hasDriverPhone &&
+                                    _request.isConfirmed)
+                                  WhatsAppButton(
+                                    phone: _request.driverPhone!,
+                                    message:
+                                        'Hola ${_request.driverName ?? ''}, te contacto desde ROUTB sobre el viaje ${_request.routeLabel} (${_request.departureLabel}).',
+                                    compact: true,
+                                  )
+                                else if (_request.hasDriverPhone)
+                                  Icon(
+                                    Icons.phone_rounded,
+                                    size: 18,
+                                    color: palette.muted,
+                                  ),
+                              ],
                             ),
+                            // La ficha del vehículo es privada: solo se muestra
+                            // cuando el cupo quedó confirmado, aunque el backend
+                            // ya la filtre.
+                            if (_request.isConfirmed &&
+                                _request.hasVehicleInfo) ...[
+                              const SizedBox(height: 12),
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: RoutbVehicleBadge(
+                                  info: _request.vehicleInfo!,
+                                ),
+                              ),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
-                    ),
+                    ],
 
                     if (_request.isOrphaned) ...[
                       const SizedBox(height: 14),

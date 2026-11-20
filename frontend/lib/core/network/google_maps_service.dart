@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 
 import '../config/maps_config.dart';
+import '../constants/zones.dart';
 
 /// Resultado de una ruta calculada con Google Routes API.
 class GoogleRouteResult {
@@ -173,7 +174,13 @@ class GoogleMapsService {
     if (_forwardCache.containsKey(lower)) return _forwardCache[lower];
 
     try {
-      final addressQuery = lower.contains('cartagena')
+      // El texto puede venir de una parada ya elegida en Turbaco. Agregarle
+      // «Cartagena» cambia el municipio y Google devuelve una vía homónima en
+      // Cartagena, así que solo se amplía la consulta cuando no trae municipio.
+      final normalized = Zones.normalize(clean);
+      final hasMunicipality =
+          normalized.contains('cartagena') || normalized.contains('turbaco');
+      final addressQuery = hasMunicipality
           ? clean
           : '$clean, Cartagena, Bolívar, Colombia';
 
@@ -641,10 +648,7 @@ class GoogleMapsService {
     if (cleaned.endsWith(',')) {
       cleaned = cleaned.substring(0, cleaned.length - 1).trim();
     }
-    if (!cleaned.toLowerCase().contains('cartagena')) {
-      cleaned = '$cleaned, Cartagena';
-    }
-    return cleaned;
+    return Zones.addressLabel(cleaned);
   }
 
   @visibleForTesting

@@ -9,6 +9,7 @@ import '../../../core/models/user_role.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/routb_palette.dart';
 import '../../../core/theme/routb_text.dart';
+import '../../../core/theme/routb_theme.dart';
 import '../../../core/theme/theme_controller.dart';
 import '../../../core/widgets/routb_button.dart';
 import '../../../core/widgets/routb_card.dart';
@@ -16,6 +17,7 @@ import '../../../core/widgets/routb_field.dart';
 import '../../../core/widgets/routb_permission_status.dart';
 import '../../../core/widgets/routb_section_header.dart';
 import '../../../core/widgets/routb_seats.dart';
+import '../../../core/widgets/routb_steering_wheel.dart';
 import '../../../core/widgets/routb_toast.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../auth/screens/auth_flow.dart';
@@ -23,11 +25,27 @@ import '../widgets/vehicle_sheet.dart';
 import 'edit_account_screen.dart';
 
 /// Modos de pantalla que ofrece la pestaña de perfil, en su orden.
-const List<({String label, ThemeMode mode})> _screenModes =
-    <({String label, ThemeMode mode})>[
-      (label: 'Claro', mode: ThemeMode.light),
-      (label: 'Oscuro', mode: ThemeMode.dark),
-      (label: 'Sistema', mode: ThemeMode.system),
+const List<({String label, String description, IconData icon, ThemeMode mode})>
+_screenModes =
+    <({String label, String description, IconData icon, ThemeMode mode})>[
+      (
+        label: 'Claro',
+        description: 'Mejor visibilidad en ambientes muy iluminados.',
+        icon: Icons.light_mode_rounded,
+        mode: ThemeMode.light,
+      ),
+      (
+        label: 'Oscuro',
+        description: 'Más cómodo para la vista y ahorra batería.',
+        icon: Icons.dark_mode_rounded,
+        mode: ThemeMode.dark,
+      ),
+      (
+        label: 'Predeterminado del sistema',
+        description: 'Sigue el modo claro u oscuro configurado en el teléfono.',
+        icon: Icons.brightness_auto_rounded,
+        mode: ThemeMode.system,
+      ),
     ];
 
 /// Pestaña de perfil, igual para los dos modos.
@@ -224,18 +242,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
             title: 'Modo de pantalla',
             icon: Icons.brightness_6_rounded,
           ),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final option in _screenModes)
-                RoutbChip(
-                  label: option.label,
-                  selected: controller.mode == option.mode,
-                  onTap: () => controller.setMode(option.mode),
-                ),
-            ],
-          ),
+          for (final (index, option) in _screenModes.indexed) ...[
+            if (index > 0) const SizedBox(height: 8),
+            _ScreenModeOption(
+              label: option.label,
+              description: option.description,
+              icon: option.icon,
+              selected: controller.mode == option.mode,
+              onTap: () => controller.setMode(option.mode),
+            ),
+          ],
         ],
       ),
     );
@@ -253,7 +269,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           RoutbCardHeader(
             title: 'Vehículo',
-            icon: Icons.directions_car_filled_rounded,
+            leading: RoutbSteeringWheelIcon(color: palette.brand),
             trailing: RoutbStatusPill(
               label: complete
                   ? 'Registrado'
@@ -267,6 +283,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
           if (complete) ...[
+            const SizedBox(height: 6),
             Row(
               children: [
                 Container(
@@ -284,35 +301,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        profile.vehicleLabel,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: RoutbText.headline(15, color: palette.ink),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Visible solo para pasajeros con cupo confirmado',
-                        maxLines: 2,
-                        style: RoutbText.copy(12, color: palette.muted),
-                      ),
-                    ],
+                  child: Text(
+                    profile.vehicleLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: RoutbText.headline(15, color: palette.ink),
                   ),
                 ),
+                const SizedBox(width: 8),
+                RoutbTextAction(
+                  label: 'Editar vehículo',
+                  icon: Icons.edit_outlined,
+                  onPressed: () => _editVehicle(profile),
+                ),
               ],
-            ),
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: RoutbTextAction(
-                label: 'Editar vehículo',
-                icon: Icons.edit_outlined,
-                onPressed: () => _editVehicle(profile),
-              ),
             ),
           ] else ...[
             Text(
@@ -334,6 +336,110 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// Opción vertical del modo de pantalla, con su descripción y marca de
+/// selección.
+class _ScreenModeOption extends StatelessWidget {
+  const _ScreenModeOption({
+    required this.label,
+    required this.description,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  /// Nombre del modo.
+  final String label;
+
+  /// Explicación breve de lo que aporta el modo.
+  final String description;
+
+  /// Icono representativo del modo.
+  final IconData icon;
+
+  /// `true` si es el modo activo.
+  final bool selected;
+
+  /// Acción al pulsar.
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '$label. $description',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(RoutbTheme.radiusControl),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: selected ? palette.brandSurface : palette.surface,
+              borderRadius: BorderRadius.circular(RoutbTheme.radiusControl),
+              border: Border.all(
+                color: selected ? palette.brand : palette.line,
+                width: selected ? 1.6 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: selected ? palette.brand : palette.brandSurface,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    icon,
+                    size: 19,
+                    color: selected ? palette.onBrand : palette.brand,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        label,
+                        style: RoutbText.headline(14.5, color: palette.ink),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        description,
+                        style: RoutbText.copy(
+                          12,
+                          color: palette.muted,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(
+                  selected
+                      ? Icons.radio_button_checked_rounded
+                      : Icons.radio_button_unchecked_rounded,
+                  size: 20,
+                  color: selected ? palette.brand : palette.muted,
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -416,7 +522,6 @@ class _PermissionsCardState extends State<_PermissionsCard> {
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.palette;
     return RoutbCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -439,12 +544,6 @@ class _PermissionsCardState extends State<_PermissionsCard> {
             icon: Icons.notifications_none_rounded,
             state: _notifications,
             onOpenSettings: _openSettings,
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'Los permisos se piden solo cuando usas la función que los '
-            'necesita. Si los desactivas, puedes volver a activarlos aquí.',
-            style: RoutbText.copy(12, color: palette.muted, height: 1.4),
           ),
         ],
       ),
