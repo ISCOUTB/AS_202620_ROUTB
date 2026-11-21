@@ -42,43 +42,51 @@ class RoutbHistorySection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(4, 2, 4, 8),
+            padding: const EdgeInsets.fromLTRB(0, 4, 0, 12),
             child: Row(
               children: [
-                Icon(icon, size: 18, color: color),
-                const SizedBox(width: 7),
-                Text(
-                  title,
-                  style: RoutbText.copy(
-                    15,
-                    color: palette.ink,
-                    weight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: palette.surface,
-                    borderRadius: BorderRadius.circular(99),
-                    border: Border.all(color: palette.line),
+                    color: color.withValues(alpha: .14),
+                    shape: BoxShape.circle,
                   ),
-                  child: Text(
-                    '$count',
-                    style: RoutbText.copy(
-                      11,
-                      color: palette.muted,
-                      weight: FontWeight.w700,
+                  child: Icon(icon, color: palette.ink, size: 18),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Semantics(
+                    header: true,
+                    child: Text(
+                      title,
+                      style: RoutbText.headline(21, color: palette.ink),
                     ),
                   ),
+                ),
+                Text(
+                  '$count',
+                  style: RoutbText.headline(20, color: palette.muted),
                 ),
               ],
             ),
           ),
-          ...children,
+          Padding(
+            padding: const EdgeInsets.only(left: 16),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                border: Border(
+                  left: BorderSide(
+                    color: color.withValues(alpha: .55),
+                    width: 2,
+                  ),
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.only(left: 12),
+                child: Column(children: children),
+              ),
+            ),
+          ),
         ],
       ),
     );

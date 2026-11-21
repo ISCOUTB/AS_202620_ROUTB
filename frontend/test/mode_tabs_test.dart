@@ -16,6 +16,8 @@ import 'package:frontend/core/widgets/routb_hero.dart';
 import 'package:frontend/core/widgets/routb_nav_bar.dart';
 import 'package:frontend/features/auth/data/auth_repository.dart';
 import 'package:frontend/features/driver/screens/driver_screen.dart';
+import 'package:frontend/features/driver/widgets/driver_cards.dart';
+import 'package:frontend/features/driver/widgets/routb_trip_map.dart';
 import 'package:frontend/features/matching/data/matching_repository.dart';
 import 'package:frontend/features/notifications/data/notifications_repository.dart';
 import 'package:frontend/features/notifications/push_notification_service.dart';
@@ -238,6 +240,51 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues(<String, Object>{}));
 
   group('Modo conductor', () {
+    testWidgets(
+      'seleccionar otra ruta conserva su mapa al pasar de dos columnas a móvil',
+      (tester) async {
+        _usePhone(tester, const Size(1024, 768));
+        final dependencies = _dependencies(
+          MockClient((request) async {
+            final routes =
+                request.url.path == '/trips/my-trips' &&
+                    request.url.queryParameters['scope'] != 'history'
+                ? [
+                    _tripJson(id: 1, origin: 'Manga', destination: 'UTB'),
+                    _tripJson(id: 2, origin: 'Centro', destination: 'UTB'),
+                  ]
+                : [];
+            return http.Response(jsonEncode(routes), 200, headers: _json);
+          }),
+        );
+        addTearDown(dependencies.dispose);
+        await tester.pumpWidget(
+          _app(dependencies, const DriverScreen(account: _driver)),
+        );
+        await _settle(tester);
+
+        final map = find.byType(RoutbTripMap);
+        final cards = find.byType(RouteCard);
+        expect(
+          tester.getRect(map).right,
+          lessThan(tester.getRect(cards.first).left),
+        );
+        expect(tester.widget<RoutbTripMap>(map).trip.id, 1);
+        await tester.tap(
+          find.descendant(of: cards.last, matching: find.text('Centro')),
+        );
+        await _settle(tester);
+
+        tester.view.physicalSize = const Size(390, 844);
+        await _settle(tester);
+        expect(tester.widget<RoutbTripMap>(map).trip.id, 2);
+        expect(
+          tester.getRect(map).bottom,
+          lessThan(tester.getRect(cards.first).top),
+        );
+      },
+    );
+
     testWidgets('el historial vive en su propia pestaña', (tester) async {
       _usePhone(tester, const Size(390, 844));
       final dependencies = _dependencies(_DriverApi().client);

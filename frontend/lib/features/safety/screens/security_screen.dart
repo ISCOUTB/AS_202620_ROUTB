@@ -7,7 +7,6 @@ import '../../../core/models/user_role.dart';
 import '../../../core/services/device_launcher.dart';
 import '../../../core/theme/routb_palette.dart';
 import '../../../core/theme/routb_text.dart';
-import '../../../core/theme/routb_theme.dart';
 import '../../../core/widgets/routb_card.dart';
 import '../../../core/widgets/routb_section_header.dart';
 import '../../../core/widgets/routb_toast.dart';
@@ -19,9 +18,6 @@ import 'support_screen.dart';
 
 /// Pestaña Seguridad, igual para pasajeros y conductores.
 ///
-/// Arriba va el botón rojo para llamar al 123, separado del resto. Debajo, tres
-/// entradas: Soporte, Contactos de emergencia y consejos de seguridad según el
-/// rol. La pantalla no depende de que haya un viaje activo.
 class SecurityScreen extends StatefulWidget {
   const SecurityScreen({
     required this.role,
@@ -119,156 +115,147 @@ class _SecurityScreenState extends State<SecurityScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.palette;
+    final p = context.palette;
     final driver = widget.role == UserRole.driver;
-
-    return Column(
-      children: [
-        const RoutbSectionHeader(
-          title: 'Seguridad',
-          subtitle: 'Herramientas para actuar rápido',
-        ),
-        Expanded(
-          child: ListView(
-            key: const PageStorageKey<String>('security-tab'),
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
-            children: [
-              _EmergencyCallCard(onTap: _confirmEmergencyCall),
-              const SizedBox(height: 14),
-              RoutbCard(
-                padding: EdgeInsets.zero,
-                child: Column(
-                  children: [
-                    _SafetyEntry(
-                      icon: Icons.support_agent_rounded,
-                      title: 'Soporte',
-                      subtitle: 'Pide ayuda al equipo de ROUTB',
-                      onTap: () => Navigator.of(context).push(
-                        RoutbPageRoute<void>(
-                          child: SupportScreen(
-                            userName: widget.userName,
-                            role: widget.role,
-                            launcher: widget.launcher,
-                          ),
-                        ),
-                      ),
-                    ),
-                    _entryDivider(palette),
-                    _SafetyEntry(
-                      icon: Icons.contacts_rounded,
-                      title: 'Contactos de emergencia',
-                      subtitle: _contactCount == 0
-                          ? 'Guarda hasta 3 contactos en este dispositivo'
-                          : '$_contactCount de ${EmergencyContactsStore.maxContacts} guardados',
-                      onTap: _openContacts,
-                    ),
-                    _entryDivider(palette),
-                    if (driver)
-                      _SafetyEntry(
-                        icon: Icons.directions_car_rounded,
-                        title: 'Consejos para conductores',
-                        subtitle: 'Recomendaciones para una ruta segura',
-                        onTap: _openSafetyInfo,
-                      )
-                    else
-                      _SafetyEntry(
-                        icon: Icons.person_outline_rounded,
-                        title: 'Consejos para pasajeros',
-                        subtitle: 'Viaja con tranquilidad y confianza',
-                        onTap: _openSafetyInfo,
-                      ),
-                  ],
+    final contacts = _ContactPass(count: _contactCount, onTap: _openContacts);
+    final resources = RoutbCard(
+      padding: EdgeInsets.zero,
+      child: Column(
+        children: [
+          _SafetyEntry(
+            icon: driver
+                ? Icons.directions_car_outlined
+                : Icons.directions_walk_rounded,
+            title: driver
+                ? 'Consejos para conductores'
+                : 'Consejos para pasajeros',
+            subtitle: driver
+                ? 'Recomendaciones para una ruta segura'
+                : 'Viaja con tranquilidad y confianza',
+            onTap: _openSafetyInfo,
+          ),
+          Divider(height: 1, indent: 66, color: p.line),
+          _SafetyEntry(
+            icon: Icons.headset_mic_outlined,
+            title: 'Soporte',
+            subtitle: 'Hablar con el equipo de ROUTB',
+            onTap: () => Navigator.of(context).push(
+              RoutbPageRoute<void>(
+                child: SupportScreen(
+                  userName: widget.userName,
+                  role: widget.role,
+                  launcher: widget.launcher,
                 ),
               ),
-              const SizedBox(height: 12),
-              Text(
-                'La app no envía mensajes sola: abre WhatsApp o SMS con el '
-                'texto listo para que tú lo envíes.',
-                textAlign: TextAlign.center,
-                style: RoutbText.copy(11.5, color: palette.muted, height: 1.35),
-              ),
-            ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
+    );
+    final call = FilledButton.icon(
+      onPressed: _confirmEmergencyCall,
+      style: FilledButton.styleFrom(
+        minimumSize: const Size(double.infinity, 52),
+        backgroundColor: p.roseSurface,
+        foregroundColor: p.onRoseSurface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      icon: const Icon(Icons.phone_in_talk_rounded),
+      label: Text(
+        'Llamar al 123',
+        style: RoutbText.headline(17, color: p.onRoseSurface),
+      ),
+    );
+
+    return RoutbSectionPage(
+      title: 'Seguridad',
+      subtitle: 'Herramientas para tu viaje',
+      icon: Icons.shield_outlined,
+      primary: call,
+      body: (split) => ListView(
+        key: const PageStorageKey<String>('security-tab'),
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 20),
+        children: [
+          if (!split) ...[call, const SizedBox(height: 12)],
+          contacts,
+          const SizedBox(height: 12),
+          resources,
+        ],
+      ),
     );
   }
-
-  Widget _entryDivider(RoutbPalette palette) => Divider(
-    height: 1,
-    thickness: 1,
-    indent: 64,
-    color: palette.line.withValues(alpha: 0.75),
-  );
 }
 
-/// Botón rojo, separado de las entradas, para llamar a la línea 123.
-class _EmergencyCallCard extends StatelessWidget {
-  const _EmergencyCallCard({required this.onTap});
-
+class _ContactPass extends StatelessWidget {
+  const _ContactPass({required this.count, required this.onTap});
+  final int count;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
-    final palette = context.palette;
-    final foreground = palette.onBrand;
-
-    return Semantics(
-      button: true,
-      label: 'Llamar al 123, línea de emergencias de Colombia',
-      child: Material(
-        color: palette.rose,
-        borderRadius: BorderRadius.circular(RoutbTheme.radiusCard),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(RoutbTheme.radiusCard),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
-            child: Row(
-              children: [
-                Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(
-                    color: foreground.withValues(alpha: 0.18),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: foreground.withValues(alpha: 0.35),
+    final p = context.palette;
+    return Material(
+      color: p.mintSurface,
+      borderRadius: BorderRadius.circular(20),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Contactos de emergencia',
+                      style: RoutbText.headline(19, color: p.onMintSurface),
                     ),
                   ),
-                  child: Icon(
-                    Icons.emergency_rounded,
-                    color: foreground,
-                    size: 24,
+                  const SizedBox(width: 8),
+                  Icon(
+                    Icons.arrow_forward_rounded,
+                    color: p.onMintSurface,
+                    size: 20,
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Llamar al 123',
-                        style: RoutbText.headline(18, color: foreground),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Línea de emergencias de Colombia',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: RoutbText.copy(
-                          12,
-                          color: foreground.withValues(alpha: 0.9),
-                        ),
-                      ),
-                    ],
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  ExcludeSemantics(
+                    child: Row(
+                      children: [
+                        for (
+                          var i = 0;
+                          i < EmergencyContactsStore.maxContacts;
+                          i++
+                        )
+                          Icon(
+                            i < count
+                                ? Icons.person_rounded
+                                : Icons.person_outline_rounded,
+                            color: p.onMintSurface,
+                            size: 18,
+                          ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 6),
-                Icon(Icons.phone_in_talk_rounded, color: foreground, size: 20),
-              ],
-            ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '$count de ${EmergencyContactsStore.maxContacts} guardados',
+                      style: RoutbText.copy(12, color: p.onMintSurface),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Tú eliges cuándo enviar el aviso por WhatsApp o SMS.',
+                style: RoutbText.copy(13, color: p.onMintSurface),
+              ),
+            ],
           ),
         ),
       ),
@@ -299,7 +286,7 @@ class _SafetyEntry extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 13, 12, 13),
+          padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
           child: Row(
             children: [
               Container(
@@ -309,7 +296,7 @@ class _SafetyEntry extends StatelessWidget {
                   color: palette.brandSurface,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: palette.brand, size: 20),
+                child: Icon(icon, color: palette.onBrandSurface, size: 20),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -319,8 +306,7 @@ class _SafetyEntry extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+
                       style: RoutbText.copy(
                         14,
                         color: palette.ink,
@@ -330,8 +316,11 @@ class _SafetyEntry extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
-                      maxLines: 1,
+                      maxLines: MediaQuery.textScalerOf(context).scale(16) <= 16
+                          ? 1
+                          : null,
                       overflow: TextOverflow.ellipsis,
+
                       style: RoutbText.copy(12, color: palette.muted),
                     ),
                   ],

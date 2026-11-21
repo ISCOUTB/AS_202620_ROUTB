@@ -286,10 +286,7 @@ void main() {
 
         expect(find.byType(RouteMap), findsNothing);
         expect(find.text('Abrir mapa'), findsNothing);
-        expect(
-          find.text('¿A dónde vas? Encuentra tu viaje'),
-          findsOneWidget,
-        );
+        expect(find.text('¿A dónde vas?'), findsOneWidget);
       },
     );
 

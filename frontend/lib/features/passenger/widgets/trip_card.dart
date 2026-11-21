@@ -5,19 +5,11 @@ import '../../../core/theme/routb_palette.dart';
 import '../../../core/theme/routb_text.dart';
 import '../../../core/widgets/date_quick_picker.dart';
 import '../../../core/widgets/routb_card.dart';
-import '../../../core/widgets/routb_route.dart';
+import '../../../core/widgets/routb_journey_schedule.dart';
 import '../../../core/widgets/routb_seats.dart';
 import '../../../core/widgets/routb_vehicle_badge.dart';
 
-/// `.tk`: tarjeta de un viaje disponible.
-///
-/// Muestra el conductor, la hora, el trayecto con el punto recorriéndolo, los
-/// cupos y el botón de reserva, que cambia de estado según lo que haya pasado
-/// con la solicitud.
-///
-/// El diseño original ponía aquí una valoración («4.8 · 12 reseñas»). ROUTB no
-/// tiene entidad de reseñas, así que en su lugar se muestra la **llegada
-/// estimada**, que sí se puede calcular y le sirve a quien está buscando cupo.
+/// Salida disponible, con recorrido, conductor y estado de la reserva.
 class TripCard extends StatelessWidget {
   const TripCard({
     required this.trip,
@@ -58,172 +50,110 @@ class TripCard extends StatelessWidget {
         : 'Conductor ROUTB';
 
     return RoutbCard(
-      margin: const EdgeInsets.only(bottom: 14),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          RoutbJourneySchedule(trip: trip),
+          const SizedBox(height: 12),
           Row(
             children: [
-              InitialsAvatar(name: driverName, initials: trip.driverInitials),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            driverName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: RoutbText.headline(15, color: palette.ink),
-                          ),
-                        ),
-                        if (isNew) ...[
-                          const SizedBox(width: 8),
-                          RoutbBadge(
-                            text: 'Nuevo',
-                            dense: true,
-                            background: palette.mint,
-                            foreground: palette.onMint,
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      trip.departureDateLabel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: RoutbText.copy(12, color: palette.muted),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: palette.brandSurface,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: palette.brand.withValues(alpha: 0.22),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      trip.departureClockLabel,
-                      style: RoutbText.headline(
-                        22,
-                        color: palette.onBrandSurface,
-                        height: 1,
-                      ),
-                    ),
-                    Text(
-                      trip.departureMeridiem,
-                      style: RoutbText.copy(
-                        10.5,
-                        color: palette.onBrandSurface,
-                        weight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          TravelPath(origin: trip.origin, destination: trip.destination),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Icon(Icons.flag_outlined, size: 14, color: palette.muted),
-              const SizedBox(width: 5),
+              Icon(Icons.flag_outlined, size: 16, color: palette.muted),
+              const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   'Encuentro: ${trip.meetingPoint}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: RoutbText.copy(12, color: palette.muted),
+                  style: RoutbText.copy(13, color: palette.muted),
                 ),
               ),
             ],
           ),
+          const Divider(height: 24),
+          Row(
+            children: [
+              InitialsAvatar(
+                name: driverName,
+                initials: trip.driverInitials,
+                size: 32,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  driverName,
+                  style: RoutbText.copy(
+                    14,
+                    color: palette.ink,
+                    weight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              if (isNew)
+                RoutbBadge(
+                  text: 'Nuevo',
+                  background: palette.mintSurface,
+                  foreground: palette.onMintSurface,
+                ),
+            ],
+          ),
           if (trip.hasVehicleInfo) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Align(
               alignment: Alignment.centerLeft,
               child: RoutbVehicleBadge(info: trip.vehicleInfo!, dense: true),
             ),
           ],
-          const SizedBox(height: 14),
-          const DashedDivider(),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              // Los puntos y el texto se reparten el espacio sobrante; el botón
-              // conserva el suyo y recorta su etiqueta si no cabe.
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SeatDots(
-                      total: trip.totalSeats,
-                      available: trip.availableSeats,
-                    ),
-                    const SizedBox(height: 5),
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            '${trip.availableSeats}/${trip.totalSeats} cupos libres',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: RoutbText.copy(12, color: palette.muted),
-                          ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final seats = Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${trip.availableSeats}/${trip.totalSeats} cupos libres',
+                    style: RoutbText.copy(13, color: palette.ink),
+                  ),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      SeatDots(
+                        total: trip.totalSeats,
+                        available: trip.availableSeats,
+                      ),
+                      if (lowSeats)
+                        RoutbBadge(
+                          text: '¡Solo ${trip.availableSeats}!',
+                          background: palette.amberSurface,
+                          foreground: palette.onAmberSurface,
                         ),
-                        if (lowSeats) ...[
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 7,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: palette.amberSurface,
-                              borderRadius: BorderRadius.circular(99),
-                            ),
-                            child: Text(
-                              '¡Solo ${trip.availableSeats}!',
-                              maxLines: 1,
-                              style: RoutbText.copy(
-                                10.5,
-                                color: palette.onAmberSurface,
-                                weight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
+                    ],
+                  ),
+                ],
+              );
+              final button = _ReserveButton(state: state, onPressed: onReserve);
+              if (constraints.maxWidth <
+                  MediaQuery.textScalerOf(context).scale(270)) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [seats, const SizedBox(height: 8), button],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: seats),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: button,
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: _ReserveButton(state: state, onPressed: onReserve),
-                ),
-              ),
-            ],
+                  ),
+                ],
+              );
+            },
           ),
         ],
       ),
@@ -246,7 +176,7 @@ class _ReserveButton extends StatelessWidget {
       SeatRequestState.available => (
         'Solicitar cupos',
         palette.brand,
-        Colors.white,
+        palette.onBrand,
       ),
       // No hay endpoint para retirar una solicitud, así que este estado es
       // informativo: se ve que la espera está en curso, pero no admite pulsación.
@@ -286,7 +216,7 @@ class _ReserveButton extends StatelessWidget {
 
     return Semantics(
       button: state.isActionable,
-      enabled: state.isActionable,
+      enabled: state.isActionable && onPressed != null,
       label: description,
       child: Material(
         color: background,
@@ -295,9 +225,10 @@ class _ReserveButton extends StatelessWidget {
           onTap: state.isActionable ? onPressed : null,
           borderRadius: BorderRadius.circular(14),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
             child: Row(
               mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if (state == SeatRequestState.confirmed) ...[
                   Icon(Icons.check_rounded, size: 15, color: foreground),

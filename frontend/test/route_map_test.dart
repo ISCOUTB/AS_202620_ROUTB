@@ -67,6 +67,35 @@ void main() {
     },
   );
 
+  testWidgets(
+    'el trazado estimado conecta los dos marcadores sin geometría guardada',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: RoutbTheme.light(),
+          home: const Scaffold(
+            body: RouteMap(
+              origin: 'Manga',
+              destination: 'UTB',
+              animateRoute: false,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      final markers = tester
+          .widget<MarkerLayer>(find.byType(MarkerLayer))
+          .markers;
+      final points = tester
+          .widget<PolylineLayer>(find.byType(PolylineLayer))
+          .polylines
+          .single
+          .points;
+      expect(points.first, markers.first.point);
+      expect(points.last, markers.last.point);
+    },
+  );
+
   testWidgets('RouteMap dibuja la geometría exacta que entrega el backend', (
     tester,
   ) async {

@@ -7,19 +7,19 @@ import '../../../core/models/trip.dart';
 import '../../../core/models/trip_request.dart';
 import '../../../core/models/trip_status.dart';
 import '../../../core/network/google_maps_service.dart';
+import '../../../core/theme/routb_motion.dart';
 import '../../../core/theme/routb_palette.dart';
 import '../../../core/theme/routb_text.dart';
-import '../../../core/theme/routb_theme.dart';
 import '../../../core/widgets/eta_label.dart';
-import '../../../core/widgets/routb_button.dart';
+import '../../../core/widgets/routb_card.dart';
 import '../../../core/widgets/routb_dashed_border.dart';
 import '../../../core/widgets/routb_field.dart';
-import '../../../core/widgets/routb_route.dart';
+import '../../../core/widgets/routb_journey_schedule.dart';
 import '../../../core/widgets/routb_seats.dart';
 
 /// `.rq`: fila de solicitud de cupo.
 ///
-/// Muestra el avatar, el nombre, el teléfono y el trayecto de la ruta, con los
+/// Muestra el avatar, el nombre, los cupos y el trayecto de la ruta, con los
 /// dos botones de aceptar y rechazar, y el cálculo del desvío si hay paradas.
 class RequestTile extends StatelessWidget {
   const RequestTile({
@@ -54,181 +54,109 @@ class RequestTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
 
-    return Material(
-      color: palette.surface,
-      borderRadius: BorderRadius.circular(RoutbTheme.radiusRoute),
-      child: InkWell(
-        onTap: onTapPreview,
-        borderRadius: BorderRadius.circular(RoutbTheme.radiusRoute),
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Row(
+    return RoutbCard(
+      onTap: onTapPreview,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
             children: [
               InitialsAvatar(
                 name: request.passengerName,
                 initials: request.initials,
+                size: 38,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       request.passengerName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: RoutbText.headline(15, color: palette.ink),
+                      style: RoutbText.headline(16, color: palette.ink),
                     ),
                     Text(
                       '${request.seatCount} ${request.seatCount == 1 ? 'cupo' : 'cupos'}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: RoutbText.copy(12, color: palette.muted),
+                      style: RoutbText.copy(13, color: palette.muted),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${trip.routeLabel} · ${trip.departureDateLabel} ${trip.departureLabel}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: RoutbText.copy(12, color: palette.muted),
-                    ),
-                    for (final stop in request.stops) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        '${stop.addressText} · ${stop.seats} ${stop.seats == 1 ? 'persona' : 'personas'}',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: RoutbText.copy(12, color: palette.ink),
-                      ),
-                      if (stop.etaEstimated != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: EtaLabel(
-                            eta: stop.etaEstimated!,
-                            compact: true,
-                          ),
-                        ),
-                      DetourBadge(trip: trip, stopAddress: stop.addressText),
-                    ],
-                    if (onTapPreview != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: InkWell(
-                          onTap: onTapPreview,
-                          borderRadius: BorderRadius.circular(
-                            RoutbTheme.radiusPill,
-                          ),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 3,
-                              horizontal: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: palette.brand.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(
-                                RoutbTheme.radiusPill,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.map_outlined,
-                                  size: 13,
-                                  color: palette.brand,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'Previsualizar ruta',
-                                  style: RoutbText.copy(
-                                    11,
-                                    color: palette.brand,
-                                    weight: FontWeight.w700,
-                                  ),
-                                ),
-                                const SizedBox(width: 2),
-                                Icon(
-                                  Icons.chevron_right_rounded,
-                                  size: 13,
-                                  color: palette.brand,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
               if (busy)
-                const SizedBox(
-                  width: 20,
-                  height: 20,
+                const SizedBox.square(
+                  dimension: 24,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              else
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _RoundAction(
-                      icon: Icons.check_rounded,
-                      color: palette.mint,
-                      tooltip: 'Aceptar a ${request.passengerName}',
-                      onTap: onAccept,
-                    ),
-                    const SizedBox(width: 8),
-                    _RoundAction(
-                      icon: Icons.close_rounded,
-                      color: palette.rose,
-                      tooltip: 'Rechazar a ${request.passengerName}',
-                      onTap: onReject,
-                    ),
-                  ],
+              else ...[
+                IconButton.filledTonal(
+                  onPressed: onAccept,
+                  tooltip: 'Aceptar a ${request.passengerName}',
+                  style: IconButton.styleFrom(
+                    backgroundColor: palette.mintSurface,
+                    foregroundColor: palette.onMintSurface,
+                  ),
+                  icon: const Icon(Icons.check_rounded),
+                ),
+                IconButton(
+                  onPressed: onReject,
+                  tooltip: 'Rechazar a ${request.passengerName}',
+                  style: IconButton.styleFrom(
+                    foregroundColor: palette.onRoseSurface,
+                  ),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ],
+          ),
+          const Divider(height: 20),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${trip.routeLabel} · ${trip.departureDateLabel} ${trip.departureLabel}',
+                style: RoutbText.copy(
+                  13,
+                  color: palette.ink,
+                  weight: FontWeight.w700,
+                ),
+              ),
+              for (final stop in request.stops) ...[
+                const SizedBox(height: 4),
+                Text(
+                  '${stop.addressText} · ${stop.seats} ${stop.seats == 1 ? 'persona' : 'personas'}',
+                  style: RoutbText.copy(13, color: palette.muted),
+                ),
+                if (stop.etaEstimated != null)
+                  EtaLabel(eta: stop.etaEstimated!, compact: true),
+                DetourBadge(trip: trip, stopAddress: stop.addressText),
+              ],
+              if (onTapPreview != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.map_outlined,
+                        size: 18,
+                        color: palette.onBrandSurface,
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          'Previsualizar ruta',
+                          style: RoutbText.copy(
+                            13,
+                            color: palette.onBrandSurface,
+                            weight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-/// `.rb`: botÃ³n circular de aceptar o rechazar.
-class _RoundAction extends StatelessWidget {
-  const _RoundAction({
-    required this.icon,
-    required this.color,
-    required this.tooltip,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final Color color;
-  final String tooltip;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: Semantics(
-        button: true,
-        label: tooltip,
-        child: Material(
-          color: color,
-          shape: const CircleBorder(),
-          child: InkWell(
-            onTap: onTap,
-            customBorder: const CircleBorder(),
-            child: SizedBox(
-              width: 40,
-              height: 40,
-              child: Icon(icon, color: Colors.white, size: 20),
-            ),
-          ),
-        ),
+        ],
       ),
     );
   }
@@ -237,7 +165,7 @@ class _RoundAction extends StatelessWidget {
 /// `.ro`: tarjeta de una ruta publicada.
 ///
 /// Tocar la tarjeta la selecciona, que es lo que actualiza el hero, el mapa y el
-/// contador de cupos. El chevron abre el detalle.
+/// contador de cupos. La flecha abre el detalle.
 class RouteCard extends StatelessWidget {
   const RouteCard({
     required this.trip,
@@ -255,16 +183,16 @@ class RouteCard extends StatelessWidget {
   /// `true` si es la ruta que muestra el hero.
   final bool selected;
 
-  /// AcciÃ³n de seleccionar.
+  /// Acción de seleccionar.
   final VoidCallback onSelect;
 
-  /// AcciÃ³n de abrir el detalle.
+  /// Acción de abrir el detalle.
   final VoidCallback onOpenDetail;
 
-  /// AcciÃ³n de cancelar.
+  /// Acción de cancelar.
   final VoidCallback onCancel;
 
-  /// `true` la marca reciÃ©n creada con un destello.
+  /// `true` la marca recién creada con un destello.
   final bool highlight;
 
   @override
@@ -282,294 +210,139 @@ class RouteCard extends StatelessWidget {
       TripPhase.scheduled => (palette.amberSurface, palette.onAmberSurface),
     };
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: highlight ? palette.mintSurface : palette.card,
-        borderRadius: BorderRadius.circular(RoutbTheme.radiusRoute),
-        border: Border.all(
-          color: selected ? palette.brand : palette.line,
-          width: selected ? 1.8 : 1.2,
-        ),
-        boxShadow: selected ? palette.cardShadow : null,
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onSelect,
-          borderRadius: BorderRadius.circular(RoutbTheme.radiusRoute),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 30,
-                      height: 30,
-                      decoration: BoxDecoration(
-                        color: selected
-                            ? palette.brandSurface
-                            : palette.surface,
-                        borderRadius: BorderRadius.circular(9),
-                      ),
-                      child: Icon(
-                        Icons.directions_car_filled_rounded,
-                        size: 16,
-                        color: selected ? palette.brand : palette.muted,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        trip.routeLabel,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: RoutbText.headline(15, color: palette.ink),
-                      ),
-                    ),
-                    RoutbStatusPill(
-                      label: phase.label,
-                      background: pillBackground,
-                      foreground: pillForeground,
-                    ),
-                    if (trip.hasAcceptedDetour) ...[
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0x1AE67E22),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: const Color(0xFFE67E22),
-                            width: 0.8,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.alt_route_rounded,
-                              size: 11,
-                              color: Color(0xFFE67E22),
-                            ),
-                            const SizedBox(width: 3),
-                            Text(
-                              'Desvío',
-                              style: RoutbText.copy(
-                                10,
-                                color: const Color(0xFFE67E22),
-                                weight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                    if (trip.requests.pending.isNotEmpty) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: palette.amberSurface,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: palette.amber, width: 1),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.notifications_active_rounded,
-                              size: 13,
-                              color: palette.onAmberSurface,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${trip.requests.pending.length} ${trip.requests.pending.length == 1 ? 'solicitud' : 'solicitudes'}',
-                              style: RoutbText.copy(
-                                11,
-                                color: palette.onAmberSurface,
-                                weight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                    const SizedBox(width: 8),
-                    _ChevronButton(
-                      onTap: onOpenDetail,
-                      routeLabel: trip.routeLabel,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: palette.surface,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: palette.line.withValues(alpha: 0.65),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      DashedTimeline(
-                        stops: <TimelineStop>[
-                          TimelineStop(
-                            title: trip.origin,
-                            subtitle:
-                                '${trip.departureDateLabel} · salida ${trip.departureLabel}',
-                            reached: phase == TripPhase.onCourse,
-                          ),
-                          for (final waypoint in trip.acceptedWaypoints)
-                            TimelineStop(
-                              title: waypoint,
-                              subtitle: 'Parada confirmada de pasajero',
-                              reached: false,
-                            ),
-                          TimelineStop(
-                            title: trip.destination,
-                            subtitle: 'Destino final',
-                            reached: false,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      const DashedDivider(),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.flag_outlined,
-                            size: 14,
-                            color: palette.muted,
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              'Encuentro: ${trip.meetingPoint}',
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: RoutbText.copy(12, color: palette.muted),
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (confirmedInitials.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.people_alt_rounded,
-                              size: 14,
-                              color: palette.brand,
-                            ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                '${confirmedInitials.length} de '
-                                '${trip.totalSeats} cupos confirmados',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: RoutbText.copy(
-                                  12,
-                                  color: palette.ink,
-                                  weight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                            for (
-                              var i = 0;
-                              i < confirmedInitials.length && i < 4;
-                              i++
-                            )
-                              Padding(
-                                padding: EdgeInsets.only(left: i == 0 ? 6 : 4),
-                                child: InitialsAvatar(
-                                  name: confirmedInitials[i],
-                                  initials: confirmedInitials[i],
-                                  size: 20,
-                                ),
-                              ),
-                          ],
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    SeatDots(
-                      total: trip.totalSeats,
-                      available: trip.availableSeats,
-                      size: const Size(8, 13),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        '${trip.availableSeats}/${trip.totalSeats} cupos libres',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: RoutbText.copy(
-                          12,
-                          color: palette.muted,
-                          weight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    RoutbTextAction(
-                      label: 'Cancelar ruta',
-                      color: palette.rose,
-                      onPressed: onCancel,
-                    ),
-                  ],
-                ),
-              ],
-            ),
+    final pending = trip.requests.pending.length;
+    final radius = BorderRadius.circular(20);
+    return Semantics(
+      selected: selected,
+      child: AnimatedContainer(
+        duration: MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : RoutbMotion.toast,
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: highlight ? palette.mintSurface : palette.card,
+          borderRadius: radius,
+          border: Border.all(
+            color: selected ? palette.onBrandSurface : palette.line,
+            width: 1.4,
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _ChevronButton extends StatelessWidget {
-  const _ChevronButton({required this.onTap, required this.routeLabel});
-
-  final VoidCallback onTap;
-  final String routeLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-
-    return Semantics(
-      button: true,
-      label: 'Ver detalle de $routeLabel',
-      child: Material(
-        color: palette.surface,
-        borderRadius: BorderRadius.circular(RoutbTheme.radiusControl),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(RoutbTheme.radiusControl),
-          child: SizedBox(
-            width: 32,
-            height: 32,
-            child: Icon(
-              Icons.chevron_right_rounded,
-              size: 20,
-              color: palette.brand,
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            onTap: onSelect,
+            borderRadius: radius,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 12, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            if (selected)
+                              Icon(
+                                Icons.check_circle_rounded,
+                                color: palette.onBrandSurface,
+                                size: 18,
+                              ),
+                            RoutbStatusPill(
+                              label: phase.label,
+                              background: pillBackground,
+                              foreground: pillForeground,
+                            ),
+                            if (trip.hasAcceptedDetour)
+                              RoutbBadge(
+                                text: 'Desvío',
+                                background: palette.amberSurface,
+                                foreground: palette.onAmberSurface,
+                              ),
+                            if (pending > 0)
+                              RoutbBadge(
+                                text:
+                                    '$pending ${pending == 1 ? 'solicitud' : 'solicitudes'}',
+                                background: palette.amberSurface,
+                                foreground: palette.onAmberSurface,
+                              ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: onOpenDetail,
+                        style: IconButton.styleFrom(
+                          foregroundColor: palette.onBrandSurface,
+                        ),
+                        tooltip: 'Ver detalle de ${trip.routeLabel}',
+                        icon: const Icon(Icons.arrow_outward_rounded, size: 20),
+                      ),
+                    ],
+                  ),
+                  RoutbJourneySchedule(
+                    trip: trip,
+                    stops: trip.acceptedWaypoints,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Encuentro: ${trip.meetingPoint}',
+                    style: RoutbText.copy(13, color: palette.muted),
+                  ),
+                  if (confirmedInitials.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 4,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          '${confirmedInitials.length} de ${trip.totalSeats} cupos confirmados',
+                          style: RoutbText.copy(12, color: palette.ink),
+                        ),
+                        for (final initials in confirmedInitials.take(4))
+                          InitialsAvatar(
+                            name: initials,
+                            initials: initials,
+                            size: 20,
+                          ),
+                      ],
+                    ),
+                  ],
+                  const Divider(height: 16),
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    spacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SeatDots(
+                            total: trip.totalSeats,
+                            available: trip.availableSeats,
+                            size: const Size(8, 12),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            '${trip.availableSeats}/${trip.totalSeats} cupos libres',
+                            style: RoutbText.copy(12, color: palette.muted),
+                          ),
+                        ],
+                      ),
+                      TextButton(
+                        onPressed: onCancel,
+                        style: TextButton.styleFrom(
+                          foregroundColor: palette.onRoseSurface,
+                        ),
+                        child: const Text('Cancelar ruta'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -608,120 +381,53 @@ class HistoryRouteTile extends StatelessWidget {
       (total, request) => total + request.seatCount,
     );
 
-    final isCancelled = phase == TripPhase.cancelled;
-    final accentColor = isCancelled ? palette.rose : palette.mint;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: palette.card,
-        borderRadius: BorderRadius.circular(RoutbTheme.radiusRoute),
-        border: Border.all(color: palette.line.withValues(alpha: 0.7)),
-        boxShadow: palette.cardShadow,
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(RoutbTheme.radiusRoute),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(RoutbTheme.radiusRoute),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Row(
-              children: [
-                Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: accentColor.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    isCancelled
-                        ? Icons.cancel_outlined
-                        : Icons.check_circle_outline_rounded,
-                    size: 20,
-                    color: accentColor,
-                  ),
+    return RoutbCard(
+      onTap: onTap,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  trip.routeLabel,
+                  style: RoutbText.headline(18, color: palette.ink),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        trip.routeLabel,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: RoutbText.headline(15, color: palette.ink),
-                      ),
-                      const SizedBox(height: 3),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.schedule_rounded,
-                            size: 13,
-                            color: palette.muted,
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              '${trip.departureDateLabel} · ${trip.departureLabel}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: RoutbText.copy(12, color: palette.muted),
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (confirmed > 0) ...[
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.people_alt_outlined,
-                              size: 13,
-                              color: palette.brand,
-                            ),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                confirmed == 1
-                                    ? '1 pasajero confirmado'
-                                    : '$confirmed pasajeros confirmados',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: RoutbText.copy(
-                                  12,
-                                  color: palette.ink,
-                                  weight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ],
-                  ),
+              ),
+              if (onTap != null)
+                Icon(
+                  Icons.arrow_outward_rounded,
+                  size: 18,
+                  color: palette.onBrandSurface,
                 ),
-                const SizedBox(width: 8),
-                RoutbStatusPill(
-                  label: phase.label,
-                  background: pillBackground,
-                  foreground: pillForeground,
-                ),
-                if (onTap != null) ...[
-                  const SizedBox(width: 6),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    size: 18,
-                    color: palette.brand,
-                  ),
-                ],
-              ],
-            ),
+            ],
           ),
-        ),
+          const SizedBox(height: 4),
+          Text(
+            '${trip.departureDateLabel} · ${trip.departureLabel}',
+            style: RoutbText.copy(13, color: palette.muted),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              RoutbStatusPill(
+                label: phase.label,
+                background: pillBackground,
+                foreground: pillForeground,
+              ),
+              if (confirmed > 0)
+                Text(
+                  confirmed == 1
+                      ? '1 pasajero confirmado'
+                      : '$confirmed pasajeros confirmados',
+                  style: RoutbText.copy(12, color: palette.muted),
+                ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -778,15 +484,15 @@ class _SeatPip extends StatelessWidget {
   /// Lado del pip, ya calculado por el llamador.
   final double size;
 
-  /// Iniciales de quien ocupa el asiento, `â€“` si se ocupa sin nombre conocido, o
-  /// `null` si estÃ¡ libre.
+  /// Iniciales de quien ocupa el asiento, `–` si se ocupa sin nombre conocido, o
+  /// `null` si está libre.
   final String? initials;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
     final label = initials;
-    final takenWithoutName = label == 'â€“';
+    final takenWithoutName = label == '–';
     final radius = size * 0.34;
     final fontSize = math.min(11.0, size * 0.34);
 
@@ -822,19 +528,16 @@ class _SeatPip extends StatelessWidget {
         height: size,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: const Color(0x4DFFFFFF),
+          color: palette.surface,
           borderRadius: BorderRadius.circular(radius),
         ),
-        child: Text(
-          '–',
-          style: RoutbText.copy(fontSize, color: const Color(0x99FFFFFF)),
-        ),
+        child: Text('–', style: RoutbText.copy(fontSize, color: palette.muted)),
       );
     }
 
     // `.s`: libre, con borde discontinudo.
     return DashedBorderBox(
-      color: const Color(0x73FFFFFF),
+      color: palette.muted,
       borderRadius: BorderRadius.circular(radius),
       child: SizedBox(width: size, height: size),
     );

@@ -171,18 +171,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        const RoutbSectionHeader(
-          title: 'Perfil',
-          subtitle: 'Tu cuenta y tus preferencias',
-        ),
-        Expanded(child: _body()),
-      ],
+    return RoutbSectionPage(
+      title: 'Perfil',
+      subtitle: 'Tu cuenta y tus preferencias',
+      icon: Icons.person_outline_rounded,
+      primary: _loading || _error != null || _profile == null
+          ? null
+          : _identityCard(_profile!),
+      body: _body,
     );
   }
 
-  Widget _body() {
+  Widget _body(bool split) {
     if (_loading) return const _ProfileLoading();
 
     final error = _error;
@@ -196,23 +196,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
         children: [
-          RoutbCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _IdentityHeader(profile: profile),
-                const SizedBox(height: 12),
-                RoutbButton(
-                  label: 'Editar cuenta',
-                  icon: Icons.manage_accounts_outlined,
-                  variant: RoutbButtonVariant.secondary,
-                  height: 44,
-                  onPressed: _openEditAccount,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
+          if (!split) ...[_identityCard(profile), const SizedBox(height: 14)],
           _screenModeCard(),
           const SizedBox(height: 14),
           const _PermissionsCard(),
@@ -232,6 +216,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Widget _identityCard(UserProfile profile) => RoutbCard(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _IdentityHeader(profile: profile),
+        const SizedBox(height: 12),
+        RoutbButton(
+          label: 'Editar cuenta',
+          icon: Icons.manage_accounts_outlined,
+          height: 44,
+          onPressed: _openEditAccount,
+        ),
+      ],
+    ),
+  );
+
   Widget _screenModeCard() {
     final controller = RoutbScope.of(context);
     return RoutbCard(
@@ -243,7 +243,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             icon: Icons.brightness_6_rounded,
           ),
           for (final (index, option) in _screenModes.indexed) ...[
-            if (index > 0) const SizedBox(height: 8),
+            if (index > 0) const Divider(height: 1),
             _ScreenModeOption(
               label: option.label,
               description: option.description,
@@ -381,13 +381,15 @@ class _ScreenModeOption extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(RoutbTheme.radiusControl),
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 160),
-            padding: const EdgeInsets.all(12),
+            duration: MediaQuery.disableAnimationsOf(context)
+                ? Duration.zero
+                : const Duration(milliseconds: 160),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
             decoration: BoxDecoration(
-              color: selected ? palette.brandSurface : palette.surface,
+              color: selected ? palette.brandSurface : palette.card,
               borderRadius: BorderRadius.circular(RoutbTheme.radiusControl),
               border: Border.all(
-                color: selected ? palette.brand : palette.line,
+                color: selected ? palette.onBrandSurface : palette.card,
                 width: selected ? 1.6 : 1,
               ),
             ),
@@ -566,41 +568,34 @@ class _IdentityHeader extends StatelessWidget {
         InitialsAvatar(
           name: profile.fullName,
           initials: profile.initials,
-          size: 64,
+          size: 52,
         ),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                profile.fullName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: RoutbText.headline(18, color: palette.ink),
+                profile.roleLabel,
+                style: RoutbText.copy(
+                  12,
+                  color: palette.onBrandSurface,
+                  weight: FontWeight.w700,
+                ),
               ),
-              const SizedBox(height: 2),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.phone_rounded, size: 13, color: palette.muted),
-                  const SizedBox(width: 4),
-                  Flexible(
-                    child: Text(
-                      profile.phone,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: RoutbText.copy(13, color: palette.muted),
-                    ),
-                  ),
-                ],
+              Text(
+                profile.fullName,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: RoutbText.headline(22, color: palette.ink),
+              ),
+              Text(
+                profile.phone,
+                style: RoutbText.copy(13, color: palette.muted),
               ),
             ],
           ),
         ),
-        const SizedBox(width: 8),
-        RoutbChipLabel(label: profile.roleLabel),
       ],
     );
   }

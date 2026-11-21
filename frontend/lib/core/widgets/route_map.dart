@@ -676,31 +676,21 @@ class _EstimatedRoute extends StatelessWidget {
   static List<LatLng> _curve(LatLng start, LatLng end) {
     final dx = end.longitude - start.longitude;
     final dy = end.latitude - start.latitude;
-    final length = math.sqrt(dx * dx + dy * dy);
-    if (length == 0) return <LatLng>[start, end];
+    if (dx == 0 && dy == 0) return <LatLng>[start, end];
 
-    // Desvío perpendicular del 12 % de la distancia.
-    final bend = length * 0.12;
-    final straightMidLat = (start.latitude + end.latitude) / 2;
-    final straightMidLng = (start.longitude + end.longitude) / 2;
-    final controlLat = straightMidLat - (dy / length) * bend;
-    final controlLng = straightMidLng + (dx / length) * bend;
-
-    return <LatLng>[
-      for (var step = 0; step <= _segments; step++)
-        () {
-          final t = step / _segments;
-          final arc = math.sin(t * math.pi);
-          return LatLng(
-            straightMidLat +
-                (end.latitude - straightMidLat) * t +
-                (controlLat - straightMidLat) * arc,
-            straightMidLng +
-                (end.longitude - straightMidLng) * t +
-                (controlLng - straightMidLng) * arc,
-          );
-        }(),
-    ];
+    // La desviación perpendicular se aplica solo entre los dos marcadores.
+    final points = <LatLng>[start];
+    for (var step = 1; step < _segments; step++) {
+      final t = step / _segments;
+      final bend = 0.12 * math.sin(t * math.pi);
+      points.add(
+        LatLng(
+          start.latitude + dy * t + dx * bend,
+          start.longitude + dx * t - dy * bend,
+        ),
+      );
+    }
+    return points..add(end);
   }
 
   static int _countFor(double progress, int total) {

@@ -15,9 +15,8 @@ import '../../../core/theme/routb_text.dart';
 import '../../../core/theme/routb_theme.dart';
 import '../../../core/widgets/date_quick_picker.dart';
 import '../../../core/widgets/route_map.dart';
-import '../../../core/widgets/routb_anim.dart';
 import '../../../core/widgets/routb_button.dart';
-import '../../../core/widgets/routb_hero.dart';
+import '../../../core/widgets/routb_journey_board.dart';
 import '../../../core/widgets/routb_history_section.dart';
 import '../../../core/widgets/routb_nav_bar.dart';
 import '../../../core/widgets/routb_section_header.dart';
@@ -728,52 +727,50 @@ class _PassengerScreenState extends State<PassengerScreen>
         bottom: false,
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: RoutbTheme.contentMaxWidth,
-            ),
+            constraints: BoxConstraints(maxWidth: RoutbJourneyBoard.maxWidth),
             child: switch (_selectedTab) {
-              _PassengerTab.search => Column(
-                children: [
-                  _PassengerHero(
-                    userName: account.name,
-                    selectedDate: _selectedDate,
-                    currentRequest: _currentRequest,
-                    timeRange: _timeRange,
-                    onDateChanged: _setDate,
-                    onTimeRangeChanged: _setTimeRange,
-                    onOpenMap: _openFullMap,
-                    onOpenSuggestions: _openSuggestions,
-                  ),
-                  Expanded(
-                    child: switch (_status) {
-                      PassengerStatus.loading => const _TripsLoading(),
-                      PassengerStatus.failed => _TripsFailed(
-                        message: _errorMessage,
-                        onRetry: _load,
-                      ),
-                      PassengerStatus.ready => _TripsList(
-                        trips: trips,
-                        myRequest: _currentRequest,
-                        busyTripId: _busyTripId,
-                        filtering: _filtering,
-                        origin: _origin.text.trim(),
-                        destination: _destination.text.trim(),
-                        selectedDate: _selectedDate,
-                        timeRange: _timeRange,
-                        sortOrder: _sortOrder,
-                        lastUpdated: lastUpdated,
-                        busyRequestId: _busyRequestId,
-                        onReserve: _reserve,
-                        onOpenMyTrip: _openMyTrip,
-                        onCancelRequest: _cancelRequest,
-                        onSortChanged: _setSortOrder,
-                        onClearTimeFilter: _clearTimeFilter,
-                        onShowOtherDay: _showOtherDay,
-                        onRefresh: _load,
-                        onClearFilters: _clearFilters,
-                      ),
-                    },
-                  ),
+              _PassengerTab.search => RoutbJourneyBoard(
+                storageKey: 'passenger-search-results',
+                onRefresh: _load,
+                header: _PassengerHero(
+                  userName: account.name,
+                  selectedDate: _selectedDate,
+                  currentRequest: _currentRequest,
+                  timeRange: _timeRange,
+                  onDateChanged: _setDate,
+                  onTimeRangeChanged: _setTimeRange,
+                  onOpenMap: _openFullMap,
+                  onOpenSuggestions: _openSuggestions,
+                ),
+                slivers: [
+                  switch (_status) {
+                    PassengerStatus.loading =>
+                      const JourneyFeedbackSliver.loading(),
+                    PassengerStatus.failed => JourneyFeedbackSliver.error(
+                      message: _errorMessage,
+                      onRetry: _load,
+                    ),
+                    PassengerStatus.ready => _TripsList(
+                      trips: trips,
+                      myRequest: _currentRequest,
+                      busyTripId: _busyTripId,
+                      filtering: _filtering,
+                      origin: _origin.text.trim(),
+                      destination: _destination.text.trim(),
+                      selectedDate: _selectedDate,
+                      timeRange: _timeRange,
+                      sortOrder: _sortOrder,
+                      lastUpdated: lastUpdated,
+                      busyRequestId: _busyRequestId,
+                      onReserve: _reserve,
+                      onOpenMyTrip: _openMyTrip,
+                      onCancelRequest: _cancelRequest,
+                      onSortChanged: _setSortOrder,
+                      onClearTimeFilter: _clearTimeFilter,
+                      onShowOtherDay: _showOtherDay,
+                      onClearFilters: _clearFilters,
+                    ),
+                  },
                 ],
               ),
               _PassengerTab.history => _HistoryTab(
@@ -838,167 +835,58 @@ class _PassengerHero extends StatelessWidget {
     final palette = context.palette;
     final active = currentRequest;
 
-    return Container(
-      decoration: BoxDecoration(
-        gradient: palette.heroGradient,
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(34)),
-      ),
-      padding: const EdgeInsets.fromLTRB(18, 12, 18, 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          HeroBar(userName: userName, wave: true),
-          if (active != null) ...[
-            const SizedBox(height: 16),
-            Stack(
-              children: [
-                RouteMap(
-                  origin: active.origin,
-                  destination: active.destination,
-                  waypoints: active.waypoints,
-                  routePoints: active.routePoints,
-                  height: 110,
-                ),
-                Positioned(
-                  right: 6,
-                  top: 6,
-                  child: Material(
-                    color: palette.card,
-                    borderRadius: BorderRadius.circular(RoutbTheme.radiusPill),
-                    child: InkWell(
-                      onTap: onOpenMap,
-                      borderRadius: BorderRadius.circular(
-                        RoutbTheme.radiusPill,
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(9, 5, 11, 5),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.fullscreen_rounded,
-                              size: 13,
-                              color: palette.ink,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Abrir mapa',
-                              style: RoutbText.copy(
-                                11,
-                                color: palette.ink,
-                                weight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-          ] else ...[
-            const SizedBox(height: 16),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        RoutbJourneyHeader(
+          title: 'Viajes',
+          userName: userName,
+          controls: JourneyAction(
+            icon: Icons.search_rounded,
+            label: '¿A dónde vas?',
+            onTap: onOpenSuggestions,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            DateQuickPicker(value: selectedDate, onChanged: onDateChanged),
+            _TimeRangeMenu(value: timeRange, onChanged: onTimeRangeChanged),
           ],
-          Container(
-            decoration: BoxDecoration(
-              color: palette.card,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: palette.line.withValues(alpha: 0.7)),
-              boxShadow: palette.searchShadow,
-            ),
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    DateQuickPicker(
-                      value: selectedDate,
-                      onChanged: onDateChanged,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: _TimeRangeMenu(
-                          value: timeRange,
-                          onChanged: onTimeRangeChanged,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Material(
-                  color: palette.surface,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(
-                      color: palette.brand.withValues(alpha: 0.25),
-                    ),
+        ),
+        if (active != null) ...[
+          const SizedBox(height: 10),
+          Stack(
+            children: [
+              RouteMap(
+                origin: active.origin,
+                destination: active.destination,
+                waypoints: active.waypoints,
+                routePoints: active.routePoints,
+                height: 110,
+                animateRoute: !MediaQuery.disableAnimationsOf(context),
+              ),
+              Positioned(
+                right: 6,
+                top: 4,
+                child: TextButton.icon(
+                  style: TextButton.styleFrom(
+                    backgroundColor: palette.card,
+                    foregroundColor: palette.onBrandSurface,
                   ),
-                  child: InkWell(
-                    onTap: onOpenSuggestions,
-                    borderRadius: BorderRadius.circular(16),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 11,
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              gradient: palette.primaryGradient,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(
-                              Icons.search_rounded,
-                              size: 17,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              '¿A dónde vas? Encuentra tu viaje',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: RoutbText.copy(
-                                13,
-                                color: palette.ink,
-                                weight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Container(
-                            width: 26,
-                            height: 26,
-                            decoration: BoxDecoration(
-                              color: palette.brandSurface,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(
-                              Icons.tune_rounded,
-                              size: 14,
-                              color: palette.brand,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                  onPressed: onOpenMap,
+                  icon: const Icon(Icons.fullscreen_rounded),
+                  label: const Text('Abrir mapa'),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
-      ),
+      ],
     );
   }
 }
@@ -1023,7 +911,6 @@ class _TripsList extends StatelessWidget {
     required this.onSortChanged,
     required this.onClearTimeFilter,
     required this.onShowOtherDay,
-    required this.onRefresh,
     required this.onClearFilters,
   });
 
@@ -1044,7 +931,6 @@ class _TripsList extends StatelessWidget {
   final ValueChanged<TripSortOrder> onSortChanged;
   final VoidCallback onClearTimeFilter;
   final Future<void> Function() onShowOtherDay;
-  final Future<void> Function() onRefresh;
   final Future<void> Function() onClearFilters;
 
   /// Estado vacío con una salida concreta según el filtro que esté activo.
@@ -1119,121 +1005,59 @@ class _TripsList extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
     final now = DateTime.now();
-    // Con tarjeta activa el contenido supera la ventana: el estado vacío va
-    // en un sliver con caja (desplazable) en vez de rellenar el resto, que lo
-    // dejaría sin espacio y sin construir.
-    final emptyState = _emptyState();
-
-    return RefreshIndicator(
-      onRefresh: onRefresh,
-      child: CustomScrollView(
-        key: const PageStorageKey<String>('passenger-search-results'),
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          // La tarjeta va antes que el encabezado, incluso con cero
-          // resultados: el viaje confirmado desaparece del listado cuando se
-          // llena, que es justo cuando el pasajero necesita verlo.
-          if (myRequest != null)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
-                child: MyTripCard(
-                  request: myRequest!,
-                  onTap: () => onOpenMyTrip(myRequest!),
-                  onCancel: () => onCancelRequest(myRequest!),
-                  busy: busyRequestId == myRequest!.id,
-                  lastUpdated: lastUpdated,
-                ),
-              ),
-            ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
-              child: Row(
-                children: [
-                  // El título cede espacio antes que el contador: en pantallas
-                  // estrechas es lo que evita que la fila se desborde. No lleva
-                  // `Spacer` detrás porque el separador se lo comería entero y el
-                  // título saldría cortado sin necesidad.
-                  Flexible(
-                    child: Text(
-                      'Viajes disponibles',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: RoutbText.headline(18, color: palette.ink),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 9,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: palette.ink,
-                      borderRadius: BorderRadius.circular(99),
-                    ),
-                    child: Text(
-                      '${trips.length}',
-                      style: RoutbText.copy(
-                        12,
-                        color: palette.background,
-                        weight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  _SortMenu(value: sortOrder, onChanged: onSortChanged),
-                  // El separador solo aparece mientras se busca, y es el que
-                  // empuja el indicador al borde derecho.
-                  if (filtering)
-                    Expanded(
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: palette.brand,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
+    return SliverMainAxisGroup(
+      slivers: [
+        if (myRequest != null)
+          SliverPadding(
+            padding: const EdgeInsets.only(top: 16),
+            sliver: SliverToBoxAdapter(
+              child: MyTripCard(
+                request: myRequest!,
+                onTap: () => onOpenMyTrip(myRequest!),
+                onCancel: () => onCancelRequest(myRequest!),
+                busy: busyRequestId == myRequest!.id,
+                lastUpdated: lastUpdated,
               ),
             ),
           ),
-          if (trips.isEmpty)
-            if (myRequest != null)
-              SliverToBoxAdapter(child: emptyState)
-            else
-              SliverFillRemaining(hasScrollBody: false, child: emptyState)
-          else
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 28),
-              sliver: SliverList.builder(
-                itemCount: trips.length,
-                itemBuilder: (context, index) {
-                  final trip = trips[index];
-                  final state = trip.bookingStateAt(now);
-                  return RoutbEntrance(
-                    index: index,
-                    child: TripCard(
-                      trip: trip,
-                      index: index,
-                      now: now,
-                      isNew: trip.isImminent(now),
-                      onReserve: state.isActionable && busyTripId == null
-                          ? () => onReserve(trip)
-                          : null,
-                    ),
-                  );
-                },
-              ),
+        SliverToBoxAdapter(
+          child: JourneySectionTitle(
+            'Viajes disponibles',
+            count: trips.length,
+            action: _SortMenu(value: sortOrder, onChanged: onSortChanged),
+          ),
+        ),
+        if (filtering)
+          SliverToBoxAdapter(
+            child: LinearProgressIndicator(minHeight: 2, color: palette.brand),
+          ),
+        if (trips.isEmpty)
+          SliverToBoxAdapter(
+            child: Material(
+              color: palette.card,
+              borderRadius: BorderRadius.circular(20),
+              child: _emptyState(),
             ),
-        ],
-      ),
+          )
+        else
+          SliverList.builder(
+            itemCount: trips.length,
+            itemBuilder: (context, index) {
+              final trip = trips[index];
+              final state = trip.bookingStateAt(now);
+              return TripCard(
+                key: ValueKey(trip.id),
+                trip: trip,
+                index: index,
+                now: now,
+                isNew: trip.isImminent(now),
+                onReserve: state.isActionable && busyTripId == null
+                    ? () => onReserve(trip)
+                    : null,
+              );
+            },
+          ),
+      ],
     );
   }
 }
@@ -1274,16 +1098,18 @@ class _TimeRangeMenu extends StatelessWidget {
           ),
       ],
       child: Container(
-        height: 32,
-        padding: const EdgeInsets.only(left: 9, right: 3),
+        constraints: const BoxConstraints(minHeight: 44),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
           color: palette.surface,
           borderRadius: BorderRadius.circular(RoutbTheme.radiusPill),
           border: Border.all(color: palette.line),
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.max,
+          mainAxisSize: MainAxisSize.min,
           children: [
+            Icon(Icons.schedule_rounded, color: palette.muted, size: 16),
+            const SizedBox(width: 6),
             Flexible(
               child: Text(
                 value.shortLabel,
@@ -1340,8 +1166,8 @@ class _SortMenu extends StatelessWidget {
           ),
       ],
       child: Container(
-        width: 34,
-        height: 30,
+        width: 48,
+        height: 48,
         decoration: BoxDecoration(
           color: palette.surface,
           borderRadius: BorderRadius.circular(10),
@@ -1427,68 +1253,61 @@ class _HistoryTab extends StatelessWidget {
     final palette = context.palette;
     final empty = completed.isEmpty && cancelled.isEmpty;
 
-    return Column(
-      children: [
-        const RoutbSectionHeader(
-          title: 'Historial',
-          subtitle: 'Viajes completados y cancelados',
-        ),
-        Expanded(
-          child: loading
-              ? const _TripsLoading()
-              : failed
-              ? _TripsFailed(
-                  message: 'No se pudieron cargar tus viajes.',
-                  onRetry: onRetry,
-                )
-              : RefreshIndicator(
-                  onRefresh: onRefresh,
-                  child: empty
-                      ? ListView(
-                          key: const PageStorageKey<String>(
-                            'passenger-history-empty',
-                          ),
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.all(24),
-                          children: const [
-                            SizedBox(height: 80),
-                            RoutbEmptyState(
-                              icon: Icons.history_rounded,
-                              message:
-                                  'Todavía no tienes viajes completados ni '
-                                  'cancelados. Aquí verás los viajes que ya '
-                                  'terminaron.',
-                            ),
-                          ],
-                        )
-                      : ListView(
-                          key: const PageStorageKey<String>(
-                            'passenger-history',
-                          ),
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
-                          children: [
-                            if (completed.isNotEmpty)
-                              _HistorySection(
-                                title: 'Completados',
-                                icon: Icons.check_circle_outline_rounded,
-                                color: palette.mint,
-                                requests: completed,
-                                onOpen: onOpen,
-                              ),
-                            if (cancelled.isNotEmpty)
-                              _HistorySection(
-                                title: 'Cancelados',
-                                icon: Icons.cancel_outlined,
-                                color: palette.rose,
-                                requests: cancelled,
-                                onOpen: onOpen,
-                              ),
-                          ],
+    return RoutbSectionPage(
+      title: 'Historial',
+      subtitle: 'Viajes completados y cancelados',
+      icon: Icons.history_rounded,
+      body: (_) => loading
+          ? const _TripsLoading()
+          : failed
+          ? _TripsFailed(
+              message: 'No se pudieron cargar tus viajes.',
+              onRetry: onRetry,
+            )
+          : RefreshIndicator(
+              onRefresh: onRefresh,
+              child: empty
+                  ? ListView(
+                      key: const PageStorageKey<String>(
+                        'passenger-history-empty',
+                      ),
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.all(24),
+                      children: const [
+                        SizedBox(height: 12),
+                        RoutbEmptyState(
+                          icon: Icons.history_rounded,
+                          message:
+                              'Todavía no tienes viajes completados ni '
+                              'cancelados. Aquí verás los viajes que ya '
+                              'terminaron.',
                         ),
-                ),
-        ),
-      ],
+                      ],
+                    )
+                  : ListView(
+                      key: const PageStorageKey<String>('passenger-history'),
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
+                      children: [
+                        if (completed.isNotEmpty)
+                          _HistorySection(
+                            title: 'Completados',
+                            icon: Icons.check_circle_outline_rounded,
+                            color: palette.mint,
+                            requests: completed,
+                            onOpen: onOpen,
+                          ),
+                        if (cancelled.isNotEmpty)
+                          _HistorySection(
+                            title: 'Cancelados',
+                            icon: Icons.cancel_outlined,
+                            color: palette.rose,
+                            requests: cancelled,
+                            onOpen: onOpen,
+                          ),
+                      ],
+                    ),
+            ),
     );
   }
 }
