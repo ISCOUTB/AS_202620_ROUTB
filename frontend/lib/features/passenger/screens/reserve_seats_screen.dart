@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/dependencies.dart';
+import '../../../app/app_routes.dart';
 import '../../../core/constants/zones.dart';
 import '../../../core/models/trip.dart';
 import '../../../core/models/trip_request.dart';
@@ -11,46 +12,28 @@ import '../../../core/widgets/address_search_field.dart';
 import '../../../core/widgets/routb_button.dart';
 import '../../../core/widgets/routb_card.dart';
 import '../../../core/widgets/routb_seats.dart';
-import '../../../core/widgets/routb_sheet.dart';
+import '../../../core/widgets/routb_trip_form_page.dart';
 import '../../../core/widgets/routb_toast.dart';
 import '../../trips/data/trip_repository.dart';
 
-/// Mini pantalla de solicitud de cupos simplificada (B-1).
+/// Pantalla de solicitud de cupos simplificada (B-1).
 ///
 /// Si el viaje va a la UTB, el destino ya es conocido (UTB) y solo se pide
 /// el punto de recogida. Si el viaje sale de la UTB, el origen ya es conocido
 /// (UTB) y solo se pide el punto de bajada.
 ///
 /// La hora de salida se toma de la ruta seleccionada y no se pregunta aquí.
-/// La solicitud se despacha directamente al conductor desde esta hoja.
-Future<ReserveSeatsResult?> showReserveSeatsSheet({
+/// La solicitud se despacha directamente al conductor desde esta pantalla.
+Future<ReserveSeatsResult?> openReserveSeatsScreen({
   required BuildContext context,
   required Trip trip,
 }) {
-  return showModalBottomSheet<ReserveSeatsResult>(
-    context: context,
-    isScrollControlled: true,
-    isDismissible: true,
-    enableDrag: true,
-    showDragHandle: false,
-    backgroundColor: context.palette.surface,
-    barrierColor: const Color(0x8C0A0820),
-    constraints: const BoxConstraints(maxWidth: 640),
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-    ),
-    builder: (_) => DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: 0.86,
-      minChildSize: 0.5,
-      maxChildSize: 1.0,
-      builder: (context, scrollController) =>
-          _ReserveSeatsSheet(trip: trip, scrollController: scrollController),
-    ),
+  return Navigator.of(context).push<ReserveSeatsResult>(
+    RoutbPageRoute(child: _ReserveSeatsScreen(trip: trip)),
   );
 }
 
-/// Respuesta de la mini pantalla: cupos, paradas y solicitud creada.
+/// Respuesta de la pantalla: cupos, paradas y solicitud creada.
 class ReserveSeatsResult {
   const ReserveSeatsResult({
     required this.seatCount,
@@ -68,20 +51,16 @@ class ReserveSeatsResult {
   final TripRequest? request;
 }
 
-class _ReserveSeatsSheet extends StatefulWidget {
-  const _ReserveSeatsSheet({
-    required this.trip,
-    required this.scrollController,
-  });
+class _ReserveSeatsScreen extends StatefulWidget {
+  const _ReserveSeatsScreen({required this.trip});
 
   final Trip trip;
-  final ScrollController scrollController;
 
   @override
-  State<_ReserveSeatsSheet> createState() => _ReserveSeatsSheetState();
+  State<_ReserveSeatsScreen> createState() => _ReserveSeatsScreenState();
 }
 
-class _ReserveSeatsSheetState extends State<_ReserveSeatsSheet> {
+class _ReserveSeatsScreenState extends State<_ReserveSeatsScreen> {
   int _seatCount = 1;
   SelectedLocation? _location;
   bool _submitting = false;
@@ -161,14 +140,13 @@ class _ReserveSeatsSheetState extends State<_ReserveSeatsSheet> {
   Widget build(BuildContext context) {
     final palette = context.palette;
 
-    return RoutbSheetScaffold(
+    return RoutbTripFormPage(
       title: _toCampus
           ? 'Solicitar cupo hacia la UTB'
           : 'Solicitar cupo desde la UTB',
       subtitle: _toCampus
           ? 'Destino fijo: UTB Campus Tecnológico'
           : 'Salida fija: UTB · ${_trip.meetingPoint}',
-      scrollController: widget.scrollController,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

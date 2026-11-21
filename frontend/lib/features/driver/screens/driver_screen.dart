@@ -31,7 +31,7 @@ import '../../trips/data/trip_repository.dart';
 import '../../trips/screens/active_trip_empty_screen.dart';
 import '../state/driver_state.dart';
 import '../widgets/driver_cards.dart';
-import '../widgets/publish_route_sheet.dart';
+import 'publish_route_screen.dart';
 import '../widgets/request_preview_sheet.dart';
 import '../widgets/routb_trip_map.dart';
 import 'route_detail_screen.dart';
@@ -454,7 +454,7 @@ class _DriverScreenState extends State<DriverScreen>
       return;
     }
 
-    final draft = await showPublishRouteSheet(
+    final draft = await openPublishRouteScreen(
       context: context,
       driverName: account.name,
       driverInitials: initialsOf(account.name),

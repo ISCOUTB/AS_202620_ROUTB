@@ -32,7 +32,7 @@ import '../../trips/data/trip_repository.dart';
 import '../../trips/screens/active_trip_empty_screen.dart';
 import '../../matching/presentation/suggestions_screen.dart';
 import '../widgets/my_trip_card.dart';
-import '../widgets/reserve_seats_sheet.dart';
+import 'reserve_seats_screen.dart';
 import '../widgets/trip_card.dart';
 import 'active_trips_screen.dart';
 import 'my_trip_screen.dart';
@@ -620,7 +620,7 @@ class _PassengerScreenState extends State<PassengerScreen>
   /// viajes se pide ahora dentro de la propia mini pantalla.
   Future<void> _reserve(Trip trip) async {
     if (_busyTripId != null) return;
-    final choice = await showReserveSeatsSheet(context: context, trip: trip);
+    final choice = await openReserveSeatsScreen(context: context, trip: trip);
     if (choice == null || !mounted) return;
     setState(() => _busyTripId = trip.id);
 

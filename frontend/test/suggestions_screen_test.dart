@@ -171,6 +171,29 @@ void main() {
     expect(find.text('Viejo Chofer'), findsNothing);
   });
 
+  testWidgets('busca barrios sin tildes y permite recuperar la lista inicial', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(360, 740);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(_app(_client()));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ListTile).evaluate().length, lessThanOrEqualTo(3));
+    expect(find.text('Getsemaní'), findsNothing);
+    final field = find.byType(TextField);
+    await tester.enterText(field, 'xyz');
+    await tester.pump();
+    expect(find.textContaining('Ningún barrio'), findsOneWidget);
+    await tester.enterText(field, 'getsemani');
+    await tester.pump();
+    await _tapVisible(tester, find.text('Getsemaní'));
+    expect(find.text('Desde Getsemaní'), findsOneWidget);
+    await _tapVisible(tester, find.text('Cambiar barrio'));
+    expect(find.text('Manga'), findsOneWidget);
+  });
+
   testWidgets('el sentido cambia la lista sin pedir otra búsqueda', (
     tester,
   ) async {
@@ -189,20 +212,21 @@ void main() {
     expect(find.text('Luis Chofer'), findsNothing);
   });
 
-  testWidgets('la solicitud abre la hoja con dirección y sin tipo de punto', (
-    tester,
-  ) async {
-    tester.view.devicePixelRatio = 1;
-    tester.view.physicalSize = const Size(390, 900);
-    addTearDown(tester.view.reset);
+  testWidgets(
+    'la solicitud abre la pantalla con dirección y sin tipo de punto',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 900);
+      addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(_app(_client()));
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(_app(_client()));
+      await tester.pumpAndSettle();
 
-    await _tapVisible(tester, find.text('Manga'));
-    await _tapVisible(tester, find.text('Solicitar cupos').first);
+      await _tapVisible(tester, find.text('Manga'));
+      await _tapVisible(tester, find.text('Solicitar cupos').first);
 
-    expect(find.text('¿Dónde te recogemos?'), findsOneWidget);
-    expect(find.text('Tipo de punto'), findsNothing);
-  });
+      expect(find.text('¿Dónde te recogemos?'), findsOneWidget);
+      expect(find.text('Tipo de punto'), findsNothing);
+    },
+  );
 }

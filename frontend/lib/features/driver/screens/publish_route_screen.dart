@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../../app/app_routes.dart';
 import '../../../core/constants/zones.dart';
 import '../../../core/models/travel_time.dart';
 import '../../../core/models/trip_schedule.dart';
@@ -12,10 +13,11 @@ import '../../../core/widgets/routb_button.dart';
 import '../../../core/widgets/routb_card.dart';
 import '../../../core/widgets/routb_field.dart';
 import '../../../core/widgets/routb_seats.dart';
-import '../../../core/widgets/routb_sheet.dart';
+import '../../../core/widgets/routb_sheet.dart' show RoutbSegmented;
+import '../../../core/widgets/routb_trip_form_page.dart';
 import '../../../core/widgets/route_map.dart';
 
-/// Ruta en construcción dentro de la hoja de publicación.
+/// Ruta en construcción dentro de la pantalla de publicación.
 ///
 /// Se va mutando mientras la persona ajusta el formulario, y la vista previa se
 /// redibuja en cada cambio, igual que en el diseño.
@@ -88,41 +90,25 @@ class DraftRoute {
   String get direction => toCampus ? 'to_campus' : 'from_campus';
 }
 
-/// Abre la hoja de publicación y devuelve el borrador, o `null` si se cerró.
+/// Abre la pantalla de publicación y devuelve el borrador, o `null` si se cerró.
 ///
 /// ```dart
-/// final draft = await showPublishRouteSheet(
+/// final draft = await openPublishRouteScreen(
 ///   context: context,
 ///   driverName: account.name,
 ///   driverInitials: initialsOf(account.name),
 /// );
 /// ```
-Future<DraftRoute?> showPublishRouteSheet({
+Future<DraftRoute?> openPublishRouteScreen({
   required BuildContext context,
   required String driverName,
   required String driverInitials,
 }) {
-  return showModalBottomSheet<DraftRoute>(
-    context: context,
-    isScrollControlled: true,
-    isDismissible: true,
-    enableDrag: true,
-    showDragHandle: false,
-    backgroundColor: context.palette.surface,
-    barrierColor: const Color(0x8C0A0820),
-    constraints: const BoxConstraints(maxWidth: 640),
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-    ),
-    builder: (sheetContext) => DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: 0.91,
-      minChildSize: 0.5,
-      maxChildSize: 1.0,
-      builder: (context, scrollController) => _PublishSheet(
+  return Navigator.of(context).push<DraftRoute>(
+    RoutbPageRoute(
+      child: _PublishRouteScreen(
         driverName: driverName,
         driverInitials: driverInitials,
-        scrollController: scrollController,
       ),
     ),
   );
@@ -131,7 +117,7 @@ Future<DraftRoute?> showPublishRouteSheet({
 /// Vista compacta del trayecto antes de publicar (G10).
 ///
 /// Reutiliza [RouteMap] con las coordenadas ya elegidas en el formulario. Si el
-/// conductor todavía no marcó su punto, la hoja no construye este widget.
+/// conductor todavía no marcó su punto, la pantalla no construye este widget.
 class PublishRouteMapPreview extends StatelessWidget {
   const PublishRouteMapPreview({
     required this.origin,
@@ -165,22 +151,20 @@ class PublishRouteMapPreview extends StatelessWidget {
   }
 }
 
-class _PublishSheet extends StatefulWidget {
-  const _PublishSheet({
+class _PublishRouteScreen extends StatefulWidget {
+  const _PublishRouteScreen({
     required this.driverName,
     required this.driverInitials,
-    required this.scrollController,
   });
 
   final String driverName;
   final String driverInitials;
-  final ScrollController scrollController;
 
   @override
-  State<_PublishSheet> createState() => _PublishSheetState();
+  State<_PublishRouteScreen> createState() => _PublishRouteScreenState();
 }
 
-class _PublishSheetState extends State<_PublishSheet> {
+class _PublishRouteScreenState extends State<_PublishRouteScreen> {
   late final DraftRoute _draft = DraftRoute(
     driverName: widget.driverName,
     driverInitials: widget.driverInitials,
@@ -221,9 +205,9 @@ class _PublishSheetState extends State<_PublishSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return RoutbSheetScaffold(
+    return RoutbTripFormPage(
       title: 'Nueva ruta',
-      scrollController: widget.scrollController,
+      subtitle: _draft.toCampus ? 'Hacia la UTB' : 'Desde la UTB',
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -447,12 +431,15 @@ class DepartureStepper extends StatelessWidget {
                           color: palette.brand,
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                          departure.label,
-                          style: RoutbText.headline(
-                            28,
-                            color: palette.ink,
-                            height: 1,
+                        Flexible(
+                          child: Text(
+                            departure.label,
+                            textAlign: TextAlign.center,
+                            style: RoutbText.headline(
+                              28,
+                              color: palette.ink,
+                              height: 1,
+                            ),
                           ),
                         ),
                       ],
