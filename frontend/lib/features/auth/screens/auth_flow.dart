@@ -312,7 +312,6 @@ class _LoginStep extends StatelessWidget {
                       AutofillHints.telephoneNumberNational,
                     ],
                     icon: Icons.phone_rounded,
-                    prefixText: '+57',
                     controller: phone,
                     errorText: phone.text.trim().isEmpty
                         ? null
@@ -433,7 +432,6 @@ class _RegisterStep extends StatelessWidget {
                       AutofillHints.telephoneNumberNational,
                     ],
                     icon: Icons.phone_rounded,
-                    prefixText: '+57',
                     controller: phone,
                     errorText: phone.text.trim().isEmpty
                         ? null
@@ -462,7 +460,9 @@ class _RegisterStep extends StatelessWidget {
                   RoutbCheckbox(
                     value: termsAccepted,
                     onChanged: busy ? null : onTermsChanged,
-                    label: 'Acepto los Términos y Condiciones y autorizo el tratamiento de mis datos personales conforme a las políticas de ROUTB.',
+                    label:
+                        'Acepto los términos y condiciones y autorizo el '
+                        'tratamiento de mis datos personales en ROUTB.',
                   ),
                   const SizedBox(height: 10),
                   RoutbButton(

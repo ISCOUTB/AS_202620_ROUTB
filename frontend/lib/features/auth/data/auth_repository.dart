@@ -11,12 +11,15 @@ class Account {
     required this.role,
     required this.token,
     this.id,
+    this.profile,
     bool? driverEnabled,
   }) : driverEnabled = driverEnabled ?? (role == UserRole.driver);
 
   final bool driverEnabled;
+  final UserProfile? profile;
 
   factory Account.fromProfile(UserProfile profile, String token) => Account(
+    profile: profile,
     id: profile.id == 0 ? null : profile.id,
     name: profile.name,
     token: token,
@@ -26,10 +29,27 @@ class Account {
 
   Account withMode(UserRole mode) => Account(
     id: id,
+    profile: profile,
     name: name,
     token: token,
     role: mode,
     driverEnabled: driverEnabled,
+  );
+
+  Account copyWith({
+    int? id,
+    String? name,
+    UserRole? role,
+    String? token,
+    UserProfile? profile,
+    bool? driverEnabled,
+  }) => Account(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    role: role ?? this.role,
+    token: token ?? this.token,
+    profile: profile ?? this.profile,
+    driverEnabled: driverEnabled ?? this.driverEnabled,
   );
 
   final int? id;

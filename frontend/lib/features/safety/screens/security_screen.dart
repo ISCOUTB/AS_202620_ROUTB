@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../core/widgets/route_actions.dart';
+
 import '../../../app/app_routes.dart';
 import '../../../core/models/user_role.dart';
 import '../../../core/services/device_launcher.dart';
@@ -61,10 +63,11 @@ class _SecurityScreenState extends State<SecurityScreen> {
     if (mounted) setState(() => _contactCount = contacts?.length ?? 0);
   }
 
-  Future<void> _confirmEmergencyCall() async {
+  Future<void> _confirmEmergencyCall(BuildContext source) async {
+    if (!source.canOpenRoute) return;
     final palette = context.palette;
     final confirmed = await showDialog<bool>(
-      context: context,
+      context: source,
       builder: (dialogContext) => AlertDialog(
         title: const Text('¿Llamar al 123?'),
         content: const Text(
@@ -94,7 +97,8 @@ class _SecurityScreenState extends State<SecurityScreen> {
     }
   }
 
-  Future<void> _openContacts() async {
+  Future<void> _openContacts(BuildContext source) async {
+    if (!source.canOpenRoute) return;
     final store = widget.contactsStore;
     if (store == null) {
       RoutbToast.show(
@@ -103,7 +107,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
       );
       return;
     }
-    await Navigator.of(context).push(
+    await source.pushFromCurrent(
       RoutbPageRoute<void>(
         child: EmergencyContactsScreen(
           userName: widget.userName,
@@ -116,8 +120,8 @@ class _SecurityScreenState extends State<SecurityScreen> {
     if (mounted) await _loadContactCount();
   }
 
-  Future<void> _openSafetyInfo([PassengerSafetyGuide? guide]) async {
-    await Navigator.of(context).push(
+  Future<void> _openSafetyInfo([SafetyGuide? guide]) async {
+    await context.pushFromCurrent(
       RoutbPageRoute<void>(
         child: SafetyInfoScreen(
           role: widget.role,
@@ -130,16 +134,25 @@ class _SecurityScreenState extends State<SecurityScreen> {
     );
   }
 
-  Future<void> _openSupport([SupportOption? option]) async {
-    await Navigator.of(context)
-        .push(RoutbPageRoute<void>(child: SupportScreen(option: option)));
+  Future<void> _openSupport(
+    BuildContext source, [
+    SupportOption? option,
+  ]) async {
+    await source.pushFromCurrent(
+      RoutbPageRoute<void>(child: SupportScreen(option: option)),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final driver = widget.role == UserRole.driver;
-    final contacts = _ContactPass(count: _contactCount, onTap: _openContacts);
-    final call = EmergencyCallButton(onPressed: _confirmEmergencyCall);
+    final contacts = _ContactPass(
+      count: _contactCount,
+      onTap: () => _openContacts(context),
+    );
+    final call = EmergencyCallButton(
+      onPressed: () => _confirmEmergencyCall(context),
+    );
 
     return RoutbSectionPage(
       title: 'Seguridad',
@@ -153,30 +166,23 @@ class _SecurityScreenState extends State<SecurityScreen> {
           if (!split) ...[call, const SizedBox(height: 12)],
           contacts,
           const SizedBox(height: 12),
-          if (driver)
-            RoutbCard(
-              padding: EdgeInsets.zero,
-              child: _SafetyEntry(
-                icon: Icons.directions_car_outlined,
-                title: 'Consejos para conductores',
-                subtitle: 'Recomendaciones para una ruta segura',
-                onTap: _openSafetyInfo,
-              ),
-            )
-          else
-            _SafetyGroup(
-              title: 'Consejos para pasajeros',
-              subtitle: 'Viaja con tranquilidad y confianza',
-              entries: [
-                for (final guide in PassengerSafetyGuide.values)
-                  _SafetyEntry(
-                    icon: guide.icon,
-                    title: guide.title,
-                    subtitle: guide.subtitle,
-                    onTap: () => _openSafetyInfo(guide),
-                  ),
-              ],
-            ),
+          _SafetyGroup(
+            title: driver
+                ? 'Consejos para conductores'
+                : 'Consejos para pasajeros',
+            subtitle: driver
+                ? 'Prepara y realiza tu ruta con seguridad'
+                : 'Viaja con tranquilidad y confianza',
+            entries: [
+              for (final guide in SafetyGuide.values)
+                _SafetyEntry(
+                  icon: guide.icon,
+                  title: guide.title,
+                  subtitle: guide.subtitleFor(widget.role),
+                  onTap: () => _openSafetyInfo(guide),
+                ),
+            ],
+          ),
           const SizedBox(height: 12),
           _SafetyGroup(
             title: 'Soporte',
@@ -186,7 +192,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
                   icon: option.icon,
                   title: option.title,
                   subtitle: option.subtitle,
-                  onTap: () => _openSupport(option),
+                  onTap: () => _openSupport(context, option),
                 ),
             ],
           ),

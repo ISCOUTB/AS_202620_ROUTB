@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widgets/route_actions.dart';
+
 import '../../../app/app_routes.dart';
 import '../../../core/models/user_role.dart';
 import '../../../core/theme/routb_palette.dart';
 import '../../../core/theme/routb_text.dart';
-import '../../../core/theme/routb_theme.dart';
 import '../../../core/widgets/routb_button.dart';
 import '../../../core/widgets/routb_card.dart';
 import 'safety_detail_page.dart';
@@ -26,129 +27,66 @@ class SafetyInfoScreen extends StatelessWidget {
 
   /// Rol que determina el texto.
   final UserRole role;
-  final PassengerSafetyGuide? guide;
-  final VoidCallback? onCall;
-  final VoidCallback? onContacts;
-  final VoidCallback? onSupport;
+  final SafetyGuide? guide;
+  final void Function(BuildContext)? onCall;
+  final void Function(BuildContext)? onContacts;
+  final void Function(BuildContext)? onSupport;
 
   @override
   Widget build(BuildContext context) {
+    final driver = role == UserRole.driver;
     if (guide case final guide?) {
       return SafetyDetailPage(
         title: guide.title,
         children: [
-          for (final section in guide._sections) ...[
+          for (final section in guide._sectionsFor(role)) ...[
             _SafetySectionCard(section: section),
             const SizedBox(height: 12),
           ],
-          if (guide == PassengerSafetyGuide.after && onSupport != null)
-            RoutbButton(label: 'Abrir Soporte', onPressed: onSupport),
-          if (guide == PassengerSafetyGuide.emergency) ...[
-            if (onCall != null) EmergencyCallButton(onPressed: onCall!),
+          if (guide == SafetyGuide.after && onSupport != null)
+            RoutbButton(
+              label: 'Abrir Soporte',
+              onPressed: () => onSupport!(context),
+            ),
+          if (guide == SafetyGuide.emergency) ...[
+            if (onCall != null)
+              EmergencyCallButton(onPressed: () => onCall!(context)),
             const SizedBox(height: 12),
             if (onContacts != null)
               SafetyLink(
                 title: 'Contactos de emergencia',
                 subtitle: 'Avisa a alguien de confianza.',
                 icon: Icons.people_outline_rounded,
-                onTap: onContacts!,
+                onTap: () => onContacts!(context),
               ),
           ],
         ],
       );
     }
 
-    if (role == UserRole.passenger) {
-      return SafetyDetailPage(
-        title: 'Consejos para pasajeros',
-        children: [
-          for (final guide in PassengerSafetyGuide.values) ...[
-            SafetyLink(
-              icon: guide.icon,
-              title: guide.title,
-              subtitle: guide.subtitle,
-              onTap: () => Navigator.of(context).push(
-                RoutbPageRoute<void>(
-                  child: SafetyInfoScreen(
-                    role: role,
-                    guide: guide,
-                    onCall: onCall,
-                    onContacts: onContacts,
-                    onSupport: onSupport,
-                  ),
+    return SafetyDetailPage(
+      title: driver ? 'Consejos para conductores' : 'Consejos para pasajeros',
+      children: [
+        for (final guide in SafetyGuide.values) ...[
+          SafetyLink(
+            icon: guide.icon,
+            title: guide.title,
+            subtitle: guide.subtitleFor(role),
+            onTap: () => context.pushFromCurrent(
+              RoutbPageRoute<void>(
+                child: SafetyInfoScreen(
+                  role: role,
+                  guide: guide,
+                  onCall: onCall,
+                  onContacts: onContacts,
+                  onSupport: onSupport,
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
-          ],
-        ],
-      );
-    }
-
-    final palette = context.palette;
-    const sections = _driverSections;
-
-    return Scaffold(
-      backgroundColor: palette.background,
-      appBar: AppBar(title: const Text('Consejos para conductores')),
-      body: SafeArea(
-        top: false,
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: RoutbTheme.contentMaxWidth,
-            ),
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(14, 14, 14, 28),
-              children: [
-                Text(
-                  'Conduce y recibe pasajeros con tranquilidad',
-                  style: RoutbText.headline(22, color: palette.ink),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Revisa estos consejos antes de publicar una ruta y '
-                  'mientras llevas pasajeros.',
-                  style: RoutbText.copy(13, color: palette.muted, height: 1.4),
-                ),
-                const SizedBox(height: 16),
-                for (var index = 0; index < sections.length; index++) ...[
-                  _SafetySectionCard(section: sections[index]),
-                  if (index != sections.length - 1) const SizedBox(height: 12),
-                ],
-                const SizedBox(height: 16),
-                RoutbCard(
-                  borderColor: palette.rose.withValues(alpha: 0.45),
-                  borderWidth: 1,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        Icons.emergency_rounded,
-                        color: palette.rose,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'Ante una emergencia, llama al 123. ROUTB no '
-                          'reemplaza a la línea de emergencias ni a las '
-                          'autoridades.',
-                          style: RoutbText.copy(
-                            12,
-                            color: palette.muted,
-                            height: 1.4,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
             ),
           ),
-        ),
-      ),
+          const SizedBox(height: 12),
+        ],
+      ],
     );
   }
 }
@@ -240,7 +178,7 @@ class _SafetySectionCard extends StatelessWidget {
   }
 }
 
-enum PassengerSafetyGuide {
+enum SafetyGuide {
   before(
     'Antes del viaje',
     'Revisa el cupo y prepara el encuentro.',
@@ -260,16 +198,29 @@ enum PassengerSafetyGuide {
     _emergency,
   );
 
-  const PassengerSafetyGuide(
-    this.title,
-    this.subtitle,
-    this.icon,
-    this._sections,
-  );
+  const SafetyGuide(this.title, this.subtitle, this.icon, this._sections);
   final String title;
   final String subtitle;
   final IconData icon;
   final List<_SafetySection> _sections;
+
+  String subtitleFor(UserRole role) {
+    if (role == UserRole.passenger) return subtitle;
+    return switch (this) {
+      before => 'Prepara la ruta, el vehículo y la recogida.',
+      after => 'Termina la ruta y reporta inconvenientes.',
+      emergency => 'Detente en un lugar seguro y pide ayuda.',
+    };
+  }
+
+  List<_SafetySection> _sectionsFor(UserRole role) {
+    if (role == UserRole.passenger) return _sections;
+    return switch (this) {
+      before => _driverBefore,
+      after => _driverAfter,
+      emergency => [_driverEmergency],
+    };
+  }
 }
 
 const _beforeTrip = [
@@ -330,7 +281,7 @@ const _emergency = [
   ),
 ];
 
-const List<_SafetySection> _driverSections = <_SafetySection>[
+const _driverBefore = [
   _SafetySection(
     icon: Icons.fact_check_outlined,
     title: 'Antes de publicar',
@@ -347,18 +298,20 @@ const List<_SafetySection> _driverSections = <_SafetySection>[
     bullets: <String>[
       'Confirma el nombre del pasajero y el número de cupos antes de iniciar.',
       'Detente del mismo lado de la acera que el pasajero y no lo obligues a cruzar.',
+      'Antes de arrancar, configura la navegación y verifica que todos lleven puesto el cinturón.',
       'Si el pasajero no llega en unos minutos, cancela; no des vueltas esperando.',
       'No compartas tu teléfono personal ni tus datos fuera de la app.',
     ],
   ),
+];
+
+const _driverAfter = [
   _SafetySection(
-    icon: Icons.route_rounded,
-    title: 'Durante el viaje',
-    bullets: <String>[
-      'Usa el cinturón y pide a los pasajeros que también lo usen.',
-      'Mantén la ruta y el mapa a la vista; evita distracciones y no uses el celular al conducir.',
-      'No lleves acompañantes extraños ni cambies la ruta sin avisar a los pasajeros.',
-      'Si algo se siente mal, detente en un lugar seguro y llama al 123.',
+    icon: Icons.flag_outlined,
+    title: 'Finaliza el viaje',
+    bullets: [
+      'Detente en un lugar permitido y espera a que los pasajeros bajen con seguridad.',
+      'Revisa si alguien dejó objetos en el vehículo. Si hubo un problema, busca la ruta en Historial y repórtalo en Soporte.',
     ],
   ),
   _SafetySection(
@@ -366,21 +319,21 @@ const List<_SafetySection> _driverSections = <_SafetySection>[
     title: 'Tus datos y los de tus pasajeros',
     bullets: <String>[
       'Los pasajeros ven tu nombre y la ruta publicada; el vehículo aparece cuando aceptas una solicitud.',
-      'Tu teléfono está visible para el pasajero que solicita cupo.',
+      'Los pasajeros con cupo confirmado pueden ver tu teléfono.',
       'No publiques en redes sociales la ubicación ni los datos de tus pasajeros.',
       'La ubicación se usa para mostrar el trayecto; puedes revisar los permisos en los ajustes del teléfono.',
     ],
   ),
-  _SafetySection(
-    icon: Icons.health_and_safety_outlined,
-    title: 'Si hay una emergencia',
-    bullets: <String>[
-      'Usa el botón Llamar al 123 de la pestaña Seguridad.',
-      'No enfrentes una situación violenta: busca un lugar seguro y pide ayuda.',
-      'Informa a un contacto de confianza y registra lo que puedas del incidente.',
-    ],
-  ),
 ];
+
+const _driverEmergency = _SafetySection(
+  icon: Icons.health_and_safety_outlined,
+  title: 'Si hay una emergencia',
+  bullets: [
+    'Detente donde sea seguro y llama al 123 si hay peligro inmediato o personas heridas.',
+    'Indica tu ubicación y lo ocurrido. Sigue las indicaciones del operador y avisa a un contacto cuando estés a salvo.',
+  ],
+);
 
 class EmergencyCallButton extends StatelessWidget {
   const EmergencyCallButton({required this.onPressed, super.key});

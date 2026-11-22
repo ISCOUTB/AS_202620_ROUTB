@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../core/widgets/route_actions.dart';
+
 import '../../../app/dependencies.dart';
 import '../../../core/models/my_request.dart';
 import '../../../core/network/api_exception.dart';
@@ -108,7 +110,7 @@ class _MyTripScreenState extends State<MyTripScreen> {
   }
 
   Future<void> _withdraw() async {
-    if (_busy) return;
+    if (_busy || !context.canOpenRoute) return;
 
     final confirmed = await showDialog<bool>(
       context: context,

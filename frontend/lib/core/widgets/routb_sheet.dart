@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'route_actions.dart';
+
 import '../theme/routb_palette.dart';
 import '../theme/routb_text.dart';
 import '../theme/routb_theme.dart';
@@ -30,7 +32,8 @@ class RoutbSheet {
     Widget? footer,
     String? subtitle,
     double heightFactor = 0.91,
-  }) {
+  }) async {
+    if (!context.canOpenRoute) return null;
     return showModalBottomSheet<T>(
       context: context,
       isScrollControlled: true,

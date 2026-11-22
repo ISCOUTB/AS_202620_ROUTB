@@ -11,6 +11,7 @@ class DateQuickPicker extends StatelessWidget {
   const DateQuickPicker({
     required this.value,
     required this.onChanged,
+    this.alignment = WrapAlignment.start,
     this.now,
     super.key,
   });
@@ -20,6 +21,9 @@ class DateQuickPicker extends StatelessWidget {
 
   /// Se notifica con el día elegido, siempre normalizado a medianoche.
   final ValueChanged<DateTime> onChanged;
+
+  /// Alineación horizontal de las opciones.
+  final WrapAlignment alignment;
 
   /// Reloj inyectable para las pruebas.
   final DateTime? now;
@@ -31,6 +35,7 @@ class DateQuickPicker extends StatelessWidget {
     final selected = TripSchedule.clampToTripWindow(value, now: now);
 
     return Wrap(
+      alignment: alignment,
       spacing: 8,
       runSpacing: 8,
       children: <Widget>[

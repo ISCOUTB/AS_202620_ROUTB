@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widgets/route_actions.dart';
+
 import '../../../app/app_routes.dart';
 import '../../../app/dependencies.dart';
 import '../../../core/theme/routb_palette.dart';
@@ -45,7 +47,7 @@ class SupportScreen extends StatelessWidget {
               icon: option.icon,
               title: option.title,
               subtitle: option.subtitle,
-              onTap: () => Navigator.of(context).push(
+              onTap: () => context.pushFromCurrent(
                 RoutbPageRoute<void>(child: SupportScreen(option: option)),
               ),
             ),

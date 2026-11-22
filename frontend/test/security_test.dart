@@ -72,7 +72,10 @@ void main() {
     await _settle(tester);
 
     expect(find.text('Consejos para conductores'), findsOneWidget);
-    expect(find.text('Recomendaciones para una ruta segura'), findsOneWidget);
+    expect(
+      find.text('Prepara y realiza tu ruta con seguridad'),
+      findsOneWidget,
+    );
     expect(find.text('Consejos para pasajeros'), findsNothing);
 
     await tester.pumpWidget(
@@ -199,8 +202,18 @@ void main() {
     );
     await _settle(tester);
     expect(find.text('Consejos para conductores'), findsOneWidget);
-    expect(find.text('Antes de publicar'), findsOneWidget);
-    expect(find.text('Antes de subir'), findsNothing);
+    for (final (guide, detail) in [
+      ('Antes del viaje', 'Antes de publicar'),
+      ('Después del viaje', 'Finaliza el viaje'),
+      ('En caso de emergencia', 'Si hay una emergencia'),
+    ]) {
+      await tester.tap(find.text(guide));
+      await tester.pumpAndSettle();
+      expect(find.text(detail), findsOneWidget);
+      expect(find.text('Antes de subir'), findsNothing);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+    }
   });
 
   testWidgets('Soporte muestra reportes y preguntas frecuentes', (

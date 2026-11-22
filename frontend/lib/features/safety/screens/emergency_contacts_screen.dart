@@ -1,6 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import '../../../core/widgets/route_actions.dart';
+
 import 'package:flutter/services.dart';
 
 import '../../../core/services/device_launcher.dart';
@@ -108,6 +111,7 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
   }
 
   Future<void> _confirmDelete(EmergencyContact contact) async {
+    if (!context.canOpenRoute) return;
     final palette = context.palette;
     final confirmed = await showDialog<bool>(
       context: context,
@@ -137,6 +141,7 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
   }
 
   Future<void> _showActions(EmergencyContact contact) async {
+    if (!context.canOpenRoute) return;
     final palette = context.palette;
     await showModalBottomSheet<void>(
       context: context,
@@ -234,6 +239,7 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
   }
 
   Future<void> _offerSms(EmergencyContact contact) async {
+    if (!mounted || !context.canOpenRoute) return;
     final palette = context.palette;
     final sendSms = await showDialog<bool>(
       context: context,

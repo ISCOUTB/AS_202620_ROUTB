@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widgets/route_actions.dart';
+
 import '../../../app/dependencies.dart';
 import '../../../app/app_routes.dart';
 import '../../../core/constants/zones.dart';
@@ -27,7 +29,7 @@ Future<ReserveSeatsResult?> openReserveSeatsScreen({
   required BuildContext context,
   required Trip trip,
 }) {
-  return Navigator.of(context).push<ReserveSeatsResult>(
+  return context.pushFromCurrent<ReserveSeatsResult>(
     RoutbPageRoute(child: _ReserveSeatsScreen(trip: trip)),
   );
 }

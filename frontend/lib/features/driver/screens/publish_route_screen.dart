@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+
+import '../../../core/widgets/route_actions.dart';
+
 import 'package:latlong2/latlong.dart';
 
 import '../../../app/app_routes.dart';
@@ -99,7 +102,7 @@ Future<Trip?> openPublishRouteScreen({
   required String driverName,
   required String driverInitials,
 }) {
-  return Navigator.of(context).push<Trip>(
+  return context.pushFromCurrent<Trip>(
     RoutbPageRoute(
       child: _PublishRouteScreen(
         driverName: driverName,

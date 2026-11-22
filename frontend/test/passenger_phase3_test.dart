@@ -17,6 +17,7 @@ import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/core/storage/session_store.dart';
 import 'package:frontend/core/theme/routb_theme.dart';
 import 'package:frontend/core/theme/theme_controller.dart';
+import 'package:frontend/core/widgets/date_quick_picker.dart';
 import 'package:frontend/features/auth/data/auth_repository.dart';
 import 'package:frontend/features/driver/screens/driver_screen.dart';
 import 'package:frontend/features/driver/widgets/driver_cards.dart';
@@ -148,18 +149,6 @@ List<String> _tripDrivers(WidgetTester tester) => tester
     .widgetList<TripCard>(find.byType(TripCard))
     .map((card) => card.trip.driverName ?? '')
     .toList(growable: false);
-
-/// Cambia la franja horaria desde el menú compacto del hero.
-Future<void> _pickTimeRange(
-  WidgetTester tester, {
-  required String current,
-  required String next,
-}) async {
-  await tester.tap(find.byTooltip('Filtrar por hora: $current'));
-  await _settle(tester);
-  await tester.tap(find.text(next).last);
-  await _settle(tester);
-}
 
 /// API del pasajero con viajes y solicitudes mutables.
 class _PassengerApi {
@@ -301,50 +290,28 @@ void main() {
       ]);
     });
 
-    testWidgets('el pasajero filtra los viajes por franja horaria', (
-      tester,
-    ) async {
-      await _usePhone(tester, const Size(420, 1100));
-      final api = _PassengerApi(
-        trips: <Map<String, dynamic>>[
-          _tripJson(
-            id: 1,
-            driver: 'Luis Mañana',
-            departure: '7:00 AM',
-            availableSeats: 2,
-          ),
-          _tripJson(
-            id: 2,
-            driver: 'Noel Mediodía',
-            departure: '1:00 PM',
-            availableSeats: 2,
-          ),
-          _tripJson(
-            id: 3,
-            driver: 'Marta Tarde',
-            departure: '4:00 PM',
-            availableSeats: 2,
-          ),
-        ],
-      );
-      final dependencies = _dependencies(api.client);
-      addTearDown(dependencies.dispose);
+    testWidgets(
+      'el hero centra los botones Hoy y Mañana sin selector de franja horaria',
+      (tester) async {
+        await _usePhone(tester, const Size(420, 1100));
+        final api = _PassengerApi();
+        final dependencies = _dependencies(api.client);
+        addTearDown(dependencies.dispose);
 
-      await tester.pumpWidget(
-        _app(dependencies, const PassengerScreen(account: _passenger)),
-      );
-      await _settle(tester);
+        await tester.pumpWidget(
+          _app(dependencies, const PassengerScreen(account: _passenger)),
+        );
+        await _settle(tester);
 
-      expect(_tripDrivers(tester), hasLength(3));
-
-      await _pickTimeRange(tester, current: 'Cualquier hora', next: 'Tarde');
-
-      expect(_tripDrivers(tester), <String>['Marta Tarde']);
-      expect(find.text('Luis Mañana'), findsNothing);
-
-      await _pickTimeRange(tester, current: 'Tarde', next: 'Cualquier hora');
-      expect(_tripDrivers(tester), hasLength(3));
-    });
+        expect(find.text('Hoy'), findsOneWidget);
+        expect(find.text('Mañana'), findsOneWidget);
+        expect(find.byType(DateQuickPicker), findsOneWidget);
+        expect(
+          find.byTooltip('Filtrar por hora: Cualquier hora'),
+          findsNothing,
+        );
+      },
+    );
 
     testWidgets('el selector cambia el orden sin recargar la búsqueda', (
       tester,
@@ -408,43 +375,6 @@ void main() {
         'Marta Tarde',
         'Luis Mañana',
       ]);
-    });
-
-    testWidgets('el estado vacío del filtro ofrece ver todas las horas', (
-      tester,
-    ) async {
-      await _usePhone(tester, const Size(390, 900));
-      final api = _PassengerApi(
-        trips: <Map<String, dynamic>>[
-          _tripJson(
-            id: 1,
-            driver: 'Luis Mañana',
-            departure: '7:00 AM',
-            availableSeats: 2,
-          ),
-        ],
-      );
-      final dependencies = _dependencies(api.client);
-      addTearDown(dependencies.dispose);
-
-      await tester.pumpWidget(
-        _app(dependencies, const PassengerScreen(account: _passenger)),
-      );
-      await _settle(tester);
-
-      await _pickTimeRange(tester, current: 'Cualquier hora', next: 'Tarde');
-
-      expect(
-        find.textContaining('No hay viajes en la franja tarde'),
-        findsOneWidget,
-      );
-      expect(find.text('Ver todas las horas'), findsOneWidget);
-
-      await tester.tap(find.text('Ver todas las horas'));
-      await tester.pump();
-
-      expect(find.byType(TripCard), findsOneWidget);
-      expect(find.text('Luis Mañana'), findsOneWidget);
     });
   });
 

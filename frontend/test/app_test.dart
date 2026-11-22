@@ -108,12 +108,23 @@ void main() {
       await _startAuthFlow(tester);
 
       expect(find.byType(RoutbLogo), findsOneWidget);
+      expect(find.byIcon(Icons.phone_rounded), findsOneWidget);
+      expect(find.text('+57'), findsNothing);
 
       await tester.tap(find.text('¿No tienes cuenta? Regístrate'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 600));
 
       expect(find.byType(RoutbLogo), findsOneWidget);
+      expect(find.byIcon(Icons.phone_rounded), findsOneWidget);
+      expect(find.text('+57'), findsNothing);
+      expect(
+        find.text(
+          'Acepto los términos y condiciones y autorizo el '
+          'tratamiento de mis datos personales en ROUTB.',
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('el carrusel de acceso avanza entre acceso y registro', (

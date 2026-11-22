@@ -124,12 +124,20 @@ Future<void> _openPersonalData(WidgetTester tester) async {
   await _openEditAccount(tester);
   await tester.tap(find.text('Editar datos personales'));
   await _settle(tester);
+  expect(
+    ModalRoute.of(tester.element(find.byType(TextField).first)),
+    isA<PageRoute>(),
+  );
 }
 
-Future<void> _openPasswordSheet(WidgetTester tester) async {
+Future<void> _openPasswordForm(WidgetTester tester) async {
   await _openEditAccount(tester);
   await tester.tap(find.text('Cambiar contraseña'));
   await _settle(tester);
+  expect(
+    ModalRoute.of(tester.element(find.byType(TextField).first)),
+    isA<PageRoute>(),
+  );
 }
 
 void main() {
@@ -187,7 +195,7 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.tap(find.bySemanticsLabel('Cerrar'));
+    await tester.pageBack();
     await _settle(tester);
   });
 
@@ -198,7 +206,7 @@ void main() {
 
     await tester.pumpWidget(_app(dependencies));
     await _settle(tester);
-    await _openPasswordSheet(tester);
+    await _openPasswordForm(tester);
 
     final fields = find.byType(TextField);
     expect(fields, findsNWidgets(3));
@@ -226,7 +234,7 @@ void main() {
 
     await tester.pumpWidget(_app(dependencies));
     await _settle(tester);
-    await _openPasswordSheet(tester);
+    await _openPasswordForm(tester);
 
     final fields = find.byType(TextField);
     await tester.enterText(fields.at(0), 'Incorrecta123!');
@@ -248,7 +256,7 @@ void main() {
 
     await tester.pumpWidget(_app(dependencies));
     await _settle(tester);
-    await _openPasswordSheet(tester);
+    await _openPasswordForm(tester);
 
     final fields = find.byType(TextField);
     await tester.enterText(fields.at(0), 'PasswordSegura123!');

@@ -1,60 +1,37 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/app_routes.dart';
 import '../../../core/network/api_exception.dart';
-import '../../../core/theme/routb_palette.dart';
 import '../../../core/widgets/routb_button.dart';
 import '../../../core/widgets/routb_card.dart';
 import '../../../core/widgets/routb_field.dart';
-import '../../../core/widgets/routb_sheet.dart';
+import '../../../core/widgets/route_actions.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../auth/data/auth_validation.dart';
+import '../widgets/profile_form_page.dart';
 
-/// Abre la hoja para cambiar la contraseña.
+/// Abre la pantalla para cambiar la contraseña.
 ///
 /// Devuelve `true` cuando el backend confirma el cambio. La verificación se
 /// hace con la contraseña actual; no se agregan códigos por SMS ni
 /// dependencias nuevas.
-Future<bool?> showChangePasswordSheet({
+Future<bool?> openChangePasswordScreen({
   required BuildContext context,
   required AuthRepository auth,
-}) {
-  return showModalBottomSheet<bool>(
-    context: context,
-    isScrollControlled: true,
-    isDismissible: true,
-    enableDrag: true,
-    showDragHandle: false,
-    backgroundColor: context.palette.surface,
-    barrierColor: const Color(0x8C0A0820),
-    constraints: const BoxConstraints(maxWidth: 640),
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-    ),
-    builder: (_) => DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: 0.72,
-      minChildSize: 0.5,
-      maxChildSize: 1.0,
-      builder: (context, scrollController) =>
-          _ChangePasswordSheet(auth: auth, scrollController: scrollController),
-    ),
-  );
-}
+}) => context.pushFromCurrent(
+  RoutbPageRoute<bool>(child: _ChangePasswordScreen(auth: auth)),
+);
 
-class _ChangePasswordSheet extends StatefulWidget {
-  const _ChangePasswordSheet({
-    required this.auth,
-    required this.scrollController,
-  });
+class _ChangePasswordScreen extends StatefulWidget {
+  const _ChangePasswordScreen({required this.auth});
 
   final AuthRepository auth;
-  final ScrollController scrollController;
 
   @override
-  State<_ChangePasswordSheet> createState() => _ChangePasswordSheetState();
+  State<_ChangePasswordScreen> createState() => _ChangePasswordScreenState();
 }
 
-class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
+class _ChangePasswordScreenState extends State<_ChangePasswordScreen> {
   final TextEditingController _current = TextEditingController();
   final TextEditingController _new = TextEditingController();
   final TextEditingController _confirm = TextEditingController();
@@ -128,10 +105,9 @@ class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return RoutbSheetScaffold(
+    return ProfileFormPage(
+      busy: _saving,
       title: 'Cambiar contraseña',
-      subtitle: 'Primero confirma la contraseña que usas hoy.',
-      scrollController: widget.scrollController,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
