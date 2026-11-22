@@ -897,6 +897,56 @@ void main() {
     });
   });
 
+  testWidgets('Perfil no recarga y conserva el contenido al volver', (
+    tester,
+  ) async {
+    _usePhone(tester, const Size(390, 844));
+    final profile = Completer<http.Response>();
+    var profileCalls = 0;
+    final dependencies = _dependencies(
+      MockClient((request) async {
+        if (request.url.path == '/auth/me') {
+          profileCalls++;
+          return profile.future;
+        }
+        return http.Response('[]', 200, headers: _json);
+      }),
+    );
+    addTearDown(dependencies.dispose);
+
+    await tester.pumpWidget(
+      _app(dependencies, const PassengerScreen(account: _passenger)),
+    );
+    await _settle(tester);
+    expect(profileCalls, 0);
+    await tester.tap(_tab('Perfil'));
+    await _settle(tester);
+    expect(profileCalls, 1);
+    expect(find.text('Modo de pantalla'), findsOneWidget);
+    profile.complete(
+      http.Response(
+        jsonEncode(
+          _profileJson(
+            name: 'Ana',
+            lastName: 'García',
+            phone: '3001234567',
+            role: 'passenger',
+          ),
+        ),
+        200,
+        headers: _json,
+      ),
+    );
+    await _settle(tester);
+    expect(find.text('Ana García'), findsOneWidget);
+    await tester.tap(_tab('Viajes'));
+    await _settle(tester);
+    await tester.tap(_tab('Perfil'));
+    await _settle(tester);
+    expect(find.text('Ana García'), findsOneWidget);
+    expect(profileCalls, 1);
+  });
+
   group('Modo pasajero', () {
     testWidgets('el perfil también es una pestaña del pasajero', (
       tester,

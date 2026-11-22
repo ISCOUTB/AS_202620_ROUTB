@@ -286,14 +286,36 @@ class JourneyFeedbackSliver extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return SliverPadding(
-      padding: const EdgeInsets.only(top: 20),
+      padding: const EdgeInsets.only(top: 40),
       sliver: SliverToBoxAdapter(
         child: message == null
             ? Semantics(
                 label: 'Cargando viajes',
                 liveRegion: true,
-                child: const RoutbSkeleton(height: 190),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 28,
+                        height: 28,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            palette.brand,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        'Cargando rutas…',
+                        style: RoutbText.copy(14, color: palette.muted),
+                      ),
+                    ],
+                  ),
+                ),
               )
             : RoutbEmptyState(
                 icon: Icons.cloud_off_rounded,

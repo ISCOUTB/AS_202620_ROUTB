@@ -60,19 +60,22 @@ _screenModes =
 /// `Scaffold` propio: vive dentro de la pantalla de cada modo, como la pestaña
 /// «Mis viajes» del pasajero.
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({required this.account, super.key});
+  const ProfileScreen({required this.account, this.onProfileLoaded, super.key});
 
   /// Cuenta con la que se entró; el saludo del hero sale de aquí.
   final Account account;
+
+  /// Notifica cuando el perfil fresco se termina de cargar.
+  final ValueChanged<UserProfile>? onProfileLoaded;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  UserProfile? _profile;
+  late UserProfile? _profile = widget.account.profile;
   String? _error;
-  bool _loading = true;
+  late bool _loading = _profile == null;
   bool _asked = false;
 
   @override
@@ -83,7 +86,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
     // `initState` corre.
     if (_asked) return;
     _asked = true;
-    _load();
+    if (_profile == null) _load();
+  }
+
+  @override
+  void didUpdateWidget(ProfileScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final profile = widget.account.profile;
+    if (profile != null && !identical(profile, oldWidget.account.profile)) {
+      _profile = profile;
+      _loading = false;
+      _error = null;
+    }
   }
 
   AuthRepository get _auth => RoutbScopeDependencies.of(context).auth;
@@ -102,6 +116,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _profile = profile;
         _loading = false;
       });
+      widget.onProfileLoaded?.call(profile);
     } on Exception catch (error, stack) {
       logFailure('la carga del perfil', error, stack);
       if (!mounted) return;
@@ -187,14 +202,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _body(bool split) {
-    if (_loading) return const _ProfileLoading();
-
     final error = _error;
     if (error != null) {
       return _ProfileFailed(message: error, onRetry: _load, onLogout: _logout);
     }
 
-    final profile = _profile!;
+    final profile = _profile;
     return RefreshIndicator(
       onRefresh: _refresh,
       child: ListView(
@@ -202,8 +215,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
         children: [
-          if (!split) ...[_identityCard(profile), const SizedBox(height: 14)],
-          if (widget.account.role == UserRole.driver) ...[
+          if (profile == null && _loading) ...[
+            Text(
+              widget.account.name,
+              style: RoutbText.headline(22, color: context.palette.ink),
+            ),
+            const SizedBox(height: 14),
+          ],
+          if (profile != null && !split) ...[
+            _identityCard(profile),
+            const SizedBox(height: 14),
+          ],
+          if (profile != null && widget.account.role == UserRole.driver) ...[
             _vehicleCard(profile),
             const SizedBox(height: 14),
           ],
@@ -239,7 +262,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   );
 
   Widget _screenModeCard() {
-    final controller = RoutbScope.of(context);
+    final controller = RoutbScope.maybeOf(context);
+    if (controller == null) return const SizedBox.shrink();
     return RoutbCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -603,22 +627,6 @@ class _IdentityHeader extends StatelessWidget {
             ],
           ),
         ),
-      ],
-    );
-  }
-}
-
-class _ProfileLoading extends StatelessWidget {
-  const _ProfileLoading();
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(14, 18, 14, 24),
-      children: const [
-        RoutbSkeleton(height: 110),
-        SizedBox(height: 14),
-        RoutbSkeleton(height: 150),
       ],
     );
   }

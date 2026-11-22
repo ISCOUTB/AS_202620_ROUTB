@@ -55,9 +55,15 @@ class RoutbScope extends InheritedNotifier<ThemeController> {
   ///
   /// Lanza si se usa fuera de [RoutbScope].
   static ThemeController of(BuildContext context) {
+    final controller = maybeOf(context);
+    assert(controller != null, 'No hay RoutbScope en el árbol de widgets.');
+    return controller!;
+  }
+
+  /// Controlador del tema para el contexto dado, o `null` si no hay [RoutbScope].
+  static ThemeController? maybeOf(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<RoutbScope>();
-    assert(scope != null, 'No hay RoutbScope en el árbol de widgets.');
-    return scope!.notifier!;
+    return scope?.notifier;
   }
 
   /// Controlador del tema sin establecer dependencia.

@@ -10,11 +10,11 @@ import '../../../core/models/my_request.dart';
 import '../../../core/models/trip.dart';
 import '../../../core/models/trip_filters.dart';
 import '../../../core/models/trip_schedule.dart';
+import '../../../core/models/user_profile.dart';
 import '../../../core/models/user_role.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/routb_palette.dart';
 import '../../../core/theme/routb_text.dart';
-import '../../../core/theme/routb_theme.dart';
 import '../../../core/widgets/date_quick_picker.dart';
 import '../../../core/widgets/route_map.dart';
 import '../../../core/widgets/routb_button.dart';
@@ -70,6 +70,7 @@ class _PassengerScreenState extends State<PassengerScreen>
   final TextEditingController _destination = TextEditingController();
 
   PassengerStatus _status = PassengerStatus.loading;
+  late UserProfile? _profile = widget.account.profile;
   List<Trip> _trips = const <Trip>[];
   List<MyRequest> _myRequests = const <MyRequest>[];
   final _activeList = ValueNotifier<List<MyRequest>>([]);
@@ -95,7 +96,6 @@ class _PassengerScreenState extends State<PassengerScreen>
   DateTime? _lastMyRequestsSync;
   DateTime? _lastPushAt;
   String? _lastPushKey;
-  TripTimeRange _timeRange = TripTimeRange.any;
   TripSortOrder _sortOrder = TripSortOrder.earliest;
 
   @override
@@ -137,7 +137,8 @@ class _PassengerScreenState extends State<PassengerScreen>
     // pantalla sin pintar.
     if (_asked) return;
     _asked = true;
-    unawaited(_load());
+    unawaited(_loadMyRequests());
+    unawaited(_load(refreshRequests: false));
   }
 
   @override
@@ -169,7 +170,7 @@ class _PassengerScreenState extends State<PassengerScreen>
 
   TripRepository get _repository => RoutbScopeDependencies.of(context).trips;
 
-  Future<void> _load() async {
+  Future<void> _load({bool refreshRequests = true}) async {
     final generation = ++_searchGeneration;
     if (_status != PassengerStatus.ready) {
       setState(() {
@@ -190,9 +191,9 @@ class _PassengerScreenState extends State<PassengerScreen>
         _status = PassengerStatus.ready;
         _filtering = false;
       });
-      // Las solicitudes propias van aparte: si fallan, el buscador sigue
-      // funcionando y solo se pierde la lista de «Mis viajes».
-      await _loadMyRequests();
+      if (refreshRequests) {
+        await _loadMyRequests(silent: _lastMyRequestsSync != null);
+      }
     } on Exception catch (error, stack) {
       logFailure('la carga de viajes', error, stack);
       if (!mounted || generation != _searchGeneration) return;
@@ -209,7 +210,7 @@ class _PassengerScreenState extends State<PassengerScreen>
     // en vez de encadenar peticiones sobre redes lentas.
     if (_myRequestsInFlight) return;
     _myRequestsInFlight = true;
-    if (mounted && !silent) {
+    if (mounted && !silent && _lastMyRequestsSync == null) {
       setState(() {
         _myRequestsLoading = true;
         _myRequestsFailed = false;
@@ -232,7 +233,7 @@ class _PassengerScreenState extends State<PassengerScreen>
       if (!mounted) return;
       // Un fallo del sondeo no debe borrar la lista que el pasajero ya veía:
       // se reintenta en el siguiente turno.
-      if (!silent) {
+      if (!silent && _lastMyRequestsSync == null) {
         setState(() {
           _myRequestsLoading = false;
           _myRequestsFailed = true;
@@ -303,7 +304,7 @@ class _PassengerScreenState extends State<PassengerScreen>
               !trip.hasDeparted(now),
         )
         .toList(growable: false);
-    return filterAndSortTrips(upcoming, range: _timeRange, order: _sortOrder);
+    return filterAndSortTrips(upcoming, order: _sortOrder);
   }
 
   /// Reacciona a un push con la app abierta.
@@ -600,19 +601,9 @@ class _PassengerScreenState extends State<PassengerScreen>
     await _load();
   }
 
-  void _setTimeRange(TripTimeRange range) {
-    if (range == _timeRange) return;
-    setState(() => _timeRange = range);
-  }
-
   void _setSortOrder(TripSortOrder order) {
     if (order == _sortOrder) return;
     setState(() => _sortOrder = order);
-  }
-
-  void _clearTimeFilter() {
-    if (_timeRange == TripTimeRange.any) return;
-    setState(() => _timeRange = TripTimeRange.any);
   }
 
   /// Alterna entre hoy y mañana desde el estado vacío, para que la sugerencia
@@ -627,8 +618,8 @@ class _PassengerScreenState extends State<PassengerScreen>
 
   Future<void> _selectTab(_PassengerTab tab) async {
     setState(() => _selectedTab = tab);
-    if (tab == _PassengerTab.history) {
-      await _loadMyRequests();
+    if (tab == _PassengerTab.history && _lastMyRequestsSync != null) {
+      await _loadMyRequests(silent: true);
     }
   }
 
@@ -638,7 +629,6 @@ class _PassengerScreenState extends State<PassengerScreen>
     _destination.clear();
     setState(() {
       _selectedDate = TripSchedule.dateOnly(DateTime.now());
-      _timeRange = TripTimeRange.any;
       _sortOrder = TripSortOrder.earliest;
       _filtering = true;
     });
@@ -757,6 +747,7 @@ class _PassengerScreenState extends State<PassengerScreen>
             driverEnabled: widget.account.driverEnabled,
             token: widget.account.token,
             id: widget.account.id,
+            profile: _profile ?? widget.account.profile,
           ),
         );
       },
@@ -784,9 +775,7 @@ class _PassengerScreenState extends State<PassengerScreen>
                   userName: account.name,
                   selectedDate: _selectedDate,
                   currentRequest: _currentRequest,
-                  timeRange: _timeRange,
                   onDateChanged: _setDate,
-                  onTimeRangeChanged: _setTimeRange,
                   onOpenMap: _openFullMap,
                   onOpenSuggestions: _openSuggestions,
                 ),
@@ -806,7 +795,6 @@ class _PassengerScreenState extends State<PassengerScreen>
                       origin: _origin.text.trim(),
                       destination: _destination.text.trim(),
                       selectedDate: _selectedDate,
-                      timeRange: _timeRange,
                       sortOrder: _sortOrder,
                       lastUpdated: lastUpdated,
                       busyRequestId: _busyRequestId,
@@ -814,7 +802,6 @@ class _PassengerScreenState extends State<PassengerScreen>
                       onOpenMyTrip: _openMyTrip,
                       onCancelRequest: _cancelRequest,
                       onSortChanged: _setSortOrder,
-                      onClearTimeFilter: _clearTimeFilter,
                       onShowOtherDay: _showOtherDay,
                       onClearFilters: _clearFilters,
                     ),
@@ -838,7 +825,10 @@ class _PassengerScreenState extends State<PassengerScreen>
                 userName: account.name,
                 activeTrip: _activeTripInfo,
               ),
-              _PassengerTab.profile => ProfileScreen(account: account),
+              _PassengerTab.profile => ProfileScreen(
+                account: account,
+                onProfileLoaded: (loaded) => setState(() => _profile = loaded),
+              ),
             },
           ),
         ),
@@ -864,9 +854,7 @@ class _PassengerHero extends StatelessWidget {
   const _PassengerHero({
     required this.userName,
     required this.selectedDate,
-    required this.timeRange,
     required this.onDateChanged,
-    required this.onTimeRangeChanged,
     required this.onOpenMap,
     required this.onOpenSuggestions,
     this.currentRequest,
@@ -874,9 +862,7 @@ class _PassengerHero extends StatelessWidget {
 
   final String userName;
   final DateTime selectedDate;
-  final TripTimeRange timeRange;
   final ValueChanged<DateTime> onDateChanged;
-  final ValueChanged<TripTimeRange> onTimeRangeChanged;
   final VoidCallback onOpenMap;
   final VoidCallback onOpenSuggestions;
   final MyRequest? currentRequest;
@@ -899,15 +885,12 @@ class _PassengerHero extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 10),
-        Wrap(
-          spacing: 8,
-          runSpacing: 4,
-          alignment: WrapAlignment.spaceBetween,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            DateQuickPicker(value: selectedDate, onChanged: onDateChanged),
-            _TimeRangeMenu(value: timeRange, onChanged: onTimeRangeChanged),
-          ],
+        Center(
+          child: DateQuickPicker(
+            value: selectedDate,
+            onChanged: onDateChanged,
+            alignment: WrapAlignment.center,
+          ),
         ),
         if (active != null) ...[
           const SizedBox(height: 10),
@@ -952,7 +935,6 @@ class _TripsList extends StatelessWidget {
     required this.origin,
     required this.destination,
     required this.selectedDate,
-    required this.timeRange,
     required this.sortOrder,
     required this.lastUpdated,
     required this.busyRequestId,
@@ -960,7 +942,6 @@ class _TripsList extends StatelessWidget {
     required this.onOpenMyTrip,
     required this.onCancelRequest,
     required this.onSortChanged,
-    required this.onClearTimeFilter,
     required this.onShowOtherDay,
     required this.onClearFilters,
   });
@@ -972,7 +953,6 @@ class _TripsList extends StatelessWidget {
   final String origin;
   final String destination;
   final DateTime selectedDate;
-  final TripTimeRange timeRange;
   final TripSortOrder sortOrder;
   final DateTime? lastUpdated;
   final int? busyRequestId;
@@ -980,7 +960,6 @@ class _TripsList extends StatelessWidget {
   final ValueChanged<MyRequest> onOpenMyTrip;
   final ValueChanged<MyRequest> onCancelRequest;
   final ValueChanged<TripSortOrder> onSortChanged;
-  final VoidCallback onClearTimeFilter;
   final Future<void> Function() onShowOtherDay;
   final Future<void> Function() onClearFilters;
 
@@ -990,36 +969,6 @@ class _TripsList extends StatelessWidget {
     final today = TripSchedule.dateOnly(DateTime.now());
     final otherDayLabel = selectedDate == today ? 'Ver mañana' : 'Ver hoy';
     final hasSearch = origin.isNotEmpty || destination.isNotEmpty;
-
-    if (timeRange != TripTimeRange.any) {
-      return RoutbEmptyState(
-        icon: Icons.schedule_rounded,
-        message:
-            'No hay viajes en la franja ${timeRange.label.toLowerCase()} '
-            'para $dateLabel. Prueba con otra hora o cambia el destino.',
-        action: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            RoutbButton(
-              label: 'Ver todas las horas',
-              icon: Icons.schedule_rounded,
-              variant: RoutbButtonVariant.secondary,
-              expand: false,
-              height: 44,
-              onPressed: onClearTimeFilter,
-            ),
-            const SizedBox(height: 8),
-            RoutbButton(
-              label: otherDayLabel,
-              variant: RoutbButtonVariant.secondary,
-              expand: false,
-              height: 44,
-              onPressed: onShowOtherDay,
-            ),
-          ],
-        ),
-      );
-    }
 
     return RoutbEmptyState(
       icon: Icons.search_off_rounded,
@@ -1113,74 +1062,6 @@ class _TripsList extends StatelessWidget {
   }
 }
 
-/// Selector compacto de la franja horaria del hero.
-class _TimeRangeMenu extends StatelessWidget {
-  const _TimeRangeMenu({required this.value, required this.onChanged});
-
-  final TripTimeRange value;
-  final ValueChanged<TripTimeRange> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-
-    return PopupMenuButton<TripTimeRange>(
-      tooltip: 'Filtrar por hora: ${value.label}',
-      initialValue: value,
-      onSelected: onChanged,
-      position: PopupMenuPosition.under,
-      itemBuilder: (context) => [
-        for (final range in TripTimeRange.values)
-          PopupMenuItem<TripTimeRange>(
-            value: range,
-            child: Row(
-              children: [
-                Icon(
-                  range == value
-                      ? Icons.radio_button_checked_rounded
-                      : Icons.radio_button_unchecked_rounded,
-                  size: 18,
-                  color: range == value ? palette.brand : palette.muted,
-                ),
-                const SizedBox(width: 10),
-                Expanded(child: Text(range.label)),
-              ],
-            ),
-          ),
-      ],
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 44),
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        decoration: BoxDecoration(
-          color: palette.surface,
-          borderRadius: BorderRadius.circular(RoutbTheme.radiusPill),
-          border: Border.all(color: palette.line),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.schedule_rounded, color: palette.muted, size: 16),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                value.shortLabel,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: RoutbText.copy(
-                  11.5,
-                  color: palette.ink,
-                  weight: FontWeight.w700,
-                ),
-              ),
-            ),
-            Icon(Icons.arrow_drop_down_rounded, size: 16, color: palette.muted),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 /// Selector compacto del orden de los resultados.
 class _SortMenu extends StatelessWidget {
   const _SortMenu({required this.value, required this.onChanged});
@@ -1236,24 +1117,6 @@ class _SortMenu extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _TripsLoading extends StatelessWidget {
-  const _TripsLoading();
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(14, 18, 14, 24),
-      children: const [
-        RoutbSkeleton(height: 150),
-        SizedBox(height: 14),
-        RoutbSkeleton(height: 150),
-        SizedBox(height: 14),
-        RoutbSkeleton(height: 150),
-      ],
     );
   }
 }
@@ -1319,7 +1182,7 @@ class _HistoryTab extends StatelessWidget {
       subtitle: 'Viajes completados y cancelados',
       icon: Icons.history_rounded,
       body: (_) => loading
-          ? const _TripsLoading()
+          ? const Center(child: Text('Cargando historial…'))
           : failed
           ? _TripsFailed(
               message: 'No se pudieron cargar tus viajes.',

@@ -57,6 +57,7 @@ class DriverScreen extends StatefulWidget {
 
 class _DriverScreenState extends State<DriverScreen>
     with WidgetsBindingObserver {
+  late UserProfile? _profile = widget.account.profile;
   DriverState _state = const DriverState(status: DriverStatus.loading);
   _DriverTab _tab = _DriverTab.routes;
   final Set<int> _busyRequests = <int>{};
@@ -543,6 +544,7 @@ class _DriverScreenState extends State<DriverScreen>
             driverEnabled: widget.account.driverEnabled,
             token: widget.account.token,
             id: widget.account.id,
+            profile: _profile ?? widget.account.profile,
           ),
         );
       },
@@ -605,7 +607,11 @@ class _DriverScreenState extends State<DriverScreen>
                     userName: account.name,
                     activeTrip: _activeTripInfo,
                   ),
-                  _DriverTab.profile => ProfileScreen(account: account),
+                  _DriverTab.profile => ProfileScreen(
+                    account: account,
+                    onProfileLoaded: (loaded) =>
+                        setState(() => _profile = loaded),
+                  ),
                 },
               ),
             );
@@ -892,7 +898,9 @@ class _HistoryTab extends StatelessWidget {
       subtitle: 'Rutas completadas y canceladas',
       icon: Icons.history_rounded,
       body: (_) => switch (state.status) {
-        DriverStatus.loading => const _LoadingBody(),
+        DriverStatus.loading => const Center(
+          child: Text('Cargando historial…'),
+        ),
         DriverStatus.failed => _FailedBody(
           message: state.errorMessage ?? 'Algo salió mal.',
           onRetry: onRefresh,
@@ -984,24 +992,6 @@ class _HistoryList extends StatelessWidget {
                   ),
               ],
             ),
-    );
-  }
-}
-
-class _LoadingBody extends StatelessWidget {
-  const _LoadingBody();
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(14, 18, 14, 24),
-      children: const [
-        RoutbSkeleton(height: 190, radius: 34),
-        SizedBox(height: 14),
-        RoutbSkeleton(height: 130),
-        SizedBox(height: 14),
-        RoutbSkeleton(height: 220),
-      ],
     );
   }
 }
