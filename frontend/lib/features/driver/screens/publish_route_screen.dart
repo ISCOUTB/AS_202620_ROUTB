@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../app/app_routes.dart';
+import '../../../app/dependencies.dart';
+import '../../../core/models/trip.dart';
+import '../../../core/network/api_exception.dart';
 import '../../../core/constants/zones.dart';
 import '../../../core/models/travel_time.dart';
 import '../../../core/models/trip_schedule.dart';
@@ -90,21 +93,13 @@ class DraftRoute {
   String get direction => toCampus ? 'to_campus' : 'from_campus';
 }
 
-/// Abre la pantalla de publicación y devuelve el borrador, o `null` si se cerró.
-///
-/// ```dart
-/// final draft = await openPublishRouteScreen(
-///   context: context,
-///   driverName: account.name,
-///   driverInitials: initialsOf(account.name),
-/// );
-/// ```
-Future<DraftRoute?> openPublishRouteScreen({
+/// Devuelve la ruta que el servidor confirmó al publicar.
+Future<Trip?> openPublishRouteScreen({
   required BuildContext context,
   required String driverName,
   required String driverInitials,
 }) {
-  return Navigator.of(context).push<DraftRoute>(
+  return Navigator.of(context).push<Trip>(
     RoutbPageRoute(
       child: _PublishRouteScreen(
         driverName: driverName,
@@ -203,9 +198,54 @@ class _PublishRouteScreenState extends State<_PublishRouteScreen> {
     return best;
   }
 
+  bool _publishing = false;
+  String? _error;
+
+  String? get _missing {
+    if (_draft.driverPoint == null) {
+      return 'Selecciona una dirección o un punto en el mapa.';
+    }
+    if (!_draft.toCampus && _draft.meetingPoint.trim().length < 3) {
+      return 'Describe el punto de encuentro en la UTB con al menos tres caracteres.';
+    }
+    return null;
+  }
+
+  Future<void> _submit() async {
+    if (_publishing || _missing != null) return;
+    setState(() {
+      _publishing = true;
+      _error = null;
+    });
+    try {
+      final trip = await RoutbScopeDependencies.of(context).trips.publish(
+        origin: _draft.origin,
+        destination: _draft.destination,
+        departureTime: _draft.departure.label,
+        departureDate: _draft.departureDate,
+        meetingPoint: _draft.toCampus
+            ? 'Por coordinar'
+            : _draft.meetingPoint.trim(),
+        seats: _draft.seats,
+        direction: _draft.direction,
+        driverPoint: _draft.driverPoint,
+      );
+      if (mounted) Navigator.of(context).pop(trip);
+    } on Exception catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _publishing = false;
+        _error = error is ApiException && error.detail == 'vehicle_required'
+            ? 'Completa los datos del vehículo en Perfil para publicar.'
+            : describeFailure(error);
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return RoutbTripFormPage(
+      busy: _publishing,
       title: 'Nueva ruta',
       subtitle: _draft.toCampus ? 'Hacia la UTB' : 'Desde la UTB',
       body: Column(
@@ -334,18 +374,14 @@ class _PublishRouteScreenState extends State<_PublishRouteScreen> {
           ),
         ],
       ),
-      footer: RoutbButton(
-        label: 'Publicar ruta',
-        onPressed:
-            ((!_draft.toCampus && _draft.meetingPoint.trim().length < 3) ||
-                _draft.driverPoint == null)
-            ? null
-            : () {
-                if (_draft.toCampus && _draft.meetingPoint.trim().isEmpty) {
-                  _draft.meetingPoint = 'Por coordinar';
-                }
-                Navigator.of(context).pop(_draft);
-              },
+      footer: RoutbFormFooter(
+        error: _error,
+        hint: _missing,
+        action: RoutbButton(
+          label: 'Publicar ruta',
+          busy: _publishing,
+          onPressed: _missing == null && !_publishing ? _submit : null,
+        ),
       ),
     );
   }

@@ -6,12 +6,38 @@ import '../../../core/storage/session_store.dart';
 
 /// Persona que está usando la app tras entrar.
 class Account {
-  const Account({required this.name, required this.role, required this.token});
+  const Account({
+    required this.name,
+    required this.role,
+    required this.token,
+    this.id,
+    bool? driverEnabled,
+  }) : driverEnabled = driverEnabled ?? (role == UserRole.driver);
+
+  final bool driverEnabled;
+
+  factory Account.fromProfile(UserProfile profile, String token) => Account(
+    id: profile.id == 0 ? null : profile.id,
+    name: profile.name,
+    token: token,
+    role: profile.role,
+    driverEnabled: profile.driverEnabled,
+  );
+
+  Account withMode(UserRole mode) => Account(
+    id: id,
+    name: name,
+    token: token,
+    role: mode,
+    driverEnabled: driverEnabled,
+  );
+
+  final int? id;
 
   /// Nombre con el que se saluda en el hero.
   final String name;
 
-  /// Perfil con el que entró.
+  /// Modalidad de navegación, independiente de la habilitación.
   final UserRole role;
 
   /// Token JWT con el que se autentican las peticiones.
@@ -35,7 +61,6 @@ class AuthRepository {
     required String lastName,
     required String phone,
     required String password,
-    required UserRole role,
   }) async {
     await _api.post(
       '/users/',
@@ -45,7 +70,6 @@ class AuthRepository {
         'last_name': lastName.trim(),
         'phone': phone.trim(),
         'password': password,
-        'role': role.wire,
       },
     );
 
@@ -68,7 +92,9 @@ class AuthRepository {
     await _session.save(
       token: account.token,
       name: account.name,
-      role: account.role,
+      role: account.driverEnabled ? UserRole.driver : UserRole.passenger,
+      activeMode: account.role,
+      userId: account.id,
     );
     return account;
   }
@@ -154,21 +180,46 @@ class AuthRepository {
     String? model,
     String? plate,
     String? color,
+    bool activate = false,
   }) async {
-    final response = await _api.patch(
-      '/users/me/vehicle',
-      body: <String, Object?>{
-        'vehicle_model': model?.trim(),
-        'vehicle_plate': plate?.trim(),
-        'vehicle_color': color?.trim(),
-      },
-    );
+    final body = <String, Object?>{
+      'vehicle_model': model?.trim(),
+      'vehicle_plate': plate?.trim(),
+      'vehicle_color': color?.trim(),
+    };
+    final response = activate
+        ? await _api.put('/users/me/driver', body: body)
+        : await _api.patch('/users/me/vehicle', body: body);
     if (response is! Map<String, dynamic>) {
       throw const ApiException(
         'El servidor no devolvió el perfil actualizado.',
       );
     }
-    return UserProfile.fromJson(response);
+    final profile = UserProfile.fromJson(response);
+    if (activate) await _cacheMode(profile);
+    return profile;
+  }
+
+  Future<UserProfile> switchTravelMode(UserRole mode) async {
+    final response = await _api.patch(
+      '/users/me/mode',
+      body: {'mode': mode.wire},
+    );
+    if (response is! Map<String, dynamic>) {
+      throw const ApiException('No se pudo confirmar el cambio de modo.');
+    }
+    final profile = UserProfile.fromJson(response);
+    await _cacheMode(profile);
+    return profile;
+  }
+
+  Future<void> _cacheMode(UserProfile profile) async {
+    if (await _session.readUserId() == profile.id) {
+      await _session.saveTravelMode(
+        profile.role,
+        driverEnabled: profile.driverEnabled,
+      );
+    }
   }
 
   /// `DELETE /users/me`
@@ -192,13 +243,13 @@ class AuthRepository {
     try {
       final user = await _api.get('/auth/me');
       if (user is Map<String, dynamic>) {
-        final serverName = (user['name'] as String?)?.trim();
-        final serverRole = UserRole.fromWire(user['role'] as String?);
-        return Account(
-          name: serverName != null && serverName.isNotEmpty ? serverName : name,
-          role: serverRole,
-          token: token,
+        final account = Account.fromProfile(UserProfile.fromJson(user), token);
+        if (account.id != null) await _session.saveUserId(account.id!);
+        await _session.saveTravelMode(
+          account.role,
+          driverEnabled: account.driverEnabled,
         );
+        return account;
       }
     } on ApiException catch (e) {
       if (e.isUnauthorized) {
@@ -211,7 +262,15 @@ class AuthRepository {
       // Si fue error de red u otro, permitimos restaurar la sesión local.
     }
 
-    return Account(name: name, role: role, token: token);
+    return Account(
+      id: await _session.readUserId(),
+      name: name,
+      role: role == UserRole.driver
+          ? await _session.readActiveMode() ?? role
+          : UserRole.passenger,
+      driverEnabled: role == UserRole.driver,
+      token: token,
+    );
   }
 
   Account _accountOf(Object? response) {
@@ -227,10 +286,6 @@ class AuthRepository {
     if (name == null || name.isEmpty) {
       throw const ApiException('El servidor no devolvió un nombre de usuario.');
     }
-    return Account(
-      name: name,
-      role: UserRole.fromWire(user['role'] as String?),
-      token: token,
-    );
+    return Account.fromProfile(UserProfile.fromJson(user), token);
   }
 }

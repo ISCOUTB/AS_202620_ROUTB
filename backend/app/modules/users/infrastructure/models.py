@@ -1,8 +1,9 @@
-from sqlalchemy import Column, Index, Integer, String
+from sqlalchemy import CheckConstraint, Column, DateTime, Index, Integer, String
 from app.core.database import Base
+from app.modules.users.domain.travel_modes import TravelModes
 
 
-class User(Base):
+class User(TravelModes, Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -13,10 +14,17 @@ class User(Base):
     phone = Column(String, nullable=False)
     hashed_password = Column(String, nullable=False)
     role = Column(String, nullable=False, default="passenger", server_default="passenger")
+    driver_activated_at = Column(DateTime(timezone=True), nullable=True)
+    preferred_mode = Column(String, nullable=True)
     vehicle_model = Column(String(50), nullable=True)
     vehicle_plate = Column(String(10), nullable=True)
     vehicle_color = Column(String(30), nullable=True)
 
     __table_args__ = (
+        CheckConstraint(
+            "preferred_mode = 'passenger' OR (preferred_mode = 'driver' AND "
+            "(role = 'driver' OR driver_activated_at IS NOT NULL))",
+            name="ck_users_travel_mode",
+        ),
         Index("uq_users_phone", "phone", unique=True),
     )

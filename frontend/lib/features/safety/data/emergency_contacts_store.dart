@@ -7,20 +7,20 @@ import '../models/emergency_contact.dart';
 /// Guarda hasta tres contactos de emergencia en el dispositivo.
 ///
 /// No hay backend ni permiso de contactos: el nombre y el teléfono se escriben
-/// a mano, y se conservan al cerrar la app. La clave es única del dispositivo,
-/// no de la cuenta, para que sigan ahí aunque la sesión se cierre.
+/// a mano y se conservan entre sesiones de la misma cuenta.
 class EmergencyContactsStore {
-  const EmergencyContactsStore();
+  const EmergencyContactsStore(this.userId);
 
-  /// Clave de `shared_preferences`.
-  static const String storageKey = 'routb.emergency_contacts.v1';
+  final int userId;
+
+  String get _key => 'routb.emergency_contacts.v2.$userId';
 
   /// Límite del sprint.
   static const int maxContacts = 3;
 
   Future<List<EmergencyContact>> load() async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(storageKey);
+    final raw = prefs.getString(_key);
     if (raw == null || raw.trim().isEmpty) return const <EmergencyContact>[];
     try {
       final decoded = jsonDecode(raw);
@@ -39,7 +39,7 @@ class EmergencyContactsStore {
   Future<void> save(List<EmergencyContact> contacts) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
-      storageKey,
+      _key,
       jsonEncode(
         contacts.take(maxContacts).map((contact) => contact.toJson()).toList(),
       ),

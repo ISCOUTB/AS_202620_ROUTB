@@ -660,7 +660,7 @@ void main() {
       );
       await _settle(tester);
 
-      expect(tripsCalls, 2);
+      expect(tripsCalls, 1);
       expect(find.byType(RouteCard), findsOneWidget);
       expect(
         tester.widget<RouteCard>(find.byType(RouteCard)).highlight,
@@ -677,7 +677,7 @@ void main() {
       );
       await _settle(tester);
 
-      expect(tripsCalls, greaterThan(2));
+      expect(tripsCalls, 2);
       expect(find.text('Camila solicitó 2 cupos.'), findsOneWidget);
       expect(
         tester.widget<RouteCard>(find.byType(RouteCard)).highlight,

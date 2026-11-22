@@ -24,7 +24,7 @@ class SecurityScreen extends StatefulWidget {
     required this.userName,
     this.activeTrip,
     this.launcher = const DeviceLauncher(),
-    this.contactsStore = const EmergencyContactsStore(),
+    this.contactsStore,
     super.key,
   });
 
@@ -41,7 +41,7 @@ class SecurityScreen extends StatefulWidget {
   final DeviceLauncher launcher;
 
   /// Almacenamiento local de contactos.
-  final EmergencyContactsStore contactsStore;
+  final EmergencyContactsStore? contactsStore;
 
   @override
   State<SecurityScreen> createState() => _SecurityScreenState();
@@ -57,8 +57,8 @@ class _SecurityScreenState extends State<SecurityScreen> {
   }
 
   Future<void> _loadContactCount() async {
-    final contacts = await widget.contactsStore.load();
-    if (mounted) setState(() => _contactCount = contacts.length);
+    final contacts = await widget.contactsStore?.load();
+    if (mounted) setState(() => _contactCount = contacts?.length ?? 0);
   }
 
   Future<void> _confirmEmergencyCall() async {
@@ -95,77 +95,51 @@ class _SecurityScreenState extends State<SecurityScreen> {
   }
 
   Future<void> _openContacts() async {
+    final store = widget.contactsStore;
+    if (store == null) {
+      RoutbToast.show(
+        context,
+        'Inicia sesión con conexión para acceder a tus contactos.',
+      );
+      return;
+    }
     await Navigator.of(context).push(
       RoutbPageRoute<void>(
         child: EmergencyContactsScreen(
           userName: widget.userName,
           activeTrip: widget.activeTrip,
           launcher: widget.launcher,
-          store: widget.contactsStore,
+          store: store,
         ),
       ),
     );
     if (mounted) await _loadContactCount();
   }
 
-  Future<void> _openSafetyInfo() async {
+  Future<void> _openSafetyInfo([PassengerSafetyGuide? guide]) async {
+    await Navigator.of(context).push(
+      RoutbPageRoute<void>(
+        child: SafetyInfoScreen(
+          role: widget.role,
+          guide: guide,
+          onCall: _confirmEmergencyCall,
+          onContacts: _openContacts,
+          onSupport: _openSupport,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openSupport([SupportOption? option]) async {
     await Navigator.of(context)
-        .push(RoutbPageRoute<void>(child: SafetyInfoScreen(role: widget.role)));
+        .push(RoutbPageRoute<void>(child: SupportScreen(option: option)));
   }
 
   @override
   Widget build(BuildContext context) {
-    final p = context.palette;
     final driver = widget.role == UserRole.driver;
     final contacts = _ContactPass(count: _contactCount, onTap: _openContacts);
-    final resources = RoutbCard(
-      padding: EdgeInsets.zero,
-      child: Column(
-        children: [
-          _SafetyEntry(
-            icon: driver
-                ? Icons.directions_car_outlined
-                : Icons.directions_walk_rounded,
-            title: driver
-                ? 'Consejos para conductores'
-                : 'Consejos para pasajeros',
-            subtitle: driver
-                ? 'Recomendaciones para una ruta segura'
-                : 'Viaja con tranquilidad y confianza',
-            onTap: _openSafetyInfo,
-          ),
-          Divider(height: 1, indent: 66, color: p.line),
-          _SafetyEntry(
-            icon: Icons.headset_mic_outlined,
-            title: 'Soporte',
-            subtitle: 'Hablar con el equipo de ROUTB',
-            onTap: () => Navigator.of(context).push(
-              RoutbPageRoute<void>(
-                child: SupportScreen(
-                  userName: widget.userName,
-                  role: widget.role,
-                  launcher: widget.launcher,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-    final call = FilledButton.icon(
-      onPressed: _confirmEmergencyCall,
-      style: FilledButton.styleFrom(
-        minimumSize: const Size(double.infinity, 52),
-        backgroundColor: p.roseSurface,
-        foregroundColor: p.onRoseSurface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      ),
-      icon: const Icon(Icons.phone_in_talk_rounded),
-      label: Text(
-        'Llamar al 123',
-        style: RoutbText.headline(17, color: p.onRoseSurface),
-      ),
-    );
+    final call = EmergencyCallButton(onPressed: _confirmEmergencyCall);
 
     return RoutbSectionPage(
       title: 'Seguridad',
@@ -174,12 +148,48 @@ class _SecurityScreenState extends State<SecurityScreen> {
       primary: call,
       body: (split) => ListView(
         key: const PageStorageKey<String>('security-tab'),
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 20),
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
         children: [
           if (!split) ...[call, const SizedBox(height: 12)],
           contacts,
           const SizedBox(height: 12),
-          resources,
+          if (driver)
+            RoutbCard(
+              padding: EdgeInsets.zero,
+              child: _SafetyEntry(
+                icon: Icons.directions_car_outlined,
+                title: 'Consejos para conductores',
+                subtitle: 'Recomendaciones para una ruta segura',
+                onTap: _openSafetyInfo,
+              ),
+            )
+          else
+            _SafetyGroup(
+              title: 'Consejos para pasajeros',
+              subtitle: 'Viaja con tranquilidad y confianza',
+              entries: [
+                for (final guide in PassengerSafetyGuide.values)
+                  _SafetyEntry(
+                    icon: guide.icon,
+                    title: guide.title,
+                    subtitle: guide.subtitle,
+                    onTap: () => _openSafetyInfo(guide),
+                  ),
+              ],
+            ),
+          const SizedBox(height: 12),
+          _SafetyGroup(
+            title: 'Soporte',
+            entries: [
+              for (final option in SupportOption.values)
+                _SafetyEntry(
+                  icon: option.icon,
+                  title: option.title,
+                  subtitle: option.subtitle,
+                  onTap: () => _openSupport(option),
+                ),
+            ],
+          ),
         ],
       ),
     );
@@ -263,6 +273,55 @@ class _ContactPass extends StatelessWidget {
   }
 }
 
+class _SafetyGroup extends StatelessWidget {
+  const _SafetyGroup({
+    required this.title,
+    this.subtitle,
+    required this.entries,
+  });
+
+  final String title;
+  final String? subtitle;
+  final List<Widget> entries;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return RoutbCard(
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Semantics(
+                  header: true,
+                  child: Text(
+                    title,
+                    style: RoutbText.headline(17, color: palette.ink),
+                  ),
+                ),
+                if (subtitle case final subtitle?)
+                  Text(
+                    subtitle,
+                    style: RoutbText.copy(12, color: palette.muted),
+                  ),
+              ],
+            ),
+          ),
+          for (final entry in entries) ...[
+            Divider(height: 1, indent: 14, endIndent: 14, color: palette.line),
+            entry,
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _SafetyEntry extends StatelessWidget {
   const _SafetyEntry({
     required this.icon,
@@ -280,55 +339,56 @@ class _SafetyEntry extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
 
-    return Semantics(
-      button: true,
-      label: '$title. $subtitle',
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
-          child: Row(
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: palette.brandSurface,
-                  borderRadius: BorderRadius.circular(12),
+    return Material(
+      type: MaterialType.transparency,
+      child: Semantics(
+        button: true,
+        label: '$title. $subtitle',
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 8, 12, 8),
+            child: Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: palette.brandSurface,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: palette.onBrandSurface, size: 20),
                 ),
-                child: Icon(icon, color: palette.onBrandSurface, size: 20),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      title,
-
-                      style: RoutbText.copy(
-                        14,
-                        color: palette.ink,
-                        weight: FontWeight.w700,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        style: RoutbText.copy(
+                          14,
+                          color: palette.ink,
+                          weight: FontWeight.w700,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      maxLines: MediaQuery.textScalerOf(context).scale(16) <= 16
-                          ? 1
-                          : null,
-                      overflow: TextOverflow.ellipsis,
-
-                      style: RoutbText.copy(12, color: palette.muted),
-                    ),
-                  ],
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: RoutbText.copy(12, color: palette.muted),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 6),
-              Icon(Icons.chevron_right_rounded, color: palette.muted, size: 20),
-            ],
+                const SizedBox(width: 6),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: palette.muted,
+                  size: 20,
+                ),
+              ],
+            ),
           ),
         ),
       ),

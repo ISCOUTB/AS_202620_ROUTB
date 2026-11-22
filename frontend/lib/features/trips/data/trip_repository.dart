@@ -70,6 +70,9 @@ class TripRepository {
     return _asTrips(response);
   }
 
+  Future<Trip> getById(int id) async =>
+      Trip.fromJson(_asMap(await _api.get('/trips/$id')));
+
   /// `POST /trips/`
   Future<Trip> publish({
     required String origin,

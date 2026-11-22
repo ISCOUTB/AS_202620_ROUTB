@@ -28,10 +28,19 @@ import '../../passenger/widgets/trip_card.dart';
 /// La solicitud se hace al tocar un viaje: se abre la pantalla de reserva, que es
 /// donde se piden la dirección exacta y los cupos.
 class SuggestionsScreen extends StatefulWidget {
-  const SuggestionsScreen({this.initialDirection, super.key});
+  const SuggestionsScreen({
+    this.initialDirection,
+    this.passengerId,
+    this.initialZone,
+    this.onSelectionChanged,
+    super.key,
+  });
 
   /// `'to_campus'` o `'from_campus'`. Sin valor, empieza hacia la UTB.
   final String? initialDirection;
+  final int? passengerId;
+  final String? initialZone;
+  final void Function(String direction, String? zone)? onSelectionChanged;
 
   @override
   State<SuggestionsScreen> createState() => _SuggestionsScreenState();
@@ -42,7 +51,7 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> {
   final GlobalKey _resultsKey = GlobalKey();
 
   List<Trip> _trips = const <Trip>[];
-  String? _zone;
+  late String? _zone = widget.initialZone;
   final _search = TextEditingController();
   int _limit = 6;
 
@@ -108,7 +117,11 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> {
     final now = DateTime.now();
     final matches = [
       for (final trip in _trips)
-        if (!trip.hasDeparted(now) && _goesToCampus(trip) == _toCampus) trip,
+        if ((widget.passengerId == null ||
+                trip.driverId != widget.passengerId) &&
+            !trip.hasDeparted(now) &&
+            _goesToCampus(trip) == _toCampus)
+          trip,
     ];
     // Se ordena por el momento real de salida, no solo por la hora del día:
     // así los viajes de mañana quedan después de los de hoy.
@@ -138,11 +151,19 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> {
   String _tripNeighborhood(Trip trip) =>
       Zones.normalize(_toCampus ? trip.origin : trip.destination);
 
+  void _updateSelection(String direction, String? zone) {
+    setState(() {
+      _direction = direction;
+      _zone = zone;
+    });
+    widget.onSelectionChanged?.call(direction, zone);
+  }
+
   void _selectZone(String zone) {
     FocusManager.instance.primaryFocus?.unfocus();
     _search.clear();
     _limit = 6;
-    setState(() => _zone = zone);
+    _updateSelection(_direction, zone);
     // La lista de barrios es larga: al elegir uno se sustituye por los
     // resultados, y este ajuste lleva la vista al encabezado de la lista.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -197,7 +218,7 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> {
                     (value: 'from_campus', label: 'Desde UTB'),
                   ],
                   value: _direction,
-                  onChanged: (value) => setState(() => _direction = value),
+                  onChanged: (value) => _updateSelection(value, _zone),
                 ),
                 if (_zone == null) ...[
                   const SizedBox(height: 18),
@@ -339,7 +360,7 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> {
               ),
             ),
             TextButton(
-              onPressed: () => setState(() => _zone = null),
+              onPressed: () => _updateSelection(_direction, null),
               child: const Text('Cambiar barrio'),
             ),
           ],
@@ -373,7 +394,7 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> {
               variant: RoutbButtonVariant.secondary,
               expand: false,
               height: 44,
-              onPressed: () => setState(() => _zone = null),
+              onPressed: () => _updateSelection(_direction, null),
             ),
           )
         else ...<Widget>[

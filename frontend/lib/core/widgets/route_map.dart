@@ -307,30 +307,37 @@ class _RouteMapState extends State<RouteMap> {
     final unresolved =
         hasQuery && _lookupDone && _start == null && _end == null;
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(RoutbTheme.radiusTile),
-      child: SizedBox(
-        height: widget.height,
-        child: unresolved
-            ? const UnknownLocationMap()
-            : _OsmMap(
-                start: _start,
-                end: _end,
-                waypoints: _waypoints,
-                road: _road,
-                interactive: widget.interactive,
-                animateRoute: widget.animateRoute,
-                mapController: _map,
-                onMapReady: () {
-                  _mapReady = true;
-                  _fitCamera();
-                },
-                overlays: _overlays(
-                  originText: originText,
-                  destinationText: destinationText,
-                  waypointTexts: _allWaypointTexts,
+    return Semantics(
+      container: true,
+      label: [
+        'Trayecto de $originText a $destinationText',
+        ..._allWaypointTexts,
+      ].join('. '),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(RoutbTheme.radiusTile),
+        child: SizedBox(
+          height: widget.height,
+          child: unresolved
+              ? const UnknownLocationMap()
+              : _OsmMap(
+                  start: _start,
+                  end: _end,
+                  waypoints: _waypoints,
+                  road: _road,
+                  interactive: widget.interactive,
+                  animateRoute: widget.animateRoute,
+                  mapController: _map,
+                  onMapReady: () {
+                    _mapReady = true;
+                    _fitCamera();
+                  },
+                  overlays: _overlays(
+                    originText: originText,
+                    destinationText: destinationText,
+                    waypointTexts: _allWaypointTexts,
+                  ),
                 ),
-              ),
+        ),
       ),
     );
   }

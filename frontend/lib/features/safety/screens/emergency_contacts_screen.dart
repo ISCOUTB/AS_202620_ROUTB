@@ -27,7 +27,7 @@ class EmergencyContactsScreen extends StatefulWidget {
     required this.userName,
     this.activeTrip,
     this.launcher = const DeviceLauncher(),
-    this.store = const EmergencyContactsStore(),
+    required this.store,
     super.key,
   });
 
@@ -287,7 +287,7 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
                       Text(
                         'Avisa a alguien de confianza cuando salgas o llegues. '
                         'Puedes guardar hasta ${EmergencyContactsStore.maxContacts} '
-                        'contactos.',
+                        'contactos en este dispositivo para tu cuenta.',
                         style: RoutbText.copy(
                           13,
                           color: palette.muted,

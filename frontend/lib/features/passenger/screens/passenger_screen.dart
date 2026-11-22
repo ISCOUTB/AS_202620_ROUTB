@@ -27,6 +27,7 @@ import '../../auth/data/auth_repository.dart';
 import '../../notifications/push_notification_service.dart';
 import '../../profile/screens/profile_screen.dart';
 import '../../safety/models/active_trip_info.dart';
+import '../../safety/data/emergency_contacts_store.dart';
 import '../../safety/screens/security_screen.dart';
 import '../../trips/data/trip_repository.dart';
 import '../../trips/screens/active_trip_empty_screen.dart';
@@ -69,10 +70,12 @@ class _PassengerScreenState extends State<PassengerScreen>
   PassengerStatus _status = PassengerStatus.loading;
   List<Trip> _trips = const <Trip>[];
   List<MyRequest> _myRequests = const <MyRequest>[];
+  final _activeList = ValueNotifier<List<MyRequest>>([]);
   String _errorMessage = '';
   Timer? _debounce;
   Timer? _pollTimer;
   Timer? _clockTimer;
+  int _searchGeneration = 0;
   bool _filtering = false;
   bool _appInForeground = true;
   bool _myRequestsInFlight = false;
@@ -145,6 +148,7 @@ class _PassengerScreenState extends State<PassengerScreen>
       _refreshSignal!.removeListener(_refreshListener!);
     }
     _debounce?.cancel();
+    _activeList.dispose();
     _origin.dispose();
     _destination.dispose();
     super.dispose();
@@ -164,6 +168,7 @@ class _PassengerScreenState extends State<PassengerScreen>
   TripRepository get _repository => RoutbScopeDependencies.of(context).trips;
 
   Future<void> _load() async {
+    final generation = ++_searchGeneration;
     if (_status != PassengerStatus.ready) {
       setState(() {
         _status = PassengerStatus.loading;
@@ -177,7 +182,7 @@ class _PassengerScreenState extends State<PassengerScreen>
         destination: _destination.text,
         departureDate: _selectedDate,
       );
-      if (!mounted) return;
+      if (!mounted || generation != _searchGeneration) return;
       setState(() {
         _trips = trips;
         _status = PassengerStatus.ready;
@@ -188,7 +193,7 @@ class _PassengerScreenState extends State<PassengerScreen>
       await _loadMyRequests();
     } on Exception catch (error, stack) {
       logFailure('la carga de viajes', error, stack);
-      if (!mounted) return;
+      if (!mounted || generation != _searchGeneration) return;
       setState(() {
         _status = PassengerStatus.failed;
         _errorMessage = describeFailure(error);
@@ -213,6 +218,7 @@ class _PassengerScreenState extends State<PassengerScreen>
       if (!mounted) return;
       setState(() {
         _myRequests = requests;
+        _activeList.value = _activeRequests;
         _myRequestsLoading = false;
         _myRequestsFailed = false;
         _lastMyRequestsSync = DateTime.now();
@@ -270,7 +276,7 @@ class _PassengerScreenState extends State<PassengerScreen>
       return;
     }
     _clockTimer ??= Timer.periodic(const Duration(seconds: 30), (_) {
-      if (mounted) setState(() {});
+      if (mounted) setState(() => _activeList.value = _activeRequests);
     });
   }
 
@@ -288,7 +294,12 @@ class _PassengerScreenState extends State<PassengerScreen>
               .where((trip) => !confirmedTripIds.contains(trip.id))
               .toList(growable: false);
     final upcoming = available
-        .where((trip) => !trip.hasDeparted(now))
+        .where(
+          (trip) =>
+              (widget.account.id == null ||
+                  trip.driverId != widget.account.id) &&
+              !trip.hasDeparted(now),
+        )
         .toList(growable: false);
     return filterAndSortTrips(upcoming, range: _timeRange, order: _sortOrder);
   }
@@ -435,11 +446,12 @@ class _PassengerScreenState extends State<PassengerScreen>
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
-  Future<void> _openMyTrip(MyRequest request) async {
+  Future<void> _openMyTrip(MyRequest request, {bool readOnly = false}) async {
     await Navigator.of(context).push(
       RoutbPageRoute<void>(
         child: MyTripScreen(
           request: request,
+          readOnly: readOnly,
           onWithdrawn: () {
             unawaited(_loadMyRequests());
             unawaited(_load());
@@ -495,10 +507,13 @@ class _PassengerScreenState extends State<PassengerScreen>
 
     await Navigator.of(context).push(
       RoutbPageRoute<void>(
-        child: ActiveTripsScreen(
-          requests: active,
-          lastUpdated: _lastMyRequestsSync,
-          onOpen: _openMyTrip,
+        child: ValueListenableBuilder<List<MyRequest>>(
+          valueListenable: _activeList,
+          builder: (_, requests, _) => ActiveTripsScreen(
+            requests: requests,
+            lastUpdated: _lastMyRequestsSync,
+            onOpen: _openMyTrip,
+          ),
         ),
       ),
     );
@@ -541,18 +556,28 @@ class _PassengerScreenState extends State<PassengerScreen>
     RoutbSheet.show<void>(
       context: context,
       title: 'Trayecto estimado',
-      subtitle:
-          'El mapa sitúa origen, destino y paradas con las coordenadas reales',
+      subtitle: active.routeLabel,
       heightFactor: 0.8,
-      body: RouteMap(
-        origin: active.origin,
-        destination: active.destination,
-        waypoints: active.waypoints,
-        routePoints: active.routePoints,
-        // En la hoja el mapa sí se puede mover: hay sitio de sobra y no compite
-        // con el scroll del resto del cuerpo.
-        interactive: true,
-        height: MediaQuery.sizeOf(context).height * 0.45,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          RouteMap(
+            origin: active.origin,
+            destination: active.destination,
+            waypoints: active.waypoints,
+            routePoints: active.routePoints,
+            // En la hoja el mapa sí se puede mover: hay sitio de sobra y no compite
+            // con el scroll del resto del cuerpo.
+            interactive: true,
+            height: MediaQuery.sizeOf(context).height * 0.45,
+          ),
+          for (final stop in active.waypoints)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.place_outlined),
+              title: Text(stop),
+            ),
+        ],
       ),
     );
   }
@@ -562,6 +587,7 @@ class _PassengerScreenState extends State<PassengerScreen>
     if (selected == _selectedDate) return;
     setState(() {
       _selectedDate = selected;
+      _trips = [];
       _filtering = true;
     });
     await _load();
@@ -692,9 +718,22 @@ class _PassengerScreenState extends State<PassengerScreen>
     });
   }
 
-  Future<void> _openSuggestions() =>
-      Navigator.of(context)
-          .push(RoutbPageRoute<void>(child: const SuggestionsScreen()));
+  String? _suggestedDirection;
+  String? _suggestedZone;
+
+  Future<void> _openSuggestions() => Navigator.of(context).push(
+    RoutbPageRoute<void>(
+      child: SuggestionsScreen(
+        passengerId: widget.account.id,
+        initialDirection: _suggestedDirection,
+        initialZone: _suggestedZone,
+        onSelectionChanged: (direction, zone) {
+          _suggestedDirection = direction;
+          _suggestedZone = zone;
+        },
+      ),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -708,7 +747,9 @@ class _PassengerScreenState extends State<PassengerScreen>
           Account(
             name: name.isEmpty ? widget.account.name : name,
             role: widget.account.role,
+            driverEnabled: widget.account.driverEnabled,
             token: widget.account.token,
+            id: widget.account.id,
           ),
         );
       },
@@ -778,11 +819,14 @@ class _PassengerScreenState extends State<PassengerScreen>
                 cancelled: _cancelledHistoryRequests,
                 loading: _myRequestsLoading,
                 failed: _myRequestsFailed,
-                onOpen: _openMyTrip,
+                onOpen: (request) => _openMyTrip(request, readOnly: true),
                 onRefresh: _loadMyRequests,
                 onRetry: _loadMyRequests,
               ),
               _PassengerTab.security => SecurityScreen(
+                contactsStore: account.id == null
+                    ? null
+                    : EmergencyContactsStore(account.id!),
                 role: UserRole.passenger,
                 userName: account.name,
                 activeTrip: _activeTripInfo,
@@ -1030,8 +1074,8 @@ class _TripsList extends StatelessWidget {
         if (filtering)
           SliverToBoxAdapter(
             child: LinearProgressIndicator(minHeight: 2, color: palette.brand),
-          ),
-        if (trips.isEmpty)
+          )
+        else if (trips.isEmpty)
           SliverToBoxAdapter(
             child: Material(
               color: palette.card,
@@ -1166,14 +1210,24 @@ class _SortMenu extends StatelessWidget {
           ),
       ],
       child: Container(
-        width: 48,
-        height: 48,
+        constraints: const BoxConstraints(minHeight: 48),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
         decoration: BoxDecoration(
           color: palette.surface,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: palette.line),
         ),
-        child: Icon(Icons.sort_rounded, size: 17, color: palette.brand),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.sort_rounded, size: 17, color: palette.onBrandSurface),
+            const SizedBox(width: 4),
+            Text(
+              'Ordenar',
+              style: RoutbText.copy(12, color: palette.onBrandSurface),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1267,20 +1321,26 @@ class _HistoryTab extends StatelessWidget {
           : RefreshIndicator(
               onRefresh: onRefresh,
               child: empty
-                  ? ListView(
+                  ? CustomScrollView(
                       key: const PageStorageKey<String>(
                         'passenger-history-empty',
                       ),
                       physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.all(24),
-                      children: const [
-                        SizedBox(height: 12),
-                        RoutbEmptyState(
-                          icon: Icons.history_rounded,
-                          message:
-                              'Todavía no tienes viajes completados ni '
-                              'cancelados. Aquí verás los viajes que ya '
-                              'terminaron.',
+                      slivers: const [
+                        SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(24),
+                              child: RoutbEmptyState(
+                                icon: Icons.history_rounded,
+                                message:
+                                    'Todavía no tienes viajes completados ni '
+                                    'cancelados. Aquí verás los viajes que ya '
+                                    'terminaron.',
+                              ),
+                            ),
+                          ),
                         ),
                       ],
                     )

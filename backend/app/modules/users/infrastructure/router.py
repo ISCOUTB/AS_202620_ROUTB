@@ -10,6 +10,7 @@ from app.modules.users.application import (
     change_user_password,
     create_user,
     delete_account,
+    select_travel_mode,
     update_driver_vehicle,
     update_user_profile,
 )
@@ -131,6 +132,34 @@ def update_my_vehicle(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
         )
+
+
+@router.put("/me/driver", response_model=schemas.UserResponse, summary="Habilitar el modo conductor")
+def activate_driver(
+    vehicle: schemas.DriverActivation,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[UserIdentity, Depends(get_current_user)],
+):
+    try:
+        return update_driver_vehicle(db, current_user.id, vehicle, activate=True)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+@router.patch("/me/mode", response_model=schemas.UserResponse, summary="Elegir modalidad activa")
+def change_mode(
+    payload: schemas.ModeUpdate,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[UserIdentity, Depends(get_current_user)],
+):
+    try:
+        return select_travel_mode(db, current_user.id, payload.mode)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
 
 
 @router.delete(

@@ -11,9 +11,11 @@ import '../models/user_role.dart';
 class SessionStore {
   SessionStore([this._preferences]);
 
+  static const String _userIdKey = 'routb_user_id';
   static const String _tokenKey = 'routb_access_token';
   static const String _nameKey = 'routb_name';
   static const String _roleKey = 'routb_role';
+  static const String _modeKey = 'routb_travel_mode';
   static const String _themeKey = 'routb_theme_mode';
 
   SharedPreferences? _preferences;
@@ -36,16 +38,46 @@ class SessionStore {
     return raw == null ? null : UserRole.fromWire(raw);
   }
 
+  Future<int?> readUserId() async => (await _prefs).getInt(_userIdKey);
+
+  Future<void> saveUserId(int id) async {
+    await (await _prefs).setInt(_userIdKey, id);
+  }
+
   /// Guarda la sesión tras un ingreso o un registro exitoso.
   Future<void> save({
     required String token,
     required String name,
     required UserRole role,
+    int? userId,
+    UserRole? activeMode,
   }) async {
     final prefs = await _prefs;
+    if (userId == null) {
+      await prefs.remove(_userIdKey);
+    } else {
+      await prefs.setInt(_userIdKey, userId);
+    }
     await prefs.setString(_tokenKey, token);
     await prefs.setString(_nameKey, name);
-    await prefs.setString(_roleKey, role.wire);
+    await saveTravelMode(
+      activeMode ?? role,
+      driverEnabled: role == UserRole.driver,
+    );
+  }
+
+  Future<UserRole?> readActiveMode() async {
+    final value = (await _prefs).getString(_modeKey);
+    return value == null ? readRole() : UserRole.fromWire(value);
+  }
+
+  Future<void> saveTravelMode(
+    UserRole mode, {
+    required bool driverEnabled,
+  }) async {
+    final prefs = await _prefs;
+    await prefs.setString(_roleKey, driverEnabled ? 'driver' : 'passenger');
+    await prefs.setString(_modeKey, mode.wire);
   }
 
   /// Actualiza el nombre guardado sin tocar el token ni el rol.
@@ -62,6 +94,8 @@ class SessionStore {
     await prefs.remove(_tokenKey);
     await prefs.remove(_nameKey);
     await prefs.remove(_roleKey);
+    await prefs.remove(_modeKey);
+    await prefs.remove(_userIdKey);
   }
 
   /// Modo del tema elegido. Por defecto sigue al sistema.

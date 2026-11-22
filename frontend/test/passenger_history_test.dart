@@ -186,6 +186,10 @@ void main() {
     await _settle(tester);
 
     expect(find.text('Mi viaje'), findsOneWidget);
+    expect(find.text('Cancelar', skipOffstage: false), findsNothing);
+    expect(find.byTooltip('Actualizar'), findsNothing);
+    expect(find.textContaining('cupo en espera'), findsNothing);
+    expect(find.textContaining('Encuentro:'), findsNothing);
     expect(find.text('Tu conductor'), findsNothing);
     expect(find.text('Luis Completó'), findsNothing);
     expect(find.text('3015550002'), findsNothing);
@@ -262,6 +266,12 @@ void main() {
 
     expect(find.text('Viajes activos'), findsOneWidget);
     expect(find.byType(MyTripCard), findsNWidgets(2));
+    await tester.tap(find.byType(MyTripCard).first);
+    await _settle(tester);
+    expect(find.text('Mi viaje'), findsOneWidget);
+    await tester.pageBack();
+    await _settle(tester);
+    expect(find.text('Viajes activos'), findsOneWidget);
   });
 
   testWidgets('un push de solicitud aceptada abre el viaje activo', (
@@ -343,7 +353,9 @@ void main() {
     await _settle(tester);
 
     expect(find.text('No tienes un viaje activo'), findsOneWidget);
-    await tester.tap(find.text('Ir a Viajes'));
+    expect(find.text('Volver'), findsNothing);
+    expect(find.byType(BackButton), findsNothing);
+    await tester.tap(find.text('Viajes'));
     await _settle(tester);
 
     expect(find.text('Viajes disponibles'), findsOneWidget);

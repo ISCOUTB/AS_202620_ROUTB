@@ -5,6 +5,7 @@ import '../theme/routb_text.dart';
 import 'routb_campus_cover.dart';
 import 'routb_logo.dart';
 import 'routb_seats.dart';
+import 'travel_mode_selector.dart';
 
 /// En móvil se desplaza todo el tablero. Con espacio, los controles y el
 /// listado se pueden consultar lado a lado, incluso en ventanas bajas.
@@ -82,34 +83,50 @@ class RoutbJourneyHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
     final ink = context.isDarkMode ? palette.background : palette.ink;
+    final greeting = Row(
+      children: [
+        ExcludeSemantics(
+          child: RoutbLogo(
+            variant: RoutbLogoVariant.onSurface.forBackground(
+              context.isDarkMode,
+            ),
+            width: 28,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text('ROUTB', style: RoutbText.headline(19, color: palette.ink)),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            'Hola, $userName',
+            textAlign: TextAlign.end,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: RoutbText.copy(13, color: palette.muted),
+          ),
+        ),
+      ],
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 14),
-          child: Row(
-            children: [
-              ExcludeSemantics(
-                child: RoutbLogo(
-                  variant: RoutbLogoVariant.onSurface.forBackground(
-                    context.isDarkMode,
-                  ),
-                  width: 28,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Text('ROUTB', style: RoutbText.headline(19, color: palette.ink)),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Hola, $userName',
-                  textAlign: TextAlign.end,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: RoutbText.copy(13, color: palette.muted),
-                ),
-              ),
-            ],
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              if (TravelModeScope.maybeOf(context) == null) return greeting;
+              final textSize = MediaQuery.textScalerOf(context).scale(14);
+              if (constraints.maxWidth < 112 + 15 * textSize) {
+                return Column(children: [greeting, const TravelModeSelector()]);
+              }
+              return Row(
+                children: [
+                  Expanded(child: greeting),
+                  const SizedBox(width: 8),
+                  const TravelModeSelector(),
+                ],
+              );
+            },
           ),
         ),
         DecoratedBox(

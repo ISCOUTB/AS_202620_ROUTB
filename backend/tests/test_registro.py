@@ -39,7 +39,9 @@ def test_registro_usuario_exitoso():
     assert data["name"] == "Juan"
     assert data["last_name"] == "Pérez"
     assert data["phone"] == "3001234567"
-    assert data["role"] == "driver"
+    assert data["role"] == "passenger"
+    assert data["active_mode"] == "passenger"
+    assert data["driver_enabled"] is False
     assert "id" in data # Confirma que se le asignó un ID en la base de datos
 
 
@@ -53,7 +55,7 @@ def test_login_devuelve_jwt():
     data = response.json()
     assert data["token_type"] == "bearer"
     assert data["access_token"]
-    assert data["user"]["role"] == "driver"
+    assert data["user"]["role"] == "passenger"
 
 
 def test_auth_me_devuelve_perfil_completo():
@@ -72,7 +74,7 @@ def test_auth_me_devuelve_perfil_completo():
     assert data["name"] == "Juan"
     assert data["last_name"] == "Pérez"
     assert data["phone"] == "3001234567"
-    assert data["role"] == "driver"
+    assert data["role"] == "passenger"
     assert "location_consent_at" not in data
 
 

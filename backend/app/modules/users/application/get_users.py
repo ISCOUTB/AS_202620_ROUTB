@@ -1,17 +1,21 @@
 from dataclasses import dataclass
+from datetime import datetime
 
 from sqlalchemy.orm import Session
 
+from app.modules.users.domain.travel_modes import TravelModes
 from app.modules.users.infrastructure.models import User
 
 
 @dataclass(frozen=True)
-class UserIdentity:
+class UserIdentity(TravelModes):
     id: int
     name: str
     last_name: str
     phone: str
     role: str
+    driver_activated_at: datetime | None = None
+    preferred_mode: str | None = None
     vehicle_model: str | None = None
     vehicle_plate: str | None = None
     vehicle_color: str | None = None
@@ -29,6 +33,8 @@ def get_user_by_phone(db: Session, phone: str) -> UserCredentials | None:
     return UserCredentials(
         id=user.id, name=user.name, last_name=user.last_name, phone=user.phone,
         role=user.role,
+        preferred_mode=user.preferred_mode,
+        driver_activated_at=user.driver_activated_at,
         vehicle_model=user.vehicle_model,
         vehicle_plate=user.vehicle_plate,
         vehicle_color=user.vehicle_color,
@@ -43,6 +49,8 @@ def get_user_by_id(db: Session, user_id: int) -> UserIdentity | None:
     return UserIdentity(
         id=user.id, name=user.name, last_name=user.last_name, phone=user.phone,
         role=user.role,
+        preferred_mode=user.preferred_mode,
+        driver_activated_at=user.driver_activated_at,
         vehicle_model=user.vehicle_model,
         vehicle_plate=user.vehicle_plate,
         vehicle_color=user.vehicle_color,

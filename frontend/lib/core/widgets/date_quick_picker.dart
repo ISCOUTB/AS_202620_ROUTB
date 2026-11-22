@@ -30,15 +30,15 @@ class DateQuickPicker extends StatelessWidget {
     final tomorrow = today.add(const Duration(days: 1));
     final selected = TripSchedule.clampToTripWindow(value, now: now);
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
       children: <Widget>[
         RoutbChip(
           label: 'Hoy',
           selected: selected == today,
           onTap: () => onChanged(today),
         ),
-        const SizedBox(width: 8),
         RoutbChip(
           label: 'Mañana',
           selected: selected == tomorrow,

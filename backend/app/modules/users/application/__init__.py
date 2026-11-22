@@ -7,11 +7,12 @@ from app.modules.users.application.get_users import (
     get_user_by_id,
     get_user_by_phone,
 )
+from app.modules.users.application.select_travel_mode import select_travel_mode
 from app.modules.users.application.update_profile import update_user_profile
 from app.modules.users.application.update_vehicle import update_driver_vehicle
 
 __all__ = [
     "change_user_password", "create_user", "delete_account", "get_user_by_id",
     "get_user_by_phone", "UserIdentity", "UserCredentials",
-    "update_driver_vehicle", "update_user_profile",
+    "update_driver_vehicle", "update_user_profile", "select_travel_mode",
 ]

@@ -37,8 +37,7 @@ RoutbDependencies _dependencies() {
 /// nunca dejaría de programar cuadros.
 Future<void> _startAuthFlow(WidgetTester tester) async {
   await tester.pump(); // splash
-  // La sesión se resuelve rápido, pero el splash tiene un mínimo de 1.2 s.
-  await tester.pump(const Duration(milliseconds: 1300));
+
   await tester.pump(const Duration(milliseconds: 600)); // transición de 400 ms
 }
 
@@ -69,14 +68,7 @@ void main() {
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
       expect(find.text('Iniciar sesión'), findsNothing);
 
-      // Aunque no haya sesión, el splash se queda el mínimo para que la marca
-      // alcance a verse.
-      await tester.pump(const Duration(milliseconds: 900));
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
-      expect(find.text('Iniciar sesión'), findsNothing);
-
-      // Se cumple el mínimo y termina la transición al acceso.
-      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump();
       await tester.pump(const Duration(milliseconds: 600));
       expect(find.text('Iniciar sesión'), findsOneWidget);
     });
@@ -122,45 +114,42 @@ void main() {
       await tester.pump(const Duration(milliseconds: 600));
 
       expect(find.byType(RoutbLogo), findsOneWidget);
-
-      await tester.tap(find.text('Soy pasajero'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 600));
-
-      expect(find.byType(RoutbLogo), findsOneWidget);
     });
 
-    testWidgets('el carrusel de acceso avanza entre las tres vistas', (
+    testWidgets('el carrusel de acceso avanza entre acceso y registro', (
       tester,
     ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(375, 667);
+      tester.view.padding = const FakeViewPadding(top: 48);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetPadding);
+
       final dependencies = _dependencies();
       addTearDown(dependencies.dispose);
 
       await tester.pumpWidget(RoutbApp(dependencies: dependencies));
       await _startAuthFlow(tester);
 
-      // Entrar lleva a elegir perfil.
       await tester.tap(find.text('¿No tienes cuenta? Regístrate'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 600));
-      expect(find.text('¿Cómo vas a viajar?'), findsOneWidget);
-
-      // Elegir pasajero lleva a crear cuenta, con la insignia del perfil. Se
-      // busca el subtítulo porque el título y el botón comparten texto.
-      await tester.tap(find.text('Soy pasajero'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pumpAndSettle();
+      expect(find.text('¿Cómo vas a viajar?'), findsNothing);
       expect(
         find.text('Únete a la comunidad universitaria de ROUTB'),
         findsOneWidget,
       );
-      expect(find.text('Registro como pasajero'), findsOneWidget);
+      final backArrow = find.byIcon(Icons.arrow_back_rounded).hitTestable();
+      expect(tester.getTopLeft(backArrow).dy, greaterThanOrEqualTo(48));
 
-      // Volver regresa a elegir perfil.
-      await tester.tap(find.bySemanticsLabel('Volver'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 600));
-      expect(find.text('¿Cómo vas a viajar?'), findsOneWidget);
+      await tester.tap(backArrow);
+      await tester.pumpAndSettle();
+      expect(find.text('Iniciar sesión'), findsOneWidget);
+      await tester.tap(find.text('¿No tienes cuenta? Regístrate'));
+      await tester.pumpAndSettle();
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text('Iniciar sesión'), findsOneWidget);
     });
   });
 }

@@ -448,10 +448,9 @@ void main() {
       expect(UserRole.passenger.wire, 'passenger');
     });
 
-    test('cada perfil tiene su título y su insignia', () {
-      expect(UserRole.driver.registrationLabel, 'Registro como conductor');
-      expect(UserRole.passenger.registrationLabel, 'Registro como pasajero');
-      expect(UserRole.passenger.title, 'Soy pasajero');
+    test('cada modalidad tiene su etiqueta de navegación', () {
+      expect(UserRole.driver.label, 'Conductor');
+      expect(UserRole.passenger.label, 'Pasajero');
     });
   });
 

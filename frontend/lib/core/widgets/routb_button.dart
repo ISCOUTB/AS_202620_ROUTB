@@ -81,13 +81,13 @@ class RoutbButton extends StatelessWidget {
             color: palette.surface,
             borderRadius: radius,
           );
-          foreground = palette.brand;
+          foreground = palette.onBrandSurface;
         case RoutbButtonVariant.danger:
           decoration = BoxDecoration(
             borderRadius: radius,
             border: Border.all(color: palette.rose, width: 1.5),
           );
-          foreground = palette.rose;
+          foreground = palette.onRoseSurface;
       }
     }
 
@@ -110,8 +110,7 @@ class RoutbButton extends StatelessWidget {
         Flexible(
           child: Text(
             label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
             style: RoutbText.copy(
               variant == RoutbButtonVariant.secondary ? 13 : 15,
               color: foreground,
@@ -130,14 +129,16 @@ class RoutbButton extends StatelessWidget {
         onTap: enabled ? onPressed : null,
         borderRadius: radius,
         focusNode: focusNode,
-        child: SizedBox(
-          height: boxHeight,
-          width: expand ? double.infinity : null,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: boxHeight,
+            minWidth: expand ? double.infinity : 0,
+          ),
           child: DecoratedBox(
             decoration: decoration,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Center(child: content),
+              child: Center(heightFactor: 1, widthFactor: 1, child: content),
             ),
           ),
         ),
@@ -264,6 +265,46 @@ class RoutbTextAction extends StatelessWidget {
       semanticLabel: label,
       borderRadius: BorderRadius.circular(RoutbTheme.radiusControl),
       child: child,
+    );
+  }
+}
+
+/// Mantiene las instrucciones y errores de envío junto a la acción del formulario.
+class RoutbFormFooter extends StatelessWidget {
+  const RoutbFormFooter({
+    required this.action,
+    this.error,
+    this.hint,
+    super.key,
+  });
+  final Widget action;
+  final String? error;
+  final String? hint;
+
+  @override
+  Widget build(BuildContext context) {
+    final message = error ?? hint;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (message != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Semantics(
+              liveRegion: true,
+              child: Text(
+                message,
+                style: RoutbText.copy(
+                  13,
+                  color: error == null
+                      ? context.palette.muted
+                      : context.palette.onRoseSurface,
+                ),
+              ),
+            ),
+          ),
+        action,
+      ],
     );
   }
 }

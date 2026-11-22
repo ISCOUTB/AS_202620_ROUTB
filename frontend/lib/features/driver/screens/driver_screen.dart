@@ -26,6 +26,7 @@ import '../../auth/data/auth_repository.dart';
 import '../../notifications/push_notification_service.dart';
 import '../../profile/screens/profile_screen.dart';
 import '../../safety/models/active_trip_info.dart';
+import '../../safety/data/emergency_contacts_store.dart';
 import '../../safety/screens/security_screen.dart';
 import '../../trips/data/trip_repository.dart';
 import '../../trips/screens/active_trip_empty_screen.dart';
@@ -59,6 +60,7 @@ class _DriverScreenState extends State<DriverScreen>
   final Set<int> _busyRequests = <int>{};
   int? _highlightedTripId;
   bool _asked = false;
+  int _loadGeneration = 0;
   bool _appInForeground = true;
   ValueNotifier<int>? _refreshSignal;
   VoidCallback? _refreshListener;
@@ -74,14 +76,14 @@ class _DriverScreenState extends State<DriverScreen>
     // El estado «vigente» de una ruta depende del reloj. Un latido lento
     // mantiene el indicador del centro al día sin consultar al backend.
     _activeTimer = Timer.periodic(const Duration(seconds: 60), (_) {
-      if (mounted && _appInForeground) setState(() {});
+      if (mounted && _appInForeground) setState(_moveFinishedTrips);
     });
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _appInForeground = state == AppLifecycleState.resumed;
-    if (mounted) setState(() {});
+    if (mounted) setState(_moveFinishedTrips);
   }
 
   @override
@@ -166,25 +168,32 @@ class _DriverScreenState extends State<DriverScreen>
     setState(() => _tab = tab);
   }
 
-  /// Rutas que todavía cuentan como activas para el botón central.
-  ///
-  /// «Activa» es una ruta publicada que aún no terminó: programada, en curso o
-  /// próxima. Una ruta de hoy que ya superó su ventana de viaje deja de
-  /// encender el indicador aunque siga en «Mis rutas» hasta que cambie el día.
-  List<Trip> get _activeTrips {
+  void _moveFinishedTrips() {
     final now = DateTime.now();
-    return _state.trips
-        .where((trip) {
-          if (!trip.status.isActive) return false;
-          final phase = trip.phaseAt(now);
-          return phase == TripPhase.scheduled || phase == TripPhase.onCourse;
-        })
-        .toList(growable: false);
+    final finished = _state.trips.where((trip) {
+      final phase = trip.phaseAt(now);
+      return phase == TripPhase.completed || phase == TripPhase.cancelled;
+    }).toList();
+    if (finished.isEmpty) return;
+    final ids = finished.map((trip) => trip.id).toSet();
+    final current = _state.trips
+        .where((trip) => !ids.contains(trip.id))
+        .toList();
+    _state = _state.copyWith(
+      trips: current,
+      history: [
+        ...finished,
+        ..._state.history.where((trip) => !ids.contains(trip.id)),
+      ],
+      selected: ids.contains(_state.selected?.id)
+          ? current.firstOrNull
+          : _state.selected,
+    );
   }
 
   /// Ruta activa que debe abrir el botón central: la de salida más próxima.
   Trip? get _nearestTrip {
-    final trips = _activeTrips;
+    final trips = _state.trips;
     if (trips.isEmpty) return null;
 
     final now = DateTime.now();
@@ -247,36 +256,25 @@ class _DriverScreenState extends State<DriverScreen>
   }
 
   Future<void> _load() async {
+    final generation = ++_loadGeneration;
     try {
-      final mine = await _trips.listMine();
-      // El historial son las rutas canceladas o cuya fecha ya pasó.
-      final history = await _trips.listMine(scope: 'history');
-      // En «Mis rutas» solo quedan las vigentes (hoy o mañana): las que ya
-      // pasaron de fecha viven en el historial.
-      final now = DateTime.now();
-      final current = mine
-          .where((trip) => !trip.isPastDate(now))
-          .toList(growable: false);
-      // Los viajes vigentes ya vienen enriquecidos directamente desde listMine().
-      final enriched = current;
+      final trips = await _trips.listMine(scope: 'all');
 
-      if (!mounted) return;
-      final previous = _state.selected;
-      final selected = previous == null
-          ? enriched.firstOrNull
-          : enriched.where((trip) => trip.id == previous.id).firstOrNull ??
-                enriched.firstOrNull;
+      if (!mounted || generation != _loadGeneration) return;
+      final selected =
+          trips.where((trip) => trip.id == _state.selected?.id).firstOrNull ??
+          trips.firstOrNull;
       setState(() {
         _state = DriverState(
           status: DriverStatus.ready,
-          trips: enriched,
-          history: history,
+          trips: trips,
           selected: selected,
         );
+        _moveFinishedTrips();
       });
     } on Exception catch (error, stack) {
       logFailure('la carga de rutas', error, stack);
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(
         () => _state = DriverState(
           status: DriverStatus.failed,
@@ -454,42 +452,21 @@ class _DriverScreenState extends State<DriverScreen>
       return;
     }
 
-    final draft = await openPublishRouteScreen(
+    final published = await openPublishRouteScreen(
       context: context,
       driverName: account.name,
       driverInitials: initialsOf(account.name),
     );
-    if (draft == null || !mounted) return;
-
-    try {
-      final published = await _trips.publish(
-        origin: draft.origin,
-        destination: draft.destination,
-        departureTime: draft.departure.label,
-        departureDate: draft.departureDate,
-        meetingPoint: draft.meetingPoint.trim(),
-        seats: draft.seats,
-        direction: draft.direction,
-        driverPoint: draft.driverPoint,
+    if (published == null || !mounted) return;
+    setState(() {
+      _highlightedTripId = published.id;
+      _state = _state.copyWith(
+        status: DriverStatus.ready,
+        trips: <Trip>[published, ..._state.trips],
+        selected: published,
       );
-      if (!mounted) return;
-      setState(() {
-        _highlightedTripId = published.id;
-        _state = _state.copyWith(
-          status: DriverStatus.ready,
-          trips: <Trip>[published, ..._state.trips],
-          selected: published,
-        );
-      });
-      RoutbToast.show(context, 'Ruta publicada. Ya la ven los pasajeros');
-    } on ApiException catch (error) {
-      if (!mounted) return;
-      if (error.detail == 'vehicle_required') {
-        await _showVehicleRequired();
-        return;
-      }
-      RoutbToast.show(context, error.message);
-    }
+    });
+    RoutbToast.show(context, 'Ruta publicada. Ya la ven los pasajeros');
   }
 
   /// N2: sin modelo, color y placa el servidor no permite publicar.
@@ -538,7 +515,9 @@ class _DriverScreenState extends State<DriverScreen>
           Account(
             name: name.isEmpty ? widget.account.name : name,
             role: widget.account.role,
+            driverEnabled: widget.account.driverEnabled,
             token: widget.account.token,
+            id: widget.account.id,
           ),
         );
       },
@@ -594,6 +573,9 @@ class _DriverScreenState extends State<DriverScreen>
                     onOpen: _openHistoryDetail,
                   ),
                   _DriverTab.security => SecurityScreen(
+                    contactsStore: account.id == null
+                        ? null
+                        : EmergencyContactsStore(account.id!),
                     role: UserRole.driver,
                     userName: account.name,
                     activeTrip: _activeTripInfo,
@@ -934,17 +916,23 @@ class _HistoryList extends StatelessWidget {
     return RefreshIndicator(
       onRefresh: onRefresh,
       child: trips.isEmpty
-          ? ListView(
+          ? CustomScrollView(
               key: const PageStorageKey<String>('driver-history-empty'),
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(24),
-              children: const [
-                SizedBox(height: 12),
-                RoutbEmptyState(
-                  icon: Icons.history_rounded,
-                  message:
-                      'Todavía no tienes rutas completadas ni canceladas. '
-                      'Las vigentes siguen en «Mis rutas».',
+              slivers: const [
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(24),
+                      child: RoutbEmptyState(
+                        icon: Icons.history_rounded,
+                        message:
+                            'Todavía no tienes rutas completadas ni canceladas. '
+                            'Las vigentes siguen en «Mis rutas».',
+                      ),
+                    ),
+                  ),
                 ),
               ],
             )

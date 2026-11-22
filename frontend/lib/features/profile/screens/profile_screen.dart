@@ -19,6 +19,7 @@ import '../../../core/widgets/routb_section_header.dart';
 import '../../../core/widgets/routb_seats.dart';
 import '../../../core/widgets/routb_steering_wheel.dart';
 import '../../../core/widgets/routb_toast.dart';
+import '../../../core/widgets/travel_mode_selector.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../auth/screens/auth_flow.dart';
 import '../widgets/vehicle_sheet.dart';
@@ -186,7 +187,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (_loading) return const _ProfileLoading();
 
     final error = _error;
-    if (error != null) return _ProfileFailed(message: error, onRetry: _load);
+    if (error != null) {
+      return _ProfileFailed(message: error, onRetry: _load, onLogout: _logout);
+    }
 
     final profile = _profile!;
     return RefreshIndicator(
@@ -196,14 +199,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
         children: [
+          if (TravelModeScope.maybeOf(context) != null)
+            const TravelModeSelector(inProfile: true),
           if (!split) ...[_identityCard(profile), const SizedBox(height: 14)],
+          if (widget.account.role == UserRole.driver) ...[
+            _vehicleCard(profile),
+            const SizedBox(height: 14),
+          ],
           _screenModeCard(),
           const SizedBox(height: 14),
           const _PermissionsCard(),
-          if (profile.role == UserRole.driver) ...[
-            const SizedBox(height: 14),
-            _vehicleCard(profile),
-          ],
           const SizedBox(height: 18),
           RoutbButton(
             label: 'Cerrar sesión',
@@ -576,7 +581,8 @@ class _IdentityHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                profile.roleLabel,
+                TravelModeScope.maybeOf(context)?.mode.label ??
+                    profile.roleLabel,
                 style: RoutbText.copy(
                   12,
                   color: palette.onBrandSurface,
@@ -618,7 +624,12 @@ class _ProfileLoading extends StatelessWidget {
 }
 
 class _ProfileFailed extends StatelessWidget {
-  const _ProfileFailed({required this.message, required this.onRetry});
+  const _ProfileFailed({
+    required this.message,
+    required this.onRetry,
+    required this.onLogout,
+  });
+  final VoidCallback onLogout;
 
   final String message;
   final VoidCallback onRetry;
@@ -639,6 +650,12 @@ class _ProfileFailed extends StatelessWidget {
             height: 44,
             onPressed: onRetry,
           ),
+        ),
+        RoutbButton(
+          label: 'Cerrar sesión',
+          icon: Icons.logout_rounded,
+          variant: RoutbButtonVariant.secondary,
+          onPressed: onLogout,
         ),
       ],
     );

@@ -69,8 +69,7 @@ class RoutbApp extends StatelessWidget {
 /// Decide la pantalla de arranque.
 ///
 /// Si hay una sesión guardada entra directo al modo que le corresponde; si no,
-/// al acceso. Mientras resuelve se ve el splash, con un mínimo de 1.2 s para
-/// que la marca alcance a verse.
+/// al acceso. Mientras resuelve se ve el splash hasta que termina la consulta.
 class SessionGate extends StatefulWidget {
   const SessionGate({super.key});
 
@@ -92,14 +91,6 @@ class _SessionGateState extends State<SessionGate> {
   Future<void> _resolve() async {
     final dependencies = RoutbScopeDependencies.of(context);
 
-    // La marca del splash necesita un momento para verse: sin esta pausa la
-    // restauración de sesión termina antes de que acabe la animación y la app
-    // salta al acceso sin mostrar nada. La espera corre en paralelo, así que
-    // no se suma cuando el backend tarda más que el mínimo.
-    final minimumSplash = Future<void>.delayed(
-      const Duration(milliseconds: 1200),
-    );
-
     Account? account;
     try {
       account = await dependencies.auth.restore();
@@ -110,7 +101,6 @@ class _SessionGateState extends State<SessionGate> {
       account = null;
     }
 
-    await minimumSplash;
     if (!mounted) return;
 
     Navigator.of(context).pushReplacement(

@@ -211,6 +211,98 @@
         ]
       }
     },
+    "/users/me/driver": {
+      "put": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Habilitar el modo conductor",
+        "operationId": "activate_driver_users_me_driver_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DriverActivation"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/users/me/mode": {
+      "patch": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Elegir modalidad activa",
+        "operationId": "change_mode_users_me_mode_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModeUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/trips/": {
       "post": {
         "tags": [
@@ -555,7 +647,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
               }
             }
           }
@@ -1034,6 +1128,59 @@
         }
       }
     },
+    "/support/reports": {
+      "post": {
+        "tags": [
+          "support"
+        ],
+        "summary": "Submit Report",
+        "description": "Guarda un reporte de soporte y devuelve su folio.",
+        "operationId": "submit_report_support_reports_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupportReportCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportReportReceipt"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sesión requerida"
+          },
+          "409": {
+            "description": "Identificador de envío usado con otro contenido"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/health": {
       "get": {
         "summary": "Health",
@@ -1119,6 +1266,51 @@
         ],
         "title": "DeviceTokenUpsert"
       },
+      "DriverActivation": {
+        "properties": {
+          "vehicle_model": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vehicle Model",
+            "description": "Marca y línea del vehículo (ej. Chevrolet Spark)"
+          },
+          "vehicle_plate": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 10
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vehicle Plate",
+            "description": "Placa colombiana de automóvil (ej. XYZ-123)"
+          },
+          "vehicle_color": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 30
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vehicle Color",
+            "description": "Color del vehículo (ej. Gris)"
+          }
+        },
+        "type": "object",
+        "title": "DriverActivation"
+      },
       "DriverPoint": {
         "properties": {
           "lat": {
@@ -1182,6 +1374,23 @@
           "password"
         ],
         "title": "LoginRequest"
+      },
+      "ModeUpdate": {
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "passenger",
+              "driver"
+            ],
+            "title": "Mode"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mode"
+        ],
+        "title": "ModeUpdate"
       },
       "MyRequestResponse": {
         "properties": {
@@ -1614,6 +1823,51 @@
         ],
         "title": "SuggestionItem"
       },
+      "SupportReportCreate": {
+        "properties": {
+          "submission_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Submission Id"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "trip",
+              "reservation",
+              "driver",
+              "app"
+            ],
+            "title": "Category"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 10,
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "submission_id",
+          "category",
+          "description"
+        ],
+        "title": "SupportReportCreate"
+      },
+      "SupportReportReceipt": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "SupportReportReceipt"
+      },
       "TokenResponse": {
         "properties": {
           "access_token": {
@@ -1625,9 +1879,7 @@
             "title": "Token Type"
           },
           "user": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "User"
+            "$ref": "#/components/schemas/UserResponse"
           }
         },
         "type": "object",
@@ -2111,7 +2363,9 @@
               "driver"
             ],
             "title": "Role",
-            "default": "passenger"
+            "description": "Compatibilidad con clientes anteriores. Toda cuenta comienza como pasajero.",
+            "default": "passenger",
+            "deprecated": true
           }
         },
         "type": "object",
@@ -2141,12 +2395,20 @@
             "type": "string",
             "title": "Phone"
           },
-          "role": {
+          "active_mode": {
             "type": "string",
             "enum": [
               "passenger",
               "driver"
             ],
+            "title": "Active Mode"
+          },
+          "driver_enabled": {
+            "type": "boolean",
+            "title": "Driver Enabled"
+          },
+          "role": {
+            "type": "string",
             "title": "Role"
           },
           "vehicle_model": {
@@ -2189,6 +2451,8 @@
           "name",
           "last_name",
           "phone",
+          "active_mode",
+          "driver_enabled",
           "role"
         ],
         "title": "UserResponse"

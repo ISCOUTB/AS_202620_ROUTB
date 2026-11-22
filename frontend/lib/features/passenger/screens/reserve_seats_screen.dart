@@ -13,7 +13,6 @@ import '../../../core/widgets/routb_button.dart';
 import '../../../core/widgets/routb_card.dart';
 import '../../../core/widgets/routb_seats.dart';
 import '../../../core/widgets/routb_trip_form_page.dart';
-import '../../../core/widgets/routb_toast.dart';
 import '../../trips/data/trip_repository.dart';
 
 /// Pantalla de solicitud de cupos simplificada (B-1).
@@ -65,7 +64,9 @@ class _ReserveSeatsScreenState extends State<_ReserveSeatsScreen> {
   SelectedLocation? _location;
   bool _submitting = false;
 
-  Trip get _trip => widget.trip;
+  late Trip _trip = widget.trip;
+  String? _error;
+  bool _closed = false;
 
   /// Determina si el viaje va hacia el campus o sale de él.
   bool get _toCampus {
@@ -76,7 +77,7 @@ class _ReserveSeatsScreenState extends State<_ReserveSeatsScreen> {
   }
 
   /// El backend acepta de 1 a 4 cupos y solo los que queden libres.
-  int get _maximum => _trip.availableSeats.clamp(1, 4).toInt();
+  int get _maximum => _trip.availableSeats.clamp(0, 4);
 
   /// El texto se normaliza para asegurar un `address_text` válido.
   String get _addressText {
@@ -104,14 +105,18 @@ class _ReserveSeatsScreenState extends State<_ReserveSeatsScreen> {
         ]
       : const <RequestStopInput>[];
 
-  bool get _canConfirm => _location != null && !_submitting;
+  bool get _canConfirm =>
+      _location != null && _maximum > 0 && !_closed && !_submitting;
 
   Future<void> _submit() async {
     if (!_canConfirm) return;
-    setState(() => _submitting = true);
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+    final repository = RoutbScopeDependencies.of(context).trips;
 
     try {
-      final repository = RoutbScopeDependencies.of(context).trips;
       final created = await repository.requestSeat(
         _trip.id,
         seatCount: _seatCount,
@@ -127,10 +132,43 @@ class _ReserveSeatsScreenState extends State<_ReserveSeatsScreen> {
       );
     } on ApiException catch (error) {
       if (!mounted) return;
-      RoutbToast.show(context, error.message);
+      if (error.isConflict && (error.detail ?? '').contains('cupos')) {
+        try {
+          final latest = await repository.getById(_trip.id);
+          if (!mounted) return;
+          setState(() {
+            _trip = latest;
+            _closed =
+                !_trip.status.isActive || _trip.hasDeparted(DateTime.now());
+            _seatCount = _maximum == 0 ? 0 : _seatCount.clamp(1, _maximum);
+            _error = _closed
+                ? 'Este viaje ya no acepta solicitudes.'
+                : _maximum == 0
+                ? 'Ya no quedan cupos.'
+                : 'Cupos disponibles: $_maximum. Revisa tu selección antes de enviarla.';
+          });
+        } on Exception {
+          if (mounted) {
+            setState(
+              () => _error = 'Los cupos cambiaron. No pudimos actualizar la disponibilidad. Intenta de nuevo.',
+            );
+          }
+        }
+      } else {
+        setState(() {
+          _closed =
+              error.isNotFound ||
+              error.detail == 'El viaje ya salió y no acepta solicitudes' ||
+              error.detail == 'Ya tienes una solicitud activa para este viaje';
+          _error = error.isNotFound
+              ? 'Este viaje ya no está disponible.'
+              : (error.isValidation || error.isConflict)
+              ? (error.detail ?? error.message)
+              : error.message;
+        });
+      }
     } on Exception catch (error) {
-      if (!mounted) return;
-      RoutbToast.show(context, 'No se pudo enviar la solicitud: $error');
+      if (mounted) setState(() => _error = describeFailure(error));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -141,6 +179,7 @@ class _ReserveSeatsScreenState extends State<_ReserveSeatsScreen> {
     final palette = context.palette;
 
     return RoutbTripFormPage(
+      busy: _submitting,
       title: _toCampus
           ? 'Solicitar cupo hacia la UTB'
           : 'Solicitar cupo desde la UTB',
@@ -256,13 +295,23 @@ class _ReserveSeatsScreenState extends State<_ReserveSeatsScreen> {
           const SizedBox(height: 12),
         ],
       ),
-      footer: RoutbButton(
-        label: _seatCount == 1
-            ? 'Enviar solicitud a $_driverFirstName (1 cupo)'
-            : 'Enviar solicitud a $_driverFirstName ($_seatCount cupos)',
-        icon: Icons.send_rounded,
-        busy: _submitting,
-        onPressed: _canConfirm ? _submit : null,
+      footer: RoutbFormFooter(
+        error: _error,
+        hint: _maximum == 0
+            ? 'Ya no quedan cupos.'
+            : (_location == null
+                  ? 'Elige tu punto en el mapa o busca una dirección.'
+                  : null),
+        action: RoutbButton(
+          label: _maximum == 0 || _closed
+              ? 'Viaje sin disponibilidad'
+              : _seatCount == 1
+              ? 'Enviar solicitud a $_driverFirstName (1 cupo)'
+              : 'Enviar solicitud a $_driverFirstName ($_seatCount cupos)',
+          icon: Icons.send_rounded,
+          busy: _submitting,
+          onPressed: _canConfirm ? _submit : null,
+        ),
       ),
     );
   }

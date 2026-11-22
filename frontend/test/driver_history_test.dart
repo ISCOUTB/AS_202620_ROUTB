@@ -55,7 +55,7 @@ class _HistoryApi {
   late final http.Client client = MockClient((request) async {
     final path = request.url.path;
     if (request.method == 'GET' && path == '/trips/my-trips') {
-      if (request.url.queryParameters['scope'] == 'history') {
+      if (request.url.queryParameters['scope'] == 'all') {
         return http.Response(
           jsonEncode(<Map<String, dynamic>>[
             _tripJson(
@@ -155,6 +155,7 @@ void main() {
     await _settle(tester);
 
     expect(find.text('Detalle de la ruta'), findsOneWidget);
+    expect(find.textContaining('Encuentro:'), findsNothing);
     expect(find.text('Centro → UTB'), findsOneWidget);
     expect(find.text('Cancelar ruta'), findsNothing);
     expect(find.text('Solicitudes pendientes'), findsNothing);

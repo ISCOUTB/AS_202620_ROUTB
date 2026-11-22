@@ -146,7 +146,7 @@ Future<void> _scrollToDelete(WidgetTester tester) async {
 
 /// Baja hasta la tarjeta del vehículo del conductor.
 Future<void> _scrollToVehicle(WidgetTester tester) async {
-  await tester.drag(find.byType(ListView), const Offset(0, -520));
+  await tester.ensureVisible(find.text('Vehículo'));
   await _settle(tester);
 }
 
@@ -234,6 +234,7 @@ void main() {
       await _settle(tester);
 
       expect(find.text('Reintentar'), findsOneWidget);
+      expect(find.text('Cerrar sesión'), findsOneWidget);
     });
 
     testWidgets('el conductor registra su vehículo desde el perfil', (

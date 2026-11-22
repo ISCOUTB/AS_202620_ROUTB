@@ -6,7 +6,6 @@ import '../../../core/widgets/routb_button.dart';
 import '../../../core/widgets/routb_card.dart';
 import '../../../core/widgets/routb_field.dart';
 import '../../../core/widgets/routb_sheet.dart';
-import '../../../core/widgets/routb_toast.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../auth/data/auth_validation.dart';
 
@@ -60,13 +59,16 @@ class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
   final TextEditingController _new = TextEditingController();
   final TextEditingController _confirm = TextEditingController();
 
+  final _currentFocus = FocusNode();
   String? _currentError;
   String? _newError;
   String? _confirmError;
   bool _saving = false;
+  String? _saveError;
 
   @override
   void dispose() {
+    _currentFocus.dispose();
     _current.dispose();
     _new.dispose();
     _confirm.dispose();
@@ -95,7 +97,10 @@ class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
 
   Future<void> _save() async {
     if (_saving || !_validate()) return;
-    setState(() => _saving = true);
+    setState(() {
+      _saving = true;
+      _saveError = null;
+    });
     try {
       await widget.auth.changePassword(
         currentPassword: _current.text,
@@ -106,15 +111,16 @@ class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
     } on ApiException catch (error, stack) {
       logFailure('el cambio de contraseña', error, stack);
       if (!mounted) return;
-      if (error.isValidation) {
+      if (error.statusCode == 400) {
         setState(() => _currentError = error.message);
+        _currentFocus.requestFocus();
       } else {
-        RoutbToast.show(context, error.message);
+        setState(() => _saveError = error.message);
       }
     } on Exception catch (error, stack) {
       logFailure('el cambio de contraseña', error, stack);
       if (!mounted) return;
-      RoutbToast.show(context, describeFailure(error));
+      setState(() => _saveError = describeFailure(error));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -138,6 +144,7 @@ class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
             icon: Icons.lock_outline_rounded,
             hint: 'Contraseña actual',
             controller: _current,
+            focusNode: _currentFocus,
             obscureToggle: true,
             textInputAction: TextInputAction.next,
             errorText: _currentError,
@@ -174,11 +181,14 @@ class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
           ),
         ],
       ),
-      footer: RoutbButton(
-        label: 'Guardar contraseña',
-        icon: Icons.check_rounded,
-        busy: _saving,
-        onPressed: _save,
+      footer: RoutbFormFooter(
+        error: _saveError,
+        action: RoutbButton(
+          label: 'Guardar contraseña',
+          icon: Icons.check_rounded,
+          busy: _saving,
+          onPressed: _save,
+        ),
       ),
     );
   }
