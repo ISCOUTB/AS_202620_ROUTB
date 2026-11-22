@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../app/app_routes.dart';
 import '../../../core/models/user_profile.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/routb_palette.dart';
@@ -8,62 +9,37 @@ import '../../../core/theme/routb_text.dart';
 import '../../../core/widgets/routb_button.dart';
 import '../../../core/widgets/routb_card.dart';
 import '../../../core/widgets/routb_field.dart';
-import '../../../core/widgets/routb_sheet.dart';
+import '../../../core/widgets/route_actions.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../auth/data/auth_validation.dart';
+import '../widgets/profile_form_page.dart';
 
-/// Abre la hoja para editar nombre, apellido y teléfono.
+/// Abre la pantalla para editar nombre, apellido y teléfono.
 ///
 /// Devuelve el perfil actualizado cuando el backend confirma el cambio, o
 /// `null` si se cerró sin guardar. El teléfono es también el usuario de
 /// ingreso, así que el backend valida que siga siendo único.
-Future<UserProfile?> showEditProfileSheet({
+Future<UserProfile?> openEditProfileScreen({
   required BuildContext context,
   required UserProfile profile,
   required AuthRepository auth,
-}) {
-  return showModalBottomSheet<UserProfile>(
-    context: context,
-    isScrollControlled: true,
-    isDismissible: true,
-    enableDrag: true,
-    showDragHandle: false,
-    backgroundColor: context.palette.surface,
-    barrierColor: const Color(0x8C0A0820),
-    constraints: const BoxConstraints(maxWidth: 640),
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-    ),
-    builder: (_) => DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: 0.72,
-      minChildSize: 0.5,
-      maxChildSize: 1.0,
-      builder: (context, scrollController) => _EditProfileSheet(
-        profile: profile,
-        auth: auth,
-        scrollController: scrollController,
-      ),
-    ),
-  );
-}
+}) => context.pushFromCurrent(
+  RoutbPageRoute<UserProfile>(
+    child: _EditProfileScreen(profile: profile, auth: auth),
+  ),
+);
 
-class _EditProfileSheet extends StatefulWidget {
-  const _EditProfileSheet({
-    required this.profile,
-    required this.auth,
-    required this.scrollController,
-  });
+class _EditProfileScreen extends StatefulWidget {
+  const _EditProfileScreen({required this.profile, required this.auth});
 
   final UserProfile profile;
   final AuthRepository auth;
-  final ScrollController scrollController;
 
   @override
-  State<_EditProfileSheet> createState() => _EditProfileSheetState();
+  State<_EditProfileScreen> createState() => _EditProfileScreenState();
 }
 
-class _EditProfileSheetState extends State<_EditProfileSheet> {
+class _EditProfileScreenState extends State<_EditProfileScreen> {
   late final TextEditingController _name = TextEditingController(
     text: widget.profile.name,
   );
@@ -143,10 +119,9 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
   Widget build(BuildContext context) {
     final palette = context.palette;
 
-    return RoutbSheetScaffold(
-      title: 'Editar perfil',
-      subtitle: 'Actualiza cómo te ven los demás en ROUTB.',
-      scrollController: widget.scrollController,
+    return ProfileFormPage(
+      busy: _saving,
+      title: 'Editar datos personales',
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

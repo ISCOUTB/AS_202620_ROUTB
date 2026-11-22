@@ -39,6 +39,7 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/data/vehicle_models.json
 
   fonts:
     # Titulares, nombres de sección y cifras grandes.

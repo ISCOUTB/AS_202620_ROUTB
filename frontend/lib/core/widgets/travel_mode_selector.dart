@@ -29,24 +29,13 @@ class TravelModeScope extends InheritedWidget {
 }
 
 class TravelModeSelector extends StatelessWidget {
-  const TravelModeSelector({this.inProfile = false, super.key});
-  final bool inProfile;
+  const TravelModeSelector({super.key});
 
   @override
   Widget build(BuildContext context) {
     final scope = TravelModeScope.maybeOf(context);
     if (scope == null) return const SizedBox.shrink();
     final driver = scope.mode == UserRole.driver;
-    if (inProfile && !scope.driverEnabled) {
-      return Align(
-        alignment: Alignment.centerLeft,
-        child: TextButton.icon(
-          onPressed: scope.busy ? null : () => scope.onSelect(UserRole.driver),
-          icon: const Icon(Icons.directions_car_outlined),
-          label: const Text('Quiero ser conductor'),
-        ),
-      );
-    }
     final color = context.palette.onBrandSurface;
     return Align(
       alignment: Alignment.centerRight,

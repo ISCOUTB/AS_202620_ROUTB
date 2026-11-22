@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widgets/route_actions.dart';
+
 import '../../../app/app_routes.dart';
 import '../../../core/models/user_profile.dart';
 import '../../../core/network/api_exception.dart';
@@ -12,8 +14,8 @@ import '../../../core/widgets/routb_seats.dart';
 import '../../../core/widgets/routb_toast.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../auth/screens/auth_flow.dart';
-import '../widgets/change_password_sheet.dart';
-import '../widgets/edit_profile_sheet.dart';
+import 'change_password_screen.dart';
+import 'edit_profile_screen.dart';
 
 /// Pantalla independiente para editar los datos y la seguridad de la cuenta.
 ///
@@ -47,7 +49,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
   String? _deleteError;
 
   Future<void> _editPersonalData() async {
-    final updated = await showEditProfileSheet(
+    final updated = await openEditProfileScreen(
       context: context,
       profile: _profile,
       auth: widget.auth,
@@ -59,7 +61,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
   }
 
   Future<void> _changePassword() async {
-    final changed = await showChangePasswordSheet(
+    final changed = await openChangePasswordScreen(
       context: context,
       auth: widget.auth,
     );
@@ -68,7 +70,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
   }
 
   Future<void> _deleteAccount() async {
-    if (_deleting) return;
+    if (_deleting || !context.canOpenRoute) return;
 
     final confirmed = await showDialog<bool>(
       context: context,

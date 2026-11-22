@@ -8,7 +8,7 @@ import '../core/theme/routb_motion.dart';
 import '../core/network/api_exception.dart';
 import '../core/widgets/travel_mode_selector.dart';
 import '../core/widgets/routb_toast.dart';
-import '../features/profile/widgets/vehicle_sheet.dart';
+import '../features/profile/screens/vehicle_screen.dart';
 import '../features/auth/data/auth_repository.dart';
 import '../features/driver/screens/driver_screen.dart';
 import '../features/passenger/screens/passenger_screen.dart';
@@ -195,7 +195,11 @@ class _ModeRouteState extends State<ModeRoute> {
     final auth = RoutbScopeDependencies.of(context).auth;
     try {
       final profile = onboarding
-          ? await showVehicleSheet(context: context, auth: auth, activate: true)
+          ? await openVehicleScreen(
+              context: context,
+              auth: auth,
+              activate: true,
+            )
           : await auth.switchTravelMode(target);
       if (!mounted || profile == null) return;
       setState(() => _account = Account.fromProfile(profile, _account.token));

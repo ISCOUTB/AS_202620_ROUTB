@@ -1,5 +1,8 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+
+import '../../../core/widgets/route_actions.dart';
+
 import 'package:geolocator/geolocator.dart';
 
 import '../../../app/app_routes.dart';
@@ -22,7 +25,7 @@ import '../../../core/widgets/routb_toast.dart';
 import '../../../core/widgets/travel_mode_selector.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../auth/screens/auth_flow.dart';
-import '../widgets/vehicle_sheet.dart';
+import 'vehicle_screen.dart';
 import 'edit_account_screen.dart';
 
 /// Modos de pantalla que ofrece la pestaña de perfil, en su orden.
@@ -122,7 +125,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _editVehicle(UserProfile profile) async {
-    final updated = await showVehicleSheet(
+    final updated = await openVehicleScreen(
       context: context,
       profile: profile,
       auth: _auth,
@@ -143,7 +146,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final profile = _profile;
     if (profile == null) return;
 
-    Navigator.of(context).push(
+    context.pushFromCurrent(
       RoutbPageRoute<void>(
         child: EditAccountScreen(
           profile: profile,
@@ -199,8 +202,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
         children: [
-          if (TravelModeScope.maybeOf(context) != null)
-            const TravelModeSelector(inProfile: true),
           if (!split) ...[_identityCard(profile), const SizedBox(height: 14)],
           if (widget.account.role == UserRole.driver) ...[
             _vehicleCard(profile),

@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../core/widgets/route_actions.dart';
+
 import '../../../app/app_routes.dart';
 import '../../../app/dependencies.dart';
 import '../../../core/models/my_request.dart';
@@ -351,7 +353,7 @@ class _PassengerScreenState extends State<PassengerScreen>
 
   /// Cancela una solicitud pendiente desde la tarjeta resumida (G5).
   Future<void> _cancelRequest(MyRequest request) async {
-    if (_busyRequestId != null) return;
+    if (_busyRequestId != null || !context.canOpenRoute) return;
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -446,8 +448,12 @@ class _PassengerScreenState extends State<PassengerScreen>
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
-  Future<void> _openMyTrip(MyRequest request, {bool readOnly = false}) async {
-    await Navigator.of(context).push(
+  Future<void> _openMyTrip(
+    MyRequest request, {
+    bool readOnly = false,
+    BuildContext? source,
+  }) async {
+    await (source ?? context).pushFromCurrent(
       RoutbPageRoute<void>(
         child: MyTripScreen(
           request: request,
@@ -476,8 +482,9 @@ class _PassengerScreenState extends State<PassengerScreen>
 
   /// Abre el viaje activo desde el botón central.
   Future<void> _openActiveTrip() async {
+    if (!context.canOpenRoute) return;
     await _waitForRequests();
-    if (!mounted) return;
+    if (!mounted || !context.canOpenRoute) return;
 
     if (_myRequestsFailed && _activeRequests.isEmpty) {
       RoutbToast.show(
@@ -489,7 +496,7 @@ class _PassengerScreenState extends State<PassengerScreen>
 
     final active = _activeRequests;
     if (active.isEmpty) {
-      final shortcut = await Navigator.of(context).push<ActiveTripShortcut>(
+      final shortcut = await context.pushFromCurrent<ActiveTripShortcut>(
         RoutbPageRoute<ActiveTripShortcut>(
           child: const ActiveTripEmptyScreen(role: UserRole.passenger),
         ),
@@ -505,14 +512,14 @@ class _PassengerScreenState extends State<PassengerScreen>
       return;
     }
 
-    await Navigator.of(context).push(
+    await context.pushFromCurrent(
       RoutbPageRoute<void>(
         child: ValueListenableBuilder<List<MyRequest>>(
           valueListenable: _activeList,
-          builder: (_, requests, _) => ActiveTripsScreen(
+          builder: (listContext, requests, _) => ActiveTripsScreen(
             requests: requests,
             lastUpdated: _lastMyRequestsSync,
-            onOpen: _openMyTrip,
+            onOpen: (request) => _openMyTrip(request, source: listContext),
           ),
         ),
       ),
@@ -721,7 +728,7 @@ class _PassengerScreenState extends State<PassengerScreen>
   String? _suggestedDirection;
   String? _suggestedZone;
 
-  Future<void> _openSuggestions() => Navigator.of(context).push(
+  Future<void> _openSuggestions() => context.pushFromCurrent(
     RoutbPageRoute<void>(
       child: SuggestionsScreen(
         passengerId: widget.account.id,

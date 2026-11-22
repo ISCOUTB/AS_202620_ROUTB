@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../core/widgets/route_actions.dart';
+
 import '../../../app/app_routes.dart';
 import '../../../app/dependencies.dart';
 import '../../../core/models/initials.dart';
@@ -227,9 +229,19 @@ class _DriverScreenState extends State<DriverScreen>
     );
   }
 
+  bool _checkingActiveTrip = false;
+
   Future<void> _openActiveTrip() async {
-    if (_state.status == DriverStatus.loading) await _load();
-    if (!mounted) return;
+    if (_checkingActiveTrip || !context.canOpenRoute) return;
+    if (_state.status == DriverStatus.loading) {
+      _checkingActiveTrip = true;
+      try {
+        await _load();
+      } finally {
+        _checkingActiveTrip = false;
+      }
+    }
+    if (!mounted || !context.canOpenRoute) return;
     if (_state.status == DriverStatus.failed) {
       RoutbToast.show(
         context,
@@ -240,7 +252,7 @@ class _DriverScreenState extends State<DriverScreen>
 
     final trip = _nearestTrip;
     if (trip == null) {
-      final shortcut = await Navigator.of(context).push<ActiveTripShortcut>(
+      final shortcut = await context.pushFromCurrent<ActiveTripShortcut>(
         RoutbPageRoute<ActiveTripShortcut>(
           child: const ActiveTripEmptyScreen(role: UserRole.driver),
         ),
@@ -375,6 +387,7 @@ class _DriverScreenState extends State<DriverScreen>
   }
 
   Future<void> _confirmCancel(Trip trip) async {
+    if (!context.canOpenRoute) return;
     final accepted = trip.requests.accepted.fold<int>(
       0,
       (total, request) => total + request.seatCount,
@@ -435,7 +448,19 @@ class _DriverScreenState extends State<DriverScreen>
     }
   }
 
+  bool _openingPublish = false;
+
   Future<void> _openPublishSheet(Account account) async {
+    if (_openingPublish || !context.canOpenRoute) return;
+    _openingPublish = true;
+    try {
+      await _publishRoute(account);
+    } finally {
+      _openingPublish = false;
+    }
+  }
+
+  Future<void> _publishRoute(Account account) async {
     final auth = RoutbScopeDependencies.of(context).auth;
     UserProfile profile;
     try {
@@ -446,7 +471,7 @@ class _DriverScreenState extends State<DriverScreen>
       RoutbToast.show(context, describeFailure(error));
       return;
     }
-    if (!mounted) return;
+    if (!mounted || !context.canOpenRoute) return;
     if (!profile.hasCompleteVehicle) {
       await _showVehicleRequired(profile);
       return;
@@ -591,7 +616,7 @@ class _DriverScreenState extends State<DriverScreen>
   }
 
   Future<void> _openDetail(Trip trip) async {
-    await Navigator.of(context).push(
+    await context.pushFromCurrent(
       RoutbPageRoute<void>(
         child: RouteDetailScreen(
           trip: trip,
@@ -617,7 +642,7 @@ class _DriverScreenState extends State<DriverScreen>
 
   /// Abre una ruta del historial solo para consultarla.
   Future<void> _openHistoryDetail(Trip trip) async {
-    await Navigator.of(context).push(
+    await context.pushFromCurrent(
       RoutbPageRoute<void>(
         child: RouteDetailScreen(
           trip: trip,

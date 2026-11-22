@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../core/widgets/route_actions.dart';
+
 import '../../../app/dependencies.dart';
 import '../../../core/models/trip.dart';
 import '../../../core/models/trip_request.dart';
@@ -192,6 +194,7 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
       0,
       (total, request) => total + request.seatCount,
     );
+    if (!context.canOpenRoute) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {

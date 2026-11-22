@@ -23,6 +23,7 @@ import 'package:frontend/core/theme/routb_theme.dart';
 import 'package:frontend/core/theme/theme_controller.dart';
 import 'package:frontend/core/widgets/date_quick_picker.dart';
 import 'package:frontend/core/widgets/routb_hero.dart';
+import 'package:frontend/core/widgets/routb_journey_board.dart';
 import 'package:frontend/core/widgets/routb_nav_bar.dart';
 import 'package:frontend/features/auth/data/auth_repository.dart';
 import 'package:frontend/features/driver/screens/driver_screen.dart';
@@ -397,7 +398,7 @@ void main() {
     }
   });
 
-  testWidgets('activa conductor desde Perfil y alterna sin cambiar de sesión', (
+  testWidgets('activa conductor desde Viajes y alterna sin cambiar de sesión', (
     tester,
   ) async {
     _usePhone(tester, const Size(390, 844));
@@ -455,12 +456,26 @@ void main() {
     await _settle(tester);
     await tester.tap(_tab('Perfil'));
     await _settle(tester);
-    await tester.tap(find.text('Quiero ser conductor'));
+    expect(find.byTooltip('Cambiar modo de viaje'), findsNothing);
+    expect(find.text('Quiero ser conductor'), findsNothing);
+    await tester.tap(_tab('Viajes'));
+    await _settle(tester);
+    await tester.tap(find.byTooltip('Cambiar modo de viaje'));
+    await _settle(tester);
+    await tester.tap(
+      find.widgetWithText(
+        CheckedPopupMenuItem<UserRole>,
+        'Quiero ser conductor',
+      ),
+    );
     await _settle(tester);
     final fields = find.byType(TextField);
     await tester.enterText(fields.at(0), 'Spark');
     await tester.enterText(fields.at(1), 'abc123');
-    await tester.enterText(fields.at(2), 'Gris');
+    expect(fields, findsNWidgets(2));
+    final gray = find.widgetWithText(ChoiceChip, 'Gris');
+    await tester.ensureVisible(gray);
+    await tester.tap(gray);
     await tester.tap(find.text('Habilitar modo conductor'));
     await _settle(tester);
     expect(find.byType(DriverScreen), findsOneWidget);
@@ -617,12 +632,21 @@ void main() {
       expect(find.text('Editar perfil'), findsNothing);
       expect(find.text('Salir'), findsNothing);
 
-      await _openEditAccount(tester);
+      final openEditAccount = tester
+          .widget<RoutbButton>(
+            find.widgetWithText(RoutbButton, 'Editar cuenta'),
+          )
+          .onPressed!;
+      for (var tap = 0; tap < 5; tap++) {
+        openEditAccount();
+      }
+      await _settle(tester);
       expect(find.text('Editar datos personales'), findsOneWidget);
       expect(find.text('Cambiar contraseña'), findsOneWidget);
       expect(find.text('Eliminar mi cuenta'), findsOneWidget);
       await tester.pageBack();
       await _settle(tester);
+      expect(find.text('Editar cuenta'), findsOneWidget);
 
       await _scrollToLogout(tester);
       expect(find.text('Permisos'), findsOneWidget);
@@ -739,6 +763,45 @@ void main() {
       },
     );
 
+    testWidgets('cinco pulsaciones de Nueva ruta consultan el perfil una vez', (
+      tester,
+    ) async {
+      _usePhone(tester, const Size(390, 844));
+      final profile = Completer<http.Response>();
+      var profileCalls = 0;
+      final dependencies = _dependencies(
+        MockClient((request) async {
+          if (request.url.path == '/auth/me') {
+            profileCalls++;
+            return profile.future;
+          }
+          return http.Response('[]', 200, headers: _json);
+        }),
+      );
+      addTearDown(dependencies.dispose);
+      await tester.pumpWidget(
+        _app(dependencies, const DriverScreen(account: _driver)),
+      );
+      await _settle(tester);
+
+      final publish = tester
+          .widget<JourneyAction>(
+            find.widgetWithText(JourneyAction, 'Nueva ruta'),
+          )
+          .onTap;
+      for (var tap = 0; tap < 5; tap++) {
+        publish();
+      }
+      await _settle(tester);
+      expect(profileCalls, 1);
+      profile.complete(http.Response('{}', 200, headers: _json));
+      await _settle(tester);
+      expect(find.text('Configura tu vehículo'), findsOneWidget);
+      await tester.tap(find.text('Ahora no'));
+      await _settle(tester);
+      expect(find.text('Nueva ruta'), findsOneWidget);
+    });
+
     testWidgets('sin rutas el centro ofrece publicar una ruta', (tester) async {
       _usePhone(tester, const Size(390, 844));
       final dependencies = _dependencies(_EmptyDriverApi().client);
@@ -821,10 +884,15 @@ void main() {
       await _settle(tester);
 
       expect(find.text('Llamar al 123'), findsOneWidget);
-      expect(find.text('Soporte'), findsOneWidget);
       expect(find.text('Contactos de emergencia'), findsOneWidget);
       expect(find.text('Consejos para conductores'), findsOneWidget);
       expect(find.text('Consejos para pasajeros'), findsNothing);
+      await tester.scrollUntilVisible(
+        find.text('Soporte'),
+        120,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('Soporte'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   });

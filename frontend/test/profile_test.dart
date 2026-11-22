@@ -257,17 +257,33 @@ void main() {
       await _settle(tester);
 
       final fields = find.byType(TextField);
-      await tester.enterText(fields.at(0), 'Chevrolet Spark');
+      expect(ModalRoute.of(tester.element(fields.first)), isA<PageRoute>());
+      await tester.enterText(fields.at(0), 'chevrolet onix l');
+      await _settle(tester);
+      final modelOption = find.widgetWithText(ListTile, 'CHEVROLET ONIX LT');
+      expect(modelOption, findsOneWidget);
+      await tester.tap(modelOption);
       await tester.enterText(fields.at(1), 'xyz 123');
-      await tester.enterText(fields.at(2), 'Gris');
       await tester.pump();
+      expect(find.text('Marca y modelo'), findsOneWidget);
+      expect(
+        tester.widget<TextField>(fields.at(1)).controller!.text,
+        'XYZ-123',
+      );
+      final gray = find.widgetWithText(ChoiceChip, 'Gris');
+      await tester.ensureVisible(gray);
+      await tester.tap(gray);
+      await tester.pump();
+      expect(fields, findsNWidgets(2));
+      expect(tester.widget<ChoiceChip>(gray).selected, isTrue);
 
       await tester.tap(find.text('Guardar vehículo'));
       await _settle(tester);
 
       expect(api.vehicleCalls, 1);
       expect(api.lastVehicleBody?['vehicle_plate'], 'XYZ-123');
-      expect(find.text('Chevrolet Spark · Gris (XYZ-123)'), findsOneWidget);
+      expect(api.lastVehicleBody?['vehicle_model'], 'CHEVROLET ONIX LT');
+      expect(find.text('CHEVROLET ONIX LT · Gris (XYZ-123)'), findsOneWidget);
       expect(find.text('Registrado'), findsOneWidget);
       await _drainToast(tester);
     });
@@ -317,7 +333,7 @@ void main() {
       expect(api.vehicleCalls, 0);
       expect(find.text('Ingresa el color del vehículo'), findsOneWidget);
 
-      await tester.tap(find.bySemanticsLabel('Cerrar'));
+      await tester.pageBack();
       await _settle(tester);
     });
 
@@ -338,7 +354,9 @@ void main() {
       final fields = find.byType(TextField);
       await tester.enterText(fields.at(0), 'Chevrolet Spark');
       await tester.enterText(fields.at(1), '123');
-      await tester.enterText(fields.at(2), 'Gris');
+      final gray = find.widgetWithText(ChoiceChip, 'Gris');
+      await tester.ensureVisible(gray);
+      await tester.tap(gray);
       await tester.pump();
 
       await tester.tap(find.text('Guardar vehículo'));
@@ -346,9 +364,18 @@ void main() {
 
       expect(api.vehicleCalls, 0);
       expect(find.textContaining('placa colombiana válida'), findsOneWidget);
+      expect(
+        tester.widget<TextField>(fields.at(1)).focusNode!.hasFocus,
+        isTrue,
+      );
+
+      tester.view.viewInsets = const FakeViewPadding(bottom: 280);
+      addTearDown(tester.view.resetViewInsets);
+      await _settle(tester);
+      expect(tester.takeException(), isNull);
 
       // Cerrar la hoja para que no quede abierta al terminar la prueba.
-      await tester.tap(find.bySemanticsLabel('Cerrar'));
+      await tester.pageBack();
       await _settle(tester);
     });
 
@@ -386,12 +413,20 @@ void main() {
 
       await tester.tap(editVehicle);
       await _settle(tester);
-      await tester.drag(
-        find.byType(SingleChildScrollView).last,
-        const Offset(0, -160),
+      expect(find.text('Guardar cambios'), findsOneWidget);
+      final removeVehicle = find.text('Quitar vehículo');
+      await tester.scrollUntilVisible(
+        removeVehicle.hitTestable(),
+        180,
+        scrollable: find
+            .descendant(
+              of: find.byType(ListView),
+              matching: find.byType(Scrollable),
+            )
+            .first,
       );
       await _settle(tester);
-      await tester.tap(find.text('Quitar vehículo'));
+      await tester.tap(removeVehicle);
       await _settle(tester);
       expect(find.text('¿Quitar el vehículo?'), findsOneWidget);
 
