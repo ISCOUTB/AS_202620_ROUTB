@@ -27,7 +27,10 @@ class ActiveTripEmptyScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: palette.background,
-      appBar: AppBar(title: const Text('Viaje activo')),
+      appBar: AppBar(
+        title: const Text('Viaje activo'),
+        automaticallyImplyLeading: !passenger,
+      ),
       body: SafeArea(
         top: false,
         child: Center(
@@ -35,64 +38,66 @@ class ActiveTripEmptyScreen extends StatelessWidget {
             constraints: const BoxConstraints(
               maxWidth: RoutbTheme.contentMaxWidth,
             ),
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(24, 48, 24, 32),
-              children: [
-                Center(
-                  child: Container(
-                    width: 76,
-                    height: 76,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: palette.brandSurface,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      passenger
-                          ? Icons.directions_car_outlined
-                          : Icons.route_outlined,
-                      size: 34,
-                      color: palette.brand,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 76,
+                      height: 76,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: palette.brandSurface,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        passenger
+                            ? Icons.directions_car_outlined
+                            : Icons.route_outlined,
+                        size: 34,
+                        color: palette.brand,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 18),
-                Text(
-                  passenger
-                      ? 'No tienes un viaje activo'
-                      : 'No tienes una ruta activa',
-                  textAlign: TextAlign.center,
-                  style: RoutbText.headline(22, color: palette.ink),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  passenger
-                      ? 'Cuando solicites un cupo o te confirmen uno, podrás '
-                            'seguir el viaje desde aquí.'
-                      : 'Publica una ruta para que los pasajeros te encuentren y '
-                            'puedas responder sus solicitudes. Si tu última ruta '
-                            'ya salió, la encuentras en el historial.',
-                  textAlign: TextAlign.center,
-                  style: RoutbText.copy(13, color: palette.muted, height: 1.45),
-                ),
-                const SizedBox(height: 24),
-                RoutbButton(
-                  label: passenger ? 'Ir a Viajes' : 'Publicar ruta',
-                  icon: passenger
-                      ? Icons.search_rounded
-                      : Icons.add_road_rounded,
-                  onPressed: () => Navigator.of(context).pop(
+                  const SizedBox(height: 18),
+                  Text(
                     passenger
-                        ? ActiveTripShortcut.search
-                        : ActiveTripShortcut.publish,
+                        ? 'No tienes un viaje activo'
+                        : 'No tienes una ruta activa',
+                    textAlign: TextAlign.center,
+                    style: RoutbText.headline(22, color: palette.ink),
                   ),
-                ),
-                const SizedBox(height: 10),
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: Text('Volver', style: TextStyle(color: palette.muted)),
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  Text(
+                    passenger
+                        ? 'Cuando solicites un cupo o te confirmen uno, podrás '
+                              'seguir el viaje desde aquí.'
+                        : 'Publica una ruta para que los pasajeros te encuentren y '
+                              'puedas responder sus solicitudes. Si tu última ruta '
+                              'ya salió, la encuentras en el historial.',
+                    textAlign: TextAlign.center,
+                    style: RoutbText.copy(
+                      13,
+                      color: palette.muted,
+                      height: 1.45,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  RoutbButton(
+                    label: passenger ? 'Viajes' : 'Publicar ruta',
+                    icon: passenger
+                        ? Icons.search_rounded
+                        : Icons.add_road_rounded,
+                    onPressed: () => Navigator.of(context).pop(
+                      passenger
+                          ? ActiveTripShortcut.search
+                          : ActiveTripShortcut.publish,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

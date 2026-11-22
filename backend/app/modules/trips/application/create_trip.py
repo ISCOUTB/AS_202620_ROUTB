@@ -45,7 +45,7 @@ def _validate_driver_vehicle(db: Session, driver_id: int | None) -> None:
     if user is None:
         raise ValueError("Usuario no encontrado")
     vehicle_fields = (user.vehicle_model, user.vehicle_plate, user.vehicle_color)
-    if not all((value or "").strip() for value in vehicle_fields):
+    if not user.driver_enabled or not all((value or "").strip() for value in vehicle_fields):
         raise VehicleRequiredError()
 
 

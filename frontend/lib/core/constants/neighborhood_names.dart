@@ -125,9 +125,6 @@ const List<String> cartagenaNeighborhoodNames = <String>[
   'Villas de Aranjuez',
   'Zapatero',
   // Zonas insulares y rurales del POT.
-  'Tierrabomba',
-  'Bocachica',
-  'Caño del Oro',
   'Barú',
   'Pasacaballos',
   'Punta Canoa',

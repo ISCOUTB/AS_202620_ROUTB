@@ -144,8 +144,15 @@ def test_matching_rechaza_fecha_fuera_de_hoy_manana():
     assert "hoy o mañana" in resp.json()["detail"]
 
 
-def test_matching_suggests_compatible_trip():
+def test_matching_suggests_compatible_trip(monkeypatch):
     """Viaje compatible en ruta devuelve sugerencia con score y eta."""
+    # El trayecto de prueba dura 1500 s. Una respuesta real de OSRM puede
+    # superar el máximo de desvío y hacer que esta ruta deje de ser compatible.
+    monkeypatch.setattr(
+        "app.shared.routing.service._call_osrm",
+        lambda _: {"distance_m": 12000, "duration_s": 1500, "geometry": [],
+                   "degraded": False, "source": "osrm"},
+    )
     driver, _ = _create_user(role="driver")
     passenger, p_token = _create_user(role="passenger")
 

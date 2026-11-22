@@ -12,6 +12,7 @@ from app.modules.requests.infrastructure.router import router as requests_router
 from app.modules.trips.infrastructure.router import router as trips_router
 from app.modules.users.infrastructure.router import router as users_router
 from app.modules.notifications.infrastructure.router import router as notifications_router
+from app.modules.support.infrastructure.router import router as support_router
 
 # Configuración de logger estructurado a stdout
 logger = logging.getLogger("routb.access")
@@ -60,6 +61,7 @@ app.include_router(auth_router, prefix="/auth", tags=["auth"])
 app.include_router(requests_router, prefix="/requests", tags=["requests"])
 app.include_router(matching_router, prefix="/matching", tags=["matching"])
 app.include_router(notifications_router, prefix="/notifications", tags=["notifications"])
+app.include_router(support_router, prefix="/support", tags=["support"])
 
 
 @app.get("/health")

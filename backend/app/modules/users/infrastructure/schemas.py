@@ -15,7 +15,7 @@ class UserCreate(BaseModel):
         max_length=128,
         description="Contraseña de al menos 8 caracteres",
     )
-    role: Literal["passenger", "driver"] = "passenger"
+    role: Literal["passenger", "driver"] = Field(default="passenger", deprecated=True, description="Compatibilidad con clientes anteriores. Toda cuenta comienza como pasajero.")
 
 
 class ProfileUpdate(BaseModel):
@@ -91,6 +91,18 @@ class VehicleUpdate(BaseModel):
         return self
 
 
+class DriverActivation(VehicleUpdate):
+    @model_validator(mode="after")
+    def require_vehicle(self):
+        if not self.vehicle_model:
+            raise ValueError("Indica el modelo, la placa y el color para habilitar conductor")
+        return self
+
+
+class ModeUpdate(BaseModel):
+    mode: Literal["passenger", "driver"]
+
+
 class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -98,7 +110,16 @@ class UserResponse(BaseModel):
     name: str
     last_name: str
     phone: str
-    role: Literal["passenger", "driver"]
+    active_mode: Literal["passenger", "driver"]
+    driver_enabled: bool
+    role: str
     vehicle_model: str | None = None
     vehicle_plate: str | None = None
     vehicle_color: str | None = None
+
+    @model_validator(mode="after")
+    def legacy_travel_role(self):
+        # Los clientes anteriores eligen su pantalla con role.
+        if self.role == "passenger" and self.driver_enabled:
+            self.role = "driver"
+        return self

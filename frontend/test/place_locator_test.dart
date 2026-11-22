@@ -218,4 +218,62 @@ void main() {
       },
     );
   });
+
+  group('GoogleMapsService.geocodeAddress', () {
+    test('conserva el municipio de Turbaco en la consulta', () async {
+      late Uri captured;
+      final service = GoogleMapsService(
+        apiKey: 'test-key',
+        client: MockClient((request) async {
+          captured = request.url;
+          return http.Response(
+            jsonEncode({
+              'results': [
+                {
+                  'geometry': {
+                    'location': {'lat': 10.334, 'lng': -75.416},
+                  },
+                },
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+
+      final point = await service.geocodeAddress('Cra 27, Turbaco');
+
+      expect(point, const LatLng(10.334, -75.416));
+      expect(captured.queryParameters['address'], 'Cra 27, Turbaco');
+    });
+
+    test('agrega Cartagena cuando el texto no trae municipio', () async {
+      late Uri captured;
+      final service = GoogleMapsService(
+        apiKey: 'test-key',
+        client: MockClient((request) async {
+          captured = request.url;
+          return http.Response(
+            jsonEncode({
+              'results': [
+                {
+                  'geometry': {
+                    'location': {'lat': 10.4236, 'lng': -75.5477},
+                  },
+                },
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+
+      await service.geocodeAddress('Cra 27');
+
+      expect(
+        captured.queryParameters['address'],
+        'Cra 27, Cartagena, Bolívar, Colombia',
+      );
+    });
+  });
 }

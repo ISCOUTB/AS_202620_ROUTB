@@ -15,10 +15,11 @@ class UserProfile {
     required this.lastName,
     required this.phone,
     required this.role,
+    bool? driverEnabled,
     this.vehicleModel,
     this.vehiclePlate,
     this.vehicleColor,
-  });
+  }) : driverEnabled = driverEnabled ?? (role == UserRole.driver);
 
   /// Identificador de la cuenta.
   final int id;
@@ -32,7 +33,9 @@ class UserProfile {
   /// Teléfono con el que se entra.
   final String phone;
 
-  /// Rol con el que se registró; no se puede cambiar desde la app.
+  final bool driverEnabled;
+
+  /// Modalidad activa de la cuenta.
   final UserRole role;
 
   /// Marca y línea del vehículo, solo para conductores.
@@ -51,7 +54,7 @@ class UserProfile {
   String get initials => initialsOf(fullName);
 
   /// Nombre del rol para la insignia: «Pasajero» o «Conductor».
-  String get roleLabel => role == UserRole.driver ? 'Conductor' : 'Pasajero';
+  String get roleLabel => role.label;
 
   /// `true` si el conductor ya registró algún dato del vehículo.
   bool get hasVehicle =>
@@ -90,6 +93,7 @@ class UserProfile {
         lastName: lastName,
         phone: phone,
         role: role,
+        driverEnabled: driverEnabled,
         vehicleModel: model,
         vehiclePlate: plate,
         vehicleColor: color,
@@ -102,7 +106,9 @@ class UserProfile {
       name: (json['name'] as String?)?.trim() ?? '',
       lastName: (json['last_name'] as String?)?.trim() ?? '',
       phone: (json['phone'] as String?)?.trim() ?? '',
-      role: UserRole.fromWire(json['role'] as String?),
+      role: UserRole.fromWire((json['active_mode'] ?? json['role']) as String?),
+      driverEnabled:
+          json['driver_enabled'] as bool? ?? json['role'] == 'driver',
       vehicleModel: (json['vehicle_model'] as String?)?.trim(),
       vehiclePlate: (json['vehicle_plate'] as String?)?.trim(),
       vehicleColor: (json['vehicle_color'] as String?)?.trim(),

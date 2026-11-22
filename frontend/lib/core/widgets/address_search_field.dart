@@ -146,8 +146,8 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
     final point = LatLng(zone.latitude, zone.longitude);
     setState(() {
       _pinnedPoint = point;
-      _selectedAddress = '${zone.name}, Cartagena';
-      _queryController.text = '${zone.name}, Cartagena';
+      _selectedAddress = Zones.addressLabel(zone.name);
+      _queryController.text = Zones.addressLabel(zone.name);
       _hasSelection = true;
       _showDropdown = false;
       _isResolvingNeighborhood = false;
@@ -370,7 +370,7 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
     return SelectedLocation(
       lat: position.latitude,
       lng: position.longitude,
-      addressText: '${closestZone.name}, Cartagena',
+      addressText: Zones.addressLabel(closestZone.name),
     );
   }
 
@@ -958,7 +958,7 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
                                 closest = z;
                               }
                             }
-                            final label = '${closest.name}, Cartagena';
+                            final label = Zones.addressLabel(closest.name);
                             setState(() {
                               _selectedAddress = label;
                               _queryController.text = label;

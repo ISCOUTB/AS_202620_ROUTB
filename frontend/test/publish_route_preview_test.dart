@@ -5,7 +5,7 @@ import 'package:latlong2/latlong.dart';
 
 import 'package:frontend/core/theme/routb_theme.dart';
 import 'package:frontend/core/widgets/route_map.dart';
-import 'package:frontend/features/driver/widgets/publish_route_sheet.dart';
+import 'package:frontend/features/driver/screens/publish_route_screen.dart';
 
 void main() {
   testWidgets('la vista previa de publicación reutiliza el mapa del viaje', (

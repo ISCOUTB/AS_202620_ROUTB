@@ -21,6 +21,8 @@ def login(db: Session, phone: str, password: str) -> dict:
             "last_name": user.last_name,
             "phone": user.phone,
             "role": user.role,
+            "driver_enabled": user.driver_enabled,
+            "active_mode": user.active_mode,
             "vehicle_model": user.vehicle_model,
             "vehicle_plate": user.vehicle_plate,
             "vehicle_color": user.vehicle_color,

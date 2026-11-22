@@ -9,7 +9,6 @@ import '../../../core/widgets/routb_button.dart';
 import '../../../core/widgets/routb_card.dart';
 import '../../../core/widgets/routb_field.dart';
 import '../../../core/widgets/routb_sheet.dart';
-import '../../../core/widgets/routb_toast.dart';
 import '../../auth/data/auth_repository.dart';
 import '../data/vehicle_validation.dart';
 
@@ -21,14 +20,15 @@ import '../data/vehicle_validation.dart';
 /// guardar.
 Future<UserProfile?> showVehicleSheet({
   required BuildContext context,
-  required UserProfile profile,
+  UserProfile? profile,
+  bool activate = false,
   required AuthRepository auth,
 }) {
   return showModalBottomSheet<UserProfile>(
     context: context,
     isScrollControlled: true,
     isDismissible: true,
-    enableDrag: true,
+    enableDrag: !activate,
     showDragHandle: false,
     backgroundColor: context.palette.surface,
     barrierColor: const Color(0x8C0A0820),
@@ -38,11 +38,13 @@ Future<UserProfile?> showVehicleSheet({
     ),
     builder: (_) => DraggableScrollableSheet(
       expand: false,
+      shouldCloseOnMinExtent: !activate,
       initialChildSize: 0.78,
       minChildSize: 0.5,
       maxChildSize: 1.0,
       builder: (context, scrollController) => _VehicleSheet(
         profile: profile,
+        activate: activate,
         auth: auth,
         scrollController: scrollController,
       ),
@@ -53,11 +55,13 @@ Future<UserProfile?> showVehicleSheet({
 class _VehicleSheet extends StatefulWidget {
   const _VehicleSheet({
     required this.profile,
+    required this.activate,
     required this.auth,
     required this.scrollController,
   });
 
-  final UserProfile profile;
+  final UserProfile? profile;
+  final bool activate;
   final AuthRepository auth;
   final ScrollController scrollController;
 
@@ -67,19 +71,20 @@ class _VehicleSheet extends StatefulWidget {
 
 class _VehicleSheetState extends State<_VehicleSheet> {
   late final TextEditingController _model = TextEditingController(
-    text: widget.profile.vehicleModel ?? '',
+    text: widget.profile?.vehicleModel ?? '',
   );
   late final TextEditingController _plate = TextEditingController(
-    text: widget.profile.vehiclePlate ?? '',
+    text: widget.profile?.vehiclePlate ?? '',
   );
   late final TextEditingController _color = TextEditingController(
-    text: widget.profile.vehicleColor ?? '',
+    text: widget.profile?.vehicleColor ?? '',
   );
 
   String? _modelError;
   String? _plateError;
   String? _colorError;
   bool _saving = false;
+  String? _saveError;
 
   @override
   void dispose() {
@@ -89,7 +94,7 @@ class _VehicleSheetState extends State<_VehicleSheet> {
     super.dispose();
   }
 
-  bool get _hasVehicle => widget.profile.hasVehicle;
+  bool get _hasVehicle => widget.profile?.hasVehicle ?? false;
 
   bool _validate() {
     final modelError = validateVehicleModel(_model.text);
@@ -106,9 +111,13 @@ class _VehicleSheetState extends State<_VehicleSheet> {
 
   Future<void> _save() async {
     if (_saving || !_validate()) return;
-    setState(() => _saving = true);
+    setState(() {
+      _saving = true;
+      _saveError = null;
+    });
     try {
       final updated = await widget.auth.updateVehicle(
+        activate: widget.activate,
         model: _model.text,
         plate: normalizeVehiclePlate(_plate.text),
         color: _color.text,
@@ -117,11 +126,11 @@ class _VehicleSheetState extends State<_VehicleSheet> {
       Navigator.of(context).pop(updated);
     } on ApiException catch (error) {
       if (!mounted) return;
-      RoutbToast.show(context, error.message);
+      setState(() => _saveError = error.message);
     } on Exception catch (error, stack) {
       logFailure('el registro del vehículo', error, stack);
       if (!mounted) return;
-      RoutbToast.show(context, describeFailure(error));
+      setState(() => _saveError = describeFailure(error));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -154,18 +163,21 @@ class _VehicleSheetState extends State<_VehicleSheet> {
     );
     if (confirmed != true || !mounted) return;
 
-    setState(() => _saving = true);
+    setState(() {
+      _saving = true;
+      _saveError = null;
+    });
     try {
       final updated = await widget.auth.updateVehicle();
       if (!mounted) return;
       Navigator.of(context).pop(updated);
     } on ApiException catch (error) {
       if (!mounted) return;
-      RoutbToast.show(context, error.message);
+      setState(() => _saveError = error.message);
     } on Exception catch (error, stack) {
       logFailure('la eliminación del vehículo', error, stack);
       if (!mounted) return;
-      RoutbToast.show(context, describeFailure(error));
+      setState(() => _saveError = describeFailure(error));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -175,85 +187,100 @@ class _VehicleSheetState extends State<_VehicleSheet> {
   Widget build(BuildContext context) {
     final palette = context.palette;
 
-    return RoutbSheetScaffold(
-      title: _hasVehicle ? 'Editar vehículo' : 'Registrar vehículo',
-      subtitle:
-          'Solo lo verá el pasajero cuyo cupo confirmes. No se muestra en el '
-          'listado público de viajes.',
-      scrollController: widget.scrollController,
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const RoutbHint(
-            'El modelo, el color y la placa ayudan a que te reconozcan al '
-            'llegar al punto de encuentro.',
-          ),
-          const SizedBox(height: 16),
-          RoutbField(
-            icon: Icons.directions_car_filled_rounded,
-            hint: 'Modelo (ej. Chevrolet Spark)',
-            controller: _model,
-            textCapitalization: TextCapitalization.words,
-            textInputAction: TextInputAction.next,
-            errorText: _modelError,
-            onChanged: (_) {
-              if (_modelError != null) setState(() => _modelError = null);
-            },
-          ),
-          const SizedBox(height: 12),
-          RoutbField(
-            icon: Icons.badge_outlined,
-            hint: 'Placa (ej. ABC-123)',
-            controller: _plate,
-            textCapitalization: TextCapitalization.characters,
-            textInputAction: TextInputAction.next,
-            inputFormatters: <TextInputFormatter>[
-              FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\- ]')),
-              LengthLimitingTextInputFormatter(8),
-            ],
-            errorText: _plateError,
-            onChanged: (_) {
-              if (_plateError != null) setState(() => _plateError = null);
-            },
-          ),
-          const SizedBox(height: 12),
-          RoutbField(
-            icon: Icons.palette_outlined,
-            hint: 'Color (ej. Gris)',
-            controller: _color,
-            textCapitalization: TextCapitalization.words,
-            textInputAction: TextInputAction.done,
-            errorText: _colorError,
-            onChanged: (_) {
-              if (_colorError != null) setState(() => _colorError = null);
-            },
-            onSubmitted: (_) => _save(),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'El modelo, el color y la placa son obligatorios. La placa se '
-            'guarda en el formato colombiano de automóvil ABC-123.',
-            style: RoutbText.copy(12, color: palette.muted),
-          ),
-          if (_hasVehicle) ...[
-            const SizedBox(height: 16),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: RoutbTextAction(
-                label: 'Quitar vehículo',
-                icon: Icons.delete_outline_rounded,
-                color: palette.rose,
-                onPressed: _saving ? null : _clear,
+    return PopScope(
+      canPop: !_saving,
+      child: AbsorbPointer(
+        absorbing: _saving,
+        child: RoutbSheetScaffold(
+          title: widget.activate
+              ? 'Quiero ser conductor'
+              : _hasVehicle
+              ? 'Editar vehículo'
+              : 'Registrar vehículo',
+          subtitle:
+              'Solo lo verá el pasajero cuyo cupo confirmes. No se muestra en el '
+              'listado público de viajes.',
+          scrollController: widget.scrollController,
+          body: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const RoutbHint(
+                'El modelo, el color y la placa ayudan a que te reconozcan al '
+                'llegar al punto de encuentro.',
               ),
+              const SizedBox(height: 16),
+              RoutbField(
+                icon: Icons.directions_car_filled_rounded,
+                hint: 'Modelo (ej. Chevrolet Spark)',
+                controller: _model,
+                textCapitalization: TextCapitalization.words,
+                textInputAction: TextInputAction.next,
+                errorText: _modelError,
+                onChanged: (_) {
+                  if (_modelError != null) setState(() => _modelError = null);
+                },
+              ),
+              const SizedBox(height: 12),
+              RoutbField(
+                icon: Icons.badge_outlined,
+                hint: 'Placa (ej. ABC-123)',
+                controller: _plate,
+                textCapitalization: TextCapitalization.characters,
+                textInputAction: TextInputAction.next,
+                inputFormatters: <TextInputFormatter>[
+                  FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\- ]')),
+                  LengthLimitingTextInputFormatter(8),
+                ],
+                errorText: _plateError,
+                onChanged: (_) {
+                  if (_plateError != null) setState(() => _plateError = null);
+                },
+              ),
+              const SizedBox(height: 12),
+              RoutbField(
+                icon: Icons.palette_outlined,
+                hint: 'Color (ej. Gris)',
+                controller: _color,
+                textCapitalization: TextCapitalization.words,
+                textInputAction: TextInputAction.done,
+                errorText: _colorError,
+                onChanged: (_) {
+                  if (_colorError != null) setState(() => _colorError = null);
+                },
+                onSubmitted: (_) => _save(),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'El modelo, el color y la placa son obligatorios. La placa se '
+                'guarda en el formato colombiano de automóvil ABC-123.',
+                style: RoutbText.copy(12, color: palette.muted),
+              ),
+              if (_hasVehicle) ...[
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: RoutbTextAction(
+                    label: 'Quitar vehículo',
+                    icon: Icons.delete_outline_rounded,
+                    color: palette.rose,
+                    onPressed: _saving ? null : _clear,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          footer: RoutbFormFooter(
+            error: _saveError,
+            action: RoutbButton(
+              label: widget.activate
+                  ? 'Habilitar modo conductor'
+                  : 'Guardar vehículo',
+              icon: Icons.check_rounded,
+              busy: _saving,
+              onPressed: _save,
             ),
-          ],
-        ],
-      ),
-      footer: RoutbButton(
-        label: 'Guardar vehículo',
-        icon: Icons.check_rounded,
-        busy: _saving,
-        onPressed: _save,
+          ),
+        ),
       ),
     );
   }

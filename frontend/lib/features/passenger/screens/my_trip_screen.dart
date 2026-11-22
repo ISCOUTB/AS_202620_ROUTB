@@ -29,6 +29,7 @@ class MyTripScreen extends StatefulWidget {
   const MyTripScreen({
     required this.request,
     required this.onWithdrawn,
+    this.readOnly = false,
     super.key,
   });
 
@@ -38,6 +39,9 @@ class MyTripScreen extends StatefulWidget {
   /// Se avisa cuando la solicitud se retiró, para quitar la tarjeta del
   /// buscador.
   final VoidCallback onWithdrawn;
+
+  /// El detalle abierto desde Historial es de consulta.
+  final bool readOnly;
 
   @override
   State<MyTripScreen> createState() => _MyTripScreenState();
@@ -64,7 +68,7 @@ class _MyTripScreenState extends State<MyTripScreen> {
 
   void _startPolling() {
     _pollTimer?.cancel();
-    if (!_request.isActive) return;
+    if (widget.readOnly || !_request.isActive) return;
     _pollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       if (mounted && !_busy && !_refreshing) {
         unawaited(_reloadRequest(silent: true));
@@ -160,17 +164,18 @@ class _MyTripScreenState extends State<MyTripScreen> {
       appBar: AppBar(
         title: const Text('Mi viaje'),
         actions: [
-          IconButton(
-            icon: _refreshing
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.refresh_rounded),
-            tooltip: 'Actualizar',
-            onPressed: () => _reloadRequest(silent: false),
-          ),
+          if (!widget.readOnly)
+            IconButton(
+              icon: _refreshing
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.refresh_rounded),
+              tooltip: 'Actualizar',
+              onPressed: () => _reloadRequest(silent: false),
+            ),
         ],
       ),
       body: SafeArea(
@@ -247,17 +252,22 @@ class _MyTripScreenState extends State<MyTripScreen> {
                             children: [
                               // El texto largo cede antes que el contador: en
                               // pantallas estrechas es lo que evita el desborde.
-                              Flexible(
-                                child: Text(
-                                  _request.isConfirmed
-                                      ? 'Tienes ${_request.seatCount} ${_request.seatCount == 1 ? 'cupo confirmado' : 'cupos confirmados'}'
-                                      : '${_request.seatCount} ${_request.seatCount == 1 ? 'cupo en espera' : 'cupos en espera'}',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: RoutbText.copy(13, color: palette.ink),
+                              if (!widget.readOnly) ...[
+                                Flexible(
+                                  child: Text(
+                                    _request.isConfirmed
+                                        ? 'Tienes ${_request.seatCount} ${_request.seatCount == 1 ? 'cupo confirmado' : 'cupos confirmados'}'
+                                        : '${_request.seatCount} ${_request.seatCount == 1 ? 'cupo en espera' : 'cupos en espera'}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: RoutbText.copy(
+                                      13,
+                                      color: palette.ink,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 10),
+                                const SizedBox(width: 10),
+                              ],
                               Text(
                                 '${_request.availableSeats} de '
                                 '${_request.totalSeats} libres',
@@ -268,101 +278,109 @@ class _MyTripScreenState extends State<MyTripScreen> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 10),
-                          Text(
-                            'Encuentro: ${_request.meetingPoint}',
-                            style: RoutbText.copy(13, color: palette.ink),
-                          ),
-                          const SizedBox(height: 4),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 14),
-                    RoutbCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const RoutbCardHeader(title: 'Tu conductor'),
-                          Row(
-                            children: [
-                              InitialsAvatar(
-                                name: _request.driverName ?? '?',
-                                initials: _request.driverInitials,
-                                size: 60,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      _request.hasDriverName
-                                          ? _request.driverName!
-                                          : 'Conductor sin asignar',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: RoutbText.headline(
-                                        15,
-                                        color: palette.ink,
-                                      ),
-                                    ),
-                                    if (_request.hasDriverPhone)
-                                      Text(
-                                        _request.driverPhone!,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: RoutbText.copy(
-                                          12,
-                                          color: palette.muted,
-                                        ),
-                                      )
-                                    else
-                                      Text(
-                                        'Teléfono no disponible',
-                                        style: RoutbText.copy(
-                                          12,
-                                          color: palette.muted,
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                              if (_request.hasDriverPhone &&
-                                  _request.isConfirmed)
-                                WhatsAppButton(
-                                  phone: _request.driverPhone!,
-                                  message:
-                                      'Hola ${_request.driverName ?? ''}, te contacto desde ROUTB sobre el viaje ${_request.routeLabel} (${_request.departureLabel}).',
-                                  compact: true,
-                                )
-                              else if (_request.hasDriverPhone)
-                                Icon(
-                                  Icons.phone_rounded,
-                                  size: 18,
-                                  color: palette.muted,
-                                ),
-                            ],
-                          ),
-                          // La ficha del vehículo es privada: solo se muestra
-                          // cuando el cupo quedó confirmado, aunque el backend
-                          // ya la filtre.
-                          if (_request.isConfirmed &&
-                              _request.hasVehicleInfo) ...[
-                            const SizedBox(height: 12),
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: RoutbVehicleBadge(
-                                info: _request.vehicleInfo!,
-                              ),
+                          if (!widget.readOnly) ...[
+                            const SizedBox(height: 10),
+                            Text(
+                              'Encuentro: ${_request.meetingPoint}',
+                              style: RoutbText.copy(13, color: palette.ink),
                             ),
+                            const SizedBox(height: 4),
                           ],
                         ],
                       ),
                     ),
 
-                    if (_request.isOrphaned) ...[
+                    // El conductor solo se muestra mientras el viaje sigue
+                    // activo. En el historial queda fuera, igual que en la
+                    // tarjeta del listado.
+                    if (_request.isActive) ...[
+                      const SizedBox(height: 14),
+                      RoutbCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const RoutbCardHeader(title: 'Tu conductor'),
+                            Row(
+                              children: [
+                                InitialsAvatar(
+                                  name: _request.driverName ?? '?',
+                                  initials: _request.driverInitials,
+                                  size: 60,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        _request.hasDriverName
+                                            ? _request.driverName!
+                                            : 'Conductor sin asignar',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: RoutbText.headline(
+                                          15,
+                                          color: palette.ink,
+                                        ),
+                                      ),
+                                      if (_request.hasDriverPhone)
+                                        Text(
+                                          _request.driverPhone!,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: RoutbText.copy(
+                                            12,
+                                            color: palette.muted,
+                                          ),
+                                        )
+                                      else
+                                        Text(
+                                          'Teléfono no disponible',
+                                          style: RoutbText.copy(
+                                            12,
+                                            color: palette.muted,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                if (_request.hasDriverPhone &&
+                                    _request.isConfirmed)
+                                  WhatsAppButton(
+                                    phone: _request.driverPhone!,
+                                    message:
+                                        'Hola ${_request.driverName ?? ''}, te contacto desde ROUTB sobre el viaje ${_request.routeLabel} (${_request.departureLabel}).',
+                                    compact: true,
+                                  )
+                                else if (_request.hasDriverPhone)
+                                  Icon(
+                                    Icons.phone_rounded,
+                                    size: 18,
+                                    color: palette.muted,
+                                  ),
+                              ],
+                            ),
+                            // La ficha del vehículo es privada: solo se muestra
+                            // cuando el cupo quedó confirmado, aunque el backend
+                            // ya la filtre.
+                            if (_request.isConfirmed &&
+                                _request.hasVehicleInfo) ...[
+                              const SizedBox(height: 12),
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: RoutbVehicleBadge(
+                                  info: _request.vehicleInfo!,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+
+                    if (!widget.readOnly && _request.isOrphaned) ...[
                       const SizedBox(height: 14),
                       RoutbCard(
                         borderColor: palette.rose,
@@ -388,25 +406,27 @@ class _MyTripScreenState extends State<MyTripScreen> {
                       ),
                     ],
 
-                    const SizedBox(height: 20),
-                    if (_request.canWithdraw)
-                      RoutbButton(
-                        label: 'Cancelar',
-                        icon: Icons.close_rounded,
-                        variant: RoutbButtonVariant.danger,
-                        busy: _busy,
-                        onPressed: _withdraw,
-                      )
-                    else
-                      // `GET /requests/me` existe pero el retiro no: casi siempre es
-                      // un despliegue con el backend sin actualizar.
-                      RoutbButton(
-                        label: 'Cancelar',
-                        variant: RoutbButtonVariant.secondary,
-                        expand: false,
-                        height: 44,
-                        onPressed: null,
-                      ),
+                    if (!widget.readOnly) ...[
+                      const SizedBox(height: 20),
+                      if (_request.canWithdraw)
+                        RoutbButton(
+                          label: 'Cancelar',
+                          icon: Icons.close_rounded,
+                          variant: RoutbButtonVariant.danger,
+                          busy: _busy,
+                          onPressed: _withdraw,
+                        )
+                      else
+                        // `GET /requests/me` existe pero el retiro no: casi siempre es
+                        // un despliegue con el backend sin actualizar.
+                        RoutbButton(
+                          label: 'Cancelar',
+                          variant: RoutbButtonVariant.secondary,
+                          expand: false,
+                          height: 44,
+                          onPressed: null,
+                        ),
+                    ],
                   ],
                 ),
               ),

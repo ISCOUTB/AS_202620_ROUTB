@@ -3,13 +3,10 @@ import 'package:flutter/services.dart';
 
 import '../../../app/app_routes.dart';
 import '../../../app/dependencies.dart';
-import '../../../core/models/user_role.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/routb_motion.dart';
 import '../../../core/theme/routb_palette.dart';
 import '../../../core/theme/routb_text.dart';
-import '../../../core/theme/routb_theme.dart';
-import '../../../core/theme/theme_controller.dart';
 import '../../../core/widgets/routb_button.dart';
 import '../../../core/widgets/routb_card.dart';
 import '../../../core/widgets/routb_field.dart';
@@ -19,15 +16,9 @@ import '../data/auth_repository.dart';
 import '../data/auth_validation.dart';
 
 /// Orden de las vistas del acceso.
-enum AuthStep { login, role, register }
+enum AuthStep { login, register }
 
-/// Acceso de ROUTB: tres vistas encadenadas con deslizamiento lateral.
-///
-/// El recorrido es el del diseño —entrar, elegir perfil, crear cuenta— y el
-/// botón de volver regresa a la vista anterior sin perder lo ya escrito.
-///
-/// Al terminar, la persona entra al modo que le corresponde sin pasar por una
-/// pantalla intermedia.
+/// Acceso y registro con navegación de regreso al ingreso.
 class AuthFlow extends StatefulWidget {
   const AuthFlow({super.key});
 
@@ -55,7 +46,6 @@ class _AuthFlowState extends State<AuthFlow> {
   ];
 
   AuthStep _step = AuthStep.login;
-  UserRole _role = UserRole.passenger;
   bool _termsAccepted = false;
   bool _busy = false;
 
@@ -104,59 +94,49 @@ class _AuthFlowState extends State<AuthFlow> {
 
   Future<void> _back() async {
     if (_step == AuthStep.login) return;
-    await _goTo(switch (_step) {
-      AuthStep.role => AuthStep.login,
-      AuthStep.register => AuthStep.role,
-      AuthStep.login => AuthStep.login,
-    });
+    await _goTo(AuthStep.login);
   }
-
-  Future<void> _toggleTheme() =>
-      RoutbScope.of(context).toggle(Theme.of(context).brightness);
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
 
-    return Scaffold(
-      backgroundColor: palette.background,
-      body: PageView(
-        controller: _controller,
-        physics: const NeverScrollableScrollPhysics(),
-        children: [
-          _LoginStep(
-            phone: _phone,
-            password: _password,
-            busy: _busy,
-            canSubmit: _canLogin,
-            onSubmit: _submitLogin,
-            onRegister: () => _goTo(AuthStep.role),
-            onToggleTheme: _toggleTheme,
+    return PopScope<void>(
+      canPop: _step == AuthStep.login,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _back();
+      },
+      child: Scaffold(
+        backgroundColor: palette.background,
+        body: SafeArea(
+          child: PageView(
+            controller: _controller,
+            physics: const NeverScrollableScrollPhysics(),
+            children: [
+              _LoginStep(
+                phone: _phone,
+                password: _password,
+                busy: _busy,
+                canSubmit: _canLogin,
+                onSubmit: _submitLogin,
+                onRegister: () => _goTo(AuthStep.register),
+              ),
+              _RegisterStep(
+                name: _name,
+                lastName: _lastName,
+                phone: _registerPhone,
+                password: _registerPassword,
+                termsAccepted: _termsAccepted,
+                onTermsChanged: (value) =>
+                    setState(() => _termsAccepted = value),
+                canSubmit: _canRegister,
+                busy: _busy,
+                onSubmit: _submitRegister,
+                onBack: _back,
+              ),
+            ],
           ),
-          _RoleStep(
-            selected: _role,
-            onSelect: (role) async {
-              setState(() => _role = role);
-              await _goTo(AuthStep.register);
-            },
-            onBack: _back,
-            onToggleTheme: _toggleTheme,
-          ),
-          _RegisterStep(
-            role: _role,
-            name: _name,
-            lastName: _lastName,
-            phone: _registerPhone,
-            password: _registerPassword,
-            termsAccepted: _termsAccepted,
-            onTermsChanged: (value) => setState(() => _termsAccepted = value),
-            canSubmit: _canRegister,
-            busy: _busy,
-            onSubmit: _submitRegister,
-            onBack: _back,
-            onToggleTheme: _toggleTheme,
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -187,7 +167,6 @@ class _AuthFlowState extends State<AuthFlow> {
         lastName: _lastName.text,
         phone: _registerPhone.text,
         password: _registerPassword.text,
-        role: _role,
       );
       await _enterMode(
         account: account,
@@ -225,15 +204,12 @@ class _AuthFlowState extends State<AuthFlow> {
 
 /// `.ah`: bloque de cabecera del acceso: marca, título y subtítulo.
 ///
-/// El interruptor de tema va siempre arriba a la derecha. La marca se puede
-/// mostrar centrada aunque el texto quede a la izquierda, que es como se ve en
-/// el registro.
+/// La marca se centra aunque el texto quede a la izquierda en el registro.
 class _AuthHeader extends StatelessWidget {
   const _AuthHeader({
     required this.title,
     required this.subtitle,
     this.onBack,
-    this.trailing,
     this.alignment = CrossAxisAlignment.center,
     this.logoWidth,
   });
@@ -241,7 +217,6 @@ class _AuthHeader extends StatelessWidget {
   final String title;
   final String subtitle;
   final VoidCallback? onBack;
-  final Widget? trailing;
   final CrossAxisAlignment alignment;
 
   /// Ancho del símbolo. Si se omite no se muestra la marca.
@@ -257,22 +232,16 @@ class _AuthHeader extends StatelessWidget {
       child: Column(
         crossAxisAlignment: alignment,
         children: [
-          Row(
-            children: [
-              if (onBack != null)
-                RoutbIconButton(
-                  icon: Icons.arrow_back_rounded,
-                  onPressed: onBack,
-                  semanticLabel: 'Volver',
-                  foreground: palette.ink,
-                ),
-              // Empuja el interruptor de tema a la derecha aunque no haya botón
-              // de volver.
-              const Spacer(),
-              if (trailing != null) ?trailing,
-            ],
-          ),
-          SizedBox(height: onBack != null ? 18 : 0),
+          if (onBack != null) ...[
+            RoutbIconButton(
+              icon: Icons.arrow_back_rounded,
+              onPressed: onBack,
+              size: 48,
+              semanticLabel: 'Volver',
+              foreground: palette.ink,
+            ),
+            const SizedBox(height: 18),
+          ],
           if (logoWidth != null) ...[
             Align(
               alignment: Alignment.center,
@@ -311,7 +280,6 @@ class _LoginStep extends StatelessWidget {
     required this.canSubmit,
     required this.onSubmit,
     required this.onRegister,
-    required this.onToggleTheme,
   });
 
   final TextEditingController phone;
@@ -320,7 +288,6 @@ class _LoginStep extends StatelessWidget {
   final bool canSubmit;
   final VoidCallback onSubmit;
   final VoidCallback onRegister;
-  final VoidCallback onToggleTheme;
 
   @override
   Widget build(BuildContext context) {
@@ -331,196 +298,67 @@ class _LoginStep extends StatelessWidget {
           title: 'Iniciar sesión',
           subtitle: 'Continúa tu viaje con ROUTB',
           logoWidth: 112,
-          trailing: _ThemeToggle(onToggle: onToggleTheme),
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(14, 26, 14, 0),
-          child: RoutbCard(
-            child: Column(
-              children: [
-                RoutbField(
-                  hint: 'Número de teléfono',
-                  icon: Icons.phone_rounded,
-                  prefixText: '+57',
-                  controller: phone,
-                  errorText: phone.text.trim().isEmpty
-                      ? null
-                      : validatePhone(phone.text),
-                  keyboardType: TextInputType.phone,
-                  inputFormatters: <TextInputFormatter>[
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(15),
-                  ],
-                  textInputAction: TextInputAction.next,
-                ),
-                const SizedBox(height: 12),
-                RoutbField(
-                  hint: 'Contraseña',
-                  icon: Icons.lock_rounded,
-                  controller: password,
-                  obscureToggle: true,
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: canSubmit ? (_) => onSubmit() : null,
-                ),
-                const SizedBox(height: 24),
-                RoutbButton(
-                  label: 'Ingresar',
-                  onPressed: canSubmit ? onSubmit : null,
-                  busy: busy,
-                ),
-                const SizedBox(height: 12),
-                RoutbButton(
-                  label: '¿No tienes cuenta? Regístrate',
-                  variant: RoutbButtonVariant.secondary,
-                  onPressed: busy ? null : onRegister,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// Segunda vista: elegir pasajero o conductor.
-class _RoleStep extends StatelessWidget {
-  const _RoleStep({
-    required this.selected,
-    required this.onSelect,
-    required this.onBack,
-    required this.onToggleTheme,
-  });
-
-  final UserRole selected;
-  final ValueChanged<UserRole> onSelect;
-  final VoidCallback onBack;
-  final VoidCallback onToggleTheme;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.only(bottom: 32),
-      children: [
-        _AuthHeader(
-          title: '¿Cómo vas a viajar?',
-          subtitle: 'Elige tu perfil para continuar',
-          alignment: CrossAxisAlignment.start,
-          logoWidth: 84,
-          onBack: onBack,
-          trailing: _ThemeToggle(onToggle: onToggleTheme),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(14, 26, 14, 0),
-          child: Column(
-            children: [
-              for (final role in UserRole.values)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 14),
-                  child: _RoleTile(
-                    role: role,
-                    selected: role == selected,
-                    onTap: () => onSelect(role),
-                  ),
-                ),
-            ],
-          ),
-        ),
-        Center(
-          child: Text(
-            'Podrás cambiar de perfil creando otra cuenta.',
-            style: RoutbText.copy(12, color: context.palette.muted),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// `.rl`: tarjeta de perfil.
-class _RoleTile extends StatelessWidget {
-  const _RoleTile({
-    required this.role,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final UserRole role;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-    final icon = role == UserRole.passenger
-        ? Icons.airline_seat_recline_normal_rounded
-        : Icons.directions_car_filled_rounded;
-
-    return Semantics(
-      button: true,
-      selected: selected,
-      label: '${role.title}. ${role.tagline}',
-      child: Material(
-        color: palette.card,
-        borderRadius: BorderRadius.circular(RoutbTheme.radiusTile),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(RoutbTheme.radiusTile),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Row(
-              children: [
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(
-                    gradient: role == UserRole.passenger
-                        ? palette.primaryGradient
-                        : palette.warmGradient,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Icon(icon, color: Colors.white, size: 24),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        role.title,
-                        style: RoutbText.headline(16, color: palette.ink),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        role.tagline,
-                        style: RoutbText.copy(
-                          12.5,
-                          color: palette.muted,
-                          height: 1.35,
-                        ),
-                      ),
+          child: AutofillGroup(
+            child: RoutbCard(
+              child: Column(
+                children: [
+                  RoutbField(
+                    hint: 'Número de teléfono',
+                    label: 'Teléfono',
+                    autofillHints: const [
+                      AutofillHints.telephoneNumberNational,
                     ],
+                    icon: Icons.phone_rounded,
+                    prefixText: '+57',
+                    controller: phone,
+                    errorText: phone.text.trim().isEmpty
+                        ? null
+                        : validatePhone(phone.text),
+                    keyboardType: TextInputType.phone,
+                    inputFormatters: <TextInputFormatter>[
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(15),
+                    ],
+                    textInputAction: TextInputAction.next,
                   ),
-                ),
-                Icon(
-                  Icons.chevron_right_rounded,
-                  color: palette.brand,
-                  size: 20,
-                ),
-              ],
+                  const SizedBox(height: 12),
+                  RoutbField(
+                    hint: 'Contraseña',
+                    label: 'Contraseña',
+                    autofillHints: const [AutofillHints.password],
+                    icon: Icons.lock_rounded,
+                    controller: password,
+                    obscureToggle: true,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: canSubmit ? (_) => onSubmit() : null,
+                  ),
+                  const SizedBox(height: 24),
+                  RoutbButton(
+                    label: 'Ingresar',
+                    onPressed: canSubmit ? onSubmit : null,
+                    busy: busy,
+                  ),
+                  const SizedBox(height: 12),
+                  RoutbButton(
+                    label: '¿No tienes cuenta? Regístrate',
+                    variant: RoutbButtonVariant.secondary,
+                    onPressed: busy ? null : onRegister,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
-      ),
+      ],
     );
   }
 }
 
-/// Tercera vista: crear cuenta.
 class _RegisterStep extends StatelessWidget {
   const _RegisterStep({
-    required this.role,
     required this.name,
     required this.lastName,
     required this.phone,
@@ -531,10 +369,8 @@ class _RegisterStep extends StatelessWidget {
     required this.busy,
     required this.onSubmit,
     required this.onBack,
-    required this.onToggleTheme,
   });
 
-  final UserRole role;
   final TextEditingController name;
   final TextEditingController lastName;
   final TextEditingController phone;
@@ -545,7 +381,6 @@ class _RegisterStep extends StatelessWidget {
   final bool busy;
   final VoidCallback onSubmit;
   final VoidCallback onBack;
-  final VoidCallback onToggleTheme;
 
   @override
   Widget build(BuildContext context) {
@@ -558,120 +393,89 @@ class _RegisterStep extends StatelessWidget {
           alignment: CrossAxisAlignment.start,
           logoWidth: 80,
           onBack: onBack,
-          trailing: _ThemeToggle(onToggle: onToggleTheme),
-        ),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 14, 24, 0),
-            child: RoutbChipLabel(label: role.registrationLabel),
-          ),
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(14, 22, 14, 0),
-          child: RoutbCard(
-            child: Column(
-              children: [
-                RoutbField(
-                  hint: 'Nombre',
-                  icon: Icons.person_outline_rounded,
-                  controller: name,
-                  errorText: name.text.trim().isEmpty
-                      ? null
-                      : validateName(name.text, 'nombre'),
-                  textCapitalization: TextCapitalization.words,
-                  textInputAction: TextInputAction.next,
-                ),
-                const SizedBox(height: 12),
-                RoutbField(
-                  hint: 'Apellido',
-                  icon: Icons.person_outline_rounded,
-                  controller: lastName,
-                  errorText: lastName.text.trim().isEmpty
-                      ? null
-                      : validateName(lastName.text, 'apellido'),
-                  textCapitalization: TextCapitalization.words,
-                  textInputAction: TextInputAction.next,
-                ),
-                const SizedBox(height: 12),
-                RoutbField(
-                  hint: 'Teléfono',
-                  icon: Icons.phone_rounded,
-                  prefixText: '+57',
-                  controller: phone,
-                  errorText: phone.text.trim().isEmpty
-                      ? null
-                      : validatePhone(phone.text),
-                  keyboardType: TextInputType.phone,
-                  inputFormatters: <TextInputFormatter>[
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(15),
-                  ],
-                  textInputAction: TextInputAction.next,
-                ),
-                const SizedBox(height: 12),
-                RoutbField(
-                  hint: 'Contraseña',
-                  icon: Icons.lock_rounded,
-                  controller: password,
-                  errorText: password.text.isEmpty
-                      ? null
-                      : validateNewPassword(password.text),
-                  obscureToggle: true,
-                  textInputAction: TextInputAction.done,
-                ),
-                const SizedBox(height: 18),
-                RoutbCheckbox(
-                  value: termsAccepted,
-                  onChanged: busy ? null : onTermsChanged,
-                  label: 'Acepto los términos y el uso de mis datos en la UTB',
-                ),
-                const SizedBox(height: 10),
-                RoutbButton(
-                  label: 'Crear cuenta',
-                  onPressed: canSubmit ? onSubmit : null,
-                  busy: busy,
-                ),
-              ],
+          child: AutofillGroup(
+            child: RoutbCard(
+              child: Column(
+                children: [
+                  RoutbField(
+                    hint: 'Nombre',
+                    label: 'Nombre',
+                    autofillHints: const [AutofillHints.givenName],
+                    icon: Icons.person_outline_rounded,
+                    controller: name,
+                    errorText: name.text.trim().isEmpty
+                        ? null
+                        : validateName(name.text, 'nombre'),
+                    textCapitalization: TextCapitalization.words,
+                    textInputAction: TextInputAction.next,
+                  ),
+                  const SizedBox(height: 12),
+                  RoutbField(
+                    hint: 'Apellido',
+                    label: 'Apellido',
+                    autofillHints: const [AutofillHints.familyName],
+                    icon: Icons.person_outline_rounded,
+                    controller: lastName,
+                    errorText: lastName.text.trim().isEmpty
+                        ? null
+                        : validateName(lastName.text, 'apellido'),
+                    textCapitalization: TextCapitalization.words,
+                    textInputAction: TextInputAction.next,
+                  ),
+                  const SizedBox(height: 12),
+                  RoutbField(
+                    hint: 'Teléfono',
+                    label: 'Teléfono',
+                    autofillHints: const [
+                      AutofillHints.telephoneNumberNational,
+                    ],
+                    icon: Icons.phone_rounded,
+                    prefixText: '+57',
+                    controller: phone,
+                    errorText: phone.text.trim().isEmpty
+                        ? null
+                        : validatePhone(phone.text),
+                    keyboardType: TextInputType.phone,
+                    inputFormatters: <TextInputFormatter>[
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(15),
+                    ],
+                    textInputAction: TextInputAction.next,
+                  ),
+                  const SizedBox(height: 12),
+                  RoutbField(
+                    hint: 'Contraseña',
+                    label: 'Contraseña',
+                    autofillHints: const [AutofillHints.newPassword],
+                    icon: Icons.lock_rounded,
+                    controller: password,
+                    errorText: password.text.isEmpty
+                        ? null
+                        : validateNewPassword(password.text),
+                    obscureToggle: true,
+                    textInputAction: TextInputAction.done,
+                  ),
+                  const SizedBox(height: 18),
+                  RoutbCheckbox(
+                    value: termsAccepted,
+                    onChanged: busy ? null : onTermsChanged,
+                    label: 'Acepto los Términos y Condiciones y autorizo el tratamiento de mis datos personales conforme a las políticas de ROUTB.',
+                  ),
+                  const SizedBox(height: 10),
+                  RoutbButton(
+                    label: 'Crear cuenta',
+                    onPressed: canSubmit ? onSubmit : null,
+                    busy: busy,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
       ],
-    );
-  }
-}
-
-/// Interruptor de tema para las cabeceras del acceso, sobre fondo de página.
-class _ThemeToggle extends StatelessWidget {
-  const _ThemeToggle({required this.onToggle});
-
-  final VoidCallback onToggle;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-    final isDark = context.isDarkMode;
-
-    return Semantics(
-      button: true,
-      label: isDark ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro',
-      child: Material(
-        color: palette.card,
-        borderRadius: BorderRadius.circular(RoutbTheme.radiusControl),
-        child: InkWell(
-          onTap: onToggle,
-          borderRadius: BorderRadius.circular(RoutbTheme.radiusControl),
-          child: SizedBox(
-            width: 36,
-            height: 36,
-            child: Icon(
-              isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
-              size: 18,
-              color: palette.brand,
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

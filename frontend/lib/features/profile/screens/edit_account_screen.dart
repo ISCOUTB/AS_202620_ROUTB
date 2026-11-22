@@ -44,6 +44,7 @@ class EditAccountScreen extends StatefulWidget {
 class _EditAccountScreenState extends State<EditAccountScreen> {
   late UserProfile _profile = widget.profile;
   bool _deleting = false;
+  String? _deleteError;
 
   Future<void> _editPersonalData() async {
     final updated = await showEditProfileSheet(
@@ -99,7 +100,10 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
     );
     if (confirmed != true || !mounted) return;
 
-    setState(() => _deleting = true);
+    setState(() {
+      _deleting = true;
+      _deleteError = null;
+    });
     try {
       await widget.auth.deleteAccount();
       if (!mounted) return;
@@ -108,10 +112,14 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
         (route) => false,
       );
       RoutbToast.show(context, 'Tu cuenta fue eliminada');
-    } on ApiException catch (error) {
+    } on Exception catch (error) {
       if (!mounted) return;
-      setState(() => _deleting = false);
-      RoutbToast.show(context, error.message);
+      setState(() {
+        _deleting = false;
+        _deleteError = error is ApiException && error.isConflict
+            ? error.detail ?? error.message
+            : describeFailure(error);
+      });
     }
   }
 
@@ -136,6 +144,14 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
                 const SizedBox(height: 14),
                 _SecurityCard(onChangePassword: _changePassword),
                 const SizedBox(height: 14),
+                if (_deleteError case final String error)
+                  Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      error,
+                      style: TextStyle(color: palette.onRoseSurface),
+                    ),
+                  ),
                 _DeleteAccountCard(busy: _deleting, onDelete: _deleteAccount),
               ],
             ),

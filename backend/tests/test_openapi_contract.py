@@ -62,3 +62,10 @@ def test_contract_detects_incompatible_breaking_change() -> None:
 
     with pytest.raises(AssertionError):
         _assert_contract_matches(contract, incompatible_impl)
+
+def test_contrato_modalidades():
+    contract = _load_contract()
+    for path, method in (("/users/me/driver", "put"), ("/users/me/mode", "patch")):
+        assert contract["paths"][path][method]["security"]
+    fields = contract["components"]["schemas"]["UserResponse"]["properties"]
+    assert {"role", "active_mode", "driver_enabled"} <= fields.keys()

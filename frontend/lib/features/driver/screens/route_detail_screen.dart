@@ -36,6 +36,7 @@ class RouteDetailScreen extends StatefulWidget {
     required this.trip,
     required this.onChanged,
     required this.onCancelled,
+    this.readOnly = false,
     super.key,
   });
 
@@ -48,6 +49,12 @@ class RouteDetailScreen extends StatefulWidget {
   /// Se avisa cuando la ruta se canceló, para sacarla de la lista del conductor.
   final VoidCallback onCancelled;
 
+  /// `true` para consultar una ruta del historial sin acciones.
+  ///
+  /// Oculta la cancelación y las respuestas a solicitudes: una ruta pasada o
+  /// cancelada ya no se gestiona desde aquí.
+  final bool readOnly;
+
   @override
   State<RouteDetailScreen> createState() => _RouteDetailScreenState();
 }
@@ -56,6 +63,9 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
   late Trip _trip = widget.trip;
   bool _busy = false;
   bool _loadedRequests = false;
+  bool _loadingRequests = false;
+  int _requestGeneration = 0;
+  String? _requestsError;
   String? _previewWaypoint;
 
   @override
@@ -68,15 +78,25 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
   }
 
   Future<void> _reloadRequests() async {
+    final generation = ++_requestGeneration;
     final repository = RoutbScopeDependencies.of(context).trips;
+    setState(() {
+      _loadingRequests = true;
+      _requestsError = null;
+    });
     try {
       final requests = await repository.listRequests(_trip.id);
-      if (!mounted) return;
+      if (!mounted || generation != _requestGeneration) return;
       setState(() => _trip = _trip.copyWith(requests: requests));
       widget.onChanged(_trip);
-    } on ApiException catch (error) {
-      if (!mounted) return;
-      RoutbToast.show(context, error.message);
+    } on Exception catch (error) {
+      if (mounted && generation == _requestGeneration) {
+        setState(() => _requestsError = describeFailure(error));
+      }
+    } finally {
+      if (mounted && generation == _requestGeneration) {
+        setState(() => _loadingRequests = false);
+      }
     }
   }
 
@@ -360,12 +380,14 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 10),
-                        Text(
-                          'Encuentro: ${_trip.meetingPoint}',
-                          style: RoutbText.copy(13, color: palette.ink),
-                        ),
-                        const SizedBox(height: 4),
+                        if (!widget.readOnly) ...[
+                          const SizedBox(height: 10),
+                          Text(
+                            'Encuentro: ${_trip.meetingPoint}',
+                            style: RoutbText.copy(13, color: palette.ink),
+                          ),
+                          const SizedBox(height: 4),
+                        ],
                       ],
                     ),
                   ),
@@ -381,7 +403,8 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                     ),
                   ),
 
-                  if (_trip.requests.pending.isNotEmpty) ...[
+                  if (!widget.readOnly &&
+                      _trip.requests.pending.isNotEmpty) ...[
                     const SizedBox(height: 14),
                     RoutbCard(
                       child: Column(
@@ -417,7 +440,16 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                           title: 'Pasajeros confirmados',
                           count: acceptedSeatCount,
                         ),
-                        if (_busy && accepted.isEmpty)
+                        if (_requestsError case final String error)
+                          RoutbEmptyState(
+                            message:
+                                'No se pudieron actualizar los pasajeros. $error',
+                            action: TextButton(
+                              onPressed: _reloadRequests,
+                              child: const Text('Reintentar'),
+                            ),
+                          ),
+                        if (_loadingRequests && accepted.isEmpty)
                           const Padding(
                             padding: EdgeInsets.symmetric(vertical: 20),
                             child: Center(
@@ -430,7 +462,7 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                               ),
                             ),
                           )
-                        else if (accepted.isEmpty)
+                        else if (accepted.isEmpty && _requestsError == null)
                           const RoutbEmptyState(
                             message:
                                 'Todavía no hay pasajeros con cupo confirmado.',
@@ -507,14 +539,16 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                     ),
                   ),
 
-                  const SizedBox(height: 20),
-                  RoutbButton(
-                    label: 'Cancelar ruta',
-                    icon: Icons.close_rounded,
-                    variant: RoutbButtonVariant.danger,
-                    busy: _busy,
-                    onPressed: _cancel,
-                  ),
+                  if (!widget.readOnly) ...[
+                    const SizedBox(height: 20),
+                    RoutbButton(
+                      label: 'Cancelar ruta',
+                      icon: Icons.close_rounded,
+                      variant: RoutbButtonVariant.danger,
+                      busy: _busy,
+                      onPressed: _cancel,
+                    ),
+                  ],
                 ],
               ),
             ),

@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/app_routes.dart';
 import '../../../core/models/user_role.dart';
 import '../../../core/theme/routb_palette.dart';
 import '../../../core/theme/routb_text.dart';
 import '../../../core/theme/routb_theme.dart';
+import '../../../core/widgets/routb_button.dart';
 import '../../../core/widgets/routb_card.dart';
+import 'safety_detail_page.dart';
 
 /// Consejos de seguridad fijos, con una versión para pasajero y otra para
 /// conductor.
@@ -12,20 +15,82 @@ import '../../../core/widgets/routb_card.dart';
 /// El contenido es corto y se lee con scroll; no usa imágenes pesadas para que
 /// funcione bien con datos móviles.
 class SafetyInfoScreen extends StatelessWidget {
-  const SafetyInfoScreen({required this.role, super.key});
+  const SafetyInfoScreen({
+    required this.role,
+    this.guide,
+    this.onCall,
+    this.onContacts,
+    this.onSupport,
+    super.key,
+  });
 
   /// Rol que determina el texto.
   final UserRole role;
+  final PassengerSafetyGuide? guide;
+  final VoidCallback? onCall;
+  final VoidCallback? onContacts;
+  final VoidCallback? onSupport;
 
   @override
   Widget build(BuildContext context) {
+    if (guide case final guide?) {
+      return SafetyDetailPage(
+        title: guide.title,
+        children: [
+          for (final section in guide._sections) ...[
+            _SafetySectionCard(section: section),
+            const SizedBox(height: 12),
+          ],
+          if (guide == PassengerSafetyGuide.after && onSupport != null)
+            RoutbButton(label: 'Abrir Soporte', onPressed: onSupport),
+          if (guide == PassengerSafetyGuide.emergency) ...[
+            if (onCall != null) EmergencyCallButton(onPressed: onCall!),
+            const SizedBox(height: 12),
+            if (onContacts != null)
+              SafetyLink(
+                title: 'Contactos de emergencia',
+                subtitle: 'Avisa a alguien de confianza.',
+                icon: Icons.people_outline_rounded,
+                onTap: onContacts!,
+              ),
+          ],
+        ],
+      );
+    }
+
+    if (role == UserRole.passenger) {
+      return SafetyDetailPage(
+        title: 'Consejos para pasajeros',
+        children: [
+          for (final guide in PassengerSafetyGuide.values) ...[
+            SafetyLink(
+              icon: guide.icon,
+              title: guide.title,
+              subtitle: guide.subtitle,
+              onTap: () => Navigator.of(context).push(
+                RoutbPageRoute<void>(
+                  child: SafetyInfoScreen(
+                    role: role,
+                    guide: guide,
+                    onCall: onCall,
+                    onContacts: onContacts,
+                    onSupport: onSupport,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+        ],
+      );
+    }
+
     final palette = context.palette;
-    final passenger = role == UserRole.passenger;
-    final sections = passenger ? _passengerSections : _driverSections;
+    const sections = _driverSections;
 
     return Scaffold(
       backgroundColor: palette.background,
-      appBar: AppBar(title: const Text('Información de seguridad')),
+      appBar: AppBar(title: const Text('Consejos para conductores')),
       body: SafeArea(
         top: false,
         child: Center(
@@ -37,18 +102,13 @@ class SafetyInfoScreen extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(14, 14, 14, 28),
               children: [
                 Text(
-                  passenger
-                      ? 'Viaja con tranquilidad'
-                      : 'Conduce y recibe pasajeros con tranquilidad',
+                  'Conduce y recibe pasajeros con tranquilidad',
                   style: RoutbText.headline(22, color: palette.ink),
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  passenger
-                      ? 'Revisa estos consejos antes de solicitar un cupo y '
-                            'durante el trayecto.'
-                      : 'Revisa estos consejos antes de publicar una ruta y '
-                            'mientras llevas pasajeros.',
+                  'Revisa estos consejos antes de publicar una ruta y '
+                  'mientras llevas pasajeros.',
                   style: RoutbText.copy(13, color: palette.muted, height: 1.4),
                 ),
                 const SizedBox(height: 16),
@@ -180,55 +240,92 @@ class _SafetySectionCard extends StatelessWidget {
   }
 }
 
-const List<_SafetySection> _passengerSections = <_SafetySection>[
+enum PassengerSafetyGuide {
+  before(
+    'Antes del viaje',
+    'Revisa el cupo y prepara el encuentro.',
+    Icons.fact_check_outlined,
+    _beforeTrip,
+  ),
+  after(
+    'Después del viaje',
+    'Confirma tu llegada y revisa tus pertenencias.',
+    Icons.directions_car_outlined,
+    _afterTrip,
+  ),
+  emergency(
+    'En caso de emergencia',
+    'Busca ayuda y avisa a alguien de confianza.',
+    Icons.emergency_outlined,
+    _emergency,
+  );
+
+  const PassengerSafetyGuide(
+    this.title,
+    this.subtitle,
+    this.icon,
+    this._sections,
+  );
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final List<_SafetySection> _sections;
+}
+
+const _beforeTrip = [
+  _SafetySection(
+    icon: Icons.route_rounded,
+    title: 'Confirma la ruta y el encuentro',
+    bullets: [
+      'Revisa que el cupo esté confirmado y verifica el destino, el horario y el punto de encuentro en Mi viaje.',
+      'Espera en un lugar iluminado y transitado, como una entrada del campus. Si hay un cambio, confirma el punto con el conductor por el contacto que figura en la app.',
+    ],
+  ),
   _SafetySection(
     icon: Icons.directions_car_rounded,
     title: 'Antes de subir',
-    bullets: <String>[
-      'Confirma la placa, el modelo, el color y el nombre del conductor antes de abrir la puerta.',
-      'Pregunta “¿a quién viene a recoger?” y espera a que el conductor diga tu nombre.',
-      'Espera en un punto iluminado y transitado; si puedes, hazlo desde un lugar cerrado hasta que el vehículo llegue.',
-      'Si el vehículo o la persona no coinciden con la app, no subas y cancela la solicitud.',
-      'No aceptes cambios de destino ni acuerdos por fuera de la app.',
+    bullets: [
+      'Compara el nombre del conductor, la placa, el modelo y el color con los datos del cupo confirmado.',
+      'Si los datos no coinciden, quédate en un lugar seguro y cancela la solicitud si la opción está disponible.',
+      'Avísale a alguien de confianza tu ruta y la hora estimada de llegada. Usa el cinturón durante el trayecto.',
     ],
   ),
+];
+
+const _afterTrip = [
   _SafetySection(
-    icon: Icons.share_location_rounded,
-    title: 'Comparte tu viaje',
-    bullets: <String>[
-      'Cuéntale a alguien de confianza tu ruta, la hora de salida, la placa y el nombre del conductor.',
-      'Desde Contactos de emergencia puedes avisar por WhatsApp o SMS con el mensaje ya escrito.',
-      'ROUTB no tiene seguimiento en vivo. Si compartes tu ubicación, hazlo por WhatsApp o SMS y solo con alguien de confianza.',
-      'Si cambias de ruta o de conductor, vuelve a avisar.',
-    ],
-  ),
-  _SafetySection(
-    icon: Icons.event_seat_rounded,
-    title: 'Durante el viaje',
-    bullets: <String>[
-      'Siéntate en la parte trasera y usa el cinturón de seguridad.',
-      'Confía en tu instinto: si algo no se siente bien, pide bajar en un lugar seguro y avisa a alguien.',
-      'No des vueltas ni camines hacia calles oscuras si no encuentras el vehículo; llama o escribe desde la app.',
-      'No distraigas al conductor ni le pidas datos personales que no necesites.',
-    ],
-  ),
-  _SafetySection(
-    icon: Icons.lock_outline_rounded,
-    title: 'Tus datos y tu ubicación',
-    bullets: <String>[
-      'El conductor ve tu nombre, tu teléfono y tu punto de encuentro cuando acepta tu solicitud.',
-      'Tú ves el nombre y el teléfono del conductor; el modelo, el color y la placa aparecen cuando el cupo queda confirmado.',
-      'La ubicación se usa para buscar direcciones y mostrar el trayecto; puedes cambiar los permisos desde los ajustes del teléfono.',
-      'No compartas datos personales ni códigos de acceso fuera de la app.',
+    icon: Icons.check_circle_outline_rounded,
+    title: 'Confirma tu llegada',
+    bullets: [
+      'Comprueba que bajaste en el punto acordado y avisa que llegaste a la persona con quien compartiste el viaje.',
+      'Antes de cerrar la puerta, revisa el asiento y dónde dejaste tu celular, carné, bolso o mochila.',
     ],
   ),
   _SafetySection(
     icon: Icons.support_agent_rounded,
-    title: 'Si algo sale mal',
-    bullets: <String>[
-      'Usa el botón Llamar al 123 de la pestaña Seguridad.',
-      'Cancela antes de subir si algo no coincide con la información de la app.',
-      'Cuéntale a un contacto de confianza lo que pasó y guarda los datos del viaje.',
+    title: 'Si hubo un inconveniente',
+    bullets: [
+      'Si olvidaste algo, usa el contacto del conductor si sigue disponible y acuerda la entrega en un lugar público.',
+      'Consulta Historial y registra el problema en Soporte. Incluye la fecha, la ruta y lo ocurrido para que el equipo pueda identificar el viaje.',
+    ],
+  ),
+];
+
+const _emergency = [
+  _SafetySection(
+    icon: Icons.health_and_safety_outlined,
+    title: 'Ponte a salvo primero',
+    bullets: [
+      'Si te sientes en riesgo, pide bajar en un lugar público y transitado cuando sea seguro. Evita confrontar a quien te amenaza.',
+      'Si hay un choque, aléjate del tráfico si puedes hacerlo con seguridad. Si alguien está herido, pide ayuda y sigue las instrucciones del operador.',
+    ],
+  ),
+  _SafetySection(
+    icon: Icons.phone_in_talk_rounded,
+    title: 'Pide ayuda urgente',
+    bullets: [
+      'Si hay peligro inmediato o personas heridas, llama al 123. Indica dónde estás, qué pasó y cuántas personas necesitan ayuda.',
+      'Cuando estés a salvo, avisa a un contacto de confianza y comparte tu ubicación o un punto de referencia.',
     ],
   ),
 ];
@@ -284,3 +381,30 @@ const List<_SafetySection> _driverSections = <_SafetySection>[
     ],
   ),
 ];
+
+class EmergencyCallButton extends StatelessWidget {
+  const EmergencyCallButton({required this.onPressed, super.key});
+  final VoidCallback onPressed;
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return FilledButton.icon(
+      onPressed: onPressed,
+      style: FilledButton.styleFrom(
+        minimumSize: const Size(double.infinity, 60),
+        backgroundColor: Color.alphaBlend(
+          p.rose.withValues(alpha: 0.16),
+          p.roseSurface,
+        ),
+        foregroundColor: p.onRoseSurface,
+        side: BorderSide(color: p.rose.withValues(alpha: 0.45)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      icon: const Icon(Icons.phone_in_talk_rounded, size: 24),
+      label: Text(
+        'Llamar al 123',
+        style: RoutbText.headline(18, color: p.onRoseSurface),
+      ),
+    );
+  }
+}

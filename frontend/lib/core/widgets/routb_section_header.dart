@@ -2,76 +2,110 @@ import 'package:flutter/material.dart';
 
 import '../theme/routb_palette.dart';
 import '../theme/routb_text.dart';
-import '../theme/routb_theme.dart';
+import 'routb_campus_cover.dart';
 
-/// Encabezado compacto de las pestañas que no son la principal de cada rol.
-///
-/// A diferencia de `HeroBar`, no muestra el saludo ni el modo: solo el título
-/// de la sección, para que Historial, Seguridad y Perfil no repitan la
-/// bienvenida. Mantiene el degradado del hero para que el cambio de pestaña no
-/// se sienta como otra app.
-class RoutbSectionHeader extends StatelessWidget {
-  const RoutbSectionHeader({
+/// Portada de las pestañas secundarias. En ventanas anchas, el contenido
+/// principal acompaña la portada y los controles se desplazan a su derecha.
+class RoutbSectionPage extends StatelessWidget {
+  const RoutbSectionPage({
     required this.title,
-    this.subtitle,
-    this.trailing,
+    required this.subtitle,
+    required this.icon,
+    required this.body,
+    this.primary,
     super.key,
   });
-
-  /// Título de la sección.
   final String title;
-
-  /// Texto corto bajo el título, si hace falta.
-  final String? subtitle;
-
-  /// Acción opcional a la derecha.
-  final Widget? trailing;
+  final String subtitle;
+  final IconData icon;
+  final Widget? primary;
+  final Widget Function(bool split) body;
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.palette;
-
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        gradient: palette.heroGradient,
-        borderRadius: const BorderRadius.vertical(
-          bottom: Radius.circular(RoutbTheme.radiusSheet),
-        ),
-      ),
-      padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: RoutbText.headline(22, color: palette.onBrand),
+    final p = context.palette;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final split = constraints.maxWidth >= 800;
+        final compact =
+            (!split && constraints.maxHeight < 620) ||
+            MediaQuery.textScalerOf(context).scale(16) > 24;
+        final cover = Container(
+          width: double.infinity,
+          clipBehavior: Clip.antiAlias,
+          margin: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+          decoration: BoxDecoration(
+            color: p.brand,
+            borderRadius: BorderRadius.circular(22),
+          ),
+          child: RoutbCampusCover(
+            child: Container(
+              padding: EdgeInsets.all(compact ? 12 : 18),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    p.brand,
+                    p.brand.withValues(alpha: 0.88),
+                    p.brand.withValues(alpha: 0),
+                  ],
+                  stops: const [0, .42, 1],
                 ),
-                if (subtitle != null) ...[
-                  const SizedBox(height: 3),
-                  Text(
-                    subtitle!,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: RoutbText.copy(
-                      12,
-                      color: palette.heroMuted,
-                      height: 1.3,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (!compact && split) ...[
+                    Icon(icon, color: p.onBrand, size: 22),
+                    const SizedBox(height: 8),
+                  ],
+                  Semantics(
+                    header: true,
+                    child: Text(
+                      title,
+                      style: RoutbText.headline(
+                        compact ? 23 : 32,
+                        color: p.onBrand,
+                      ),
                     ),
                   ),
+                  if (!compact)
+                    Text(subtitle, style: RoutbText.copy(13, color: p.onBrand)),
                 ],
-              ],
+              ),
             ),
           ),
-          if (trailing != null) ...[const SizedBox(width: 10), trailing!],
-        ],
-      ),
+        );
+        if (!split) {
+          return Column(
+            children: [
+              cover,
+              Expanded(child: body(split)),
+            ],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              flex: 4,
+              child: SingleChildScrollView(
+                primary: false,
+                child: Column(
+                  children: [
+                    cover,
+                    if (primary != null)
+                      Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: primary,
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            Expanded(flex: 6, child: body(split)),
+          ],
+        );
+      },
     );
   }
 }

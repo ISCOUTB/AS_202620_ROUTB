@@ -13,12 +13,12 @@ import '../../../core/models/user_role.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/routb_palette.dart';
 import '../../../core/theme/routb_text.dart';
-import '../../../core/theme/routb_theme.dart';
-import '../../../core/widgets/routb_anim.dart';
 import '../../../core/widgets/routb_button.dart';
 import '../../../core/widgets/routb_card.dart';
-import '../../../core/widgets/routb_hero.dart';
+import '../../../core/widgets/routb_journey_board.dart';
+import '../../../core/widgets/routb_history_section.dart';
 import '../../../core/widgets/routb_nav_bar.dart';
+import '../../../core/widgets/routb_live_pill.dart';
 import '../../../core/widgets/routb_section_header.dart';
 import '../../../core/widgets/routb_seats.dart';
 import '../../../core/widgets/routb_toast.dart';
@@ -26,32 +26,23 @@ import '../../auth/data/auth_repository.dart';
 import '../../notifications/push_notification_service.dart';
 import '../../profile/screens/profile_screen.dart';
 import '../../safety/models/active_trip_info.dart';
+import '../../safety/data/emergency_contacts_store.dart';
 import '../../safety/screens/security_screen.dart';
 import '../../trips/data/trip_repository.dart';
 import '../../trips/screens/active_trip_empty_screen.dart';
 import '../state/driver_state.dart';
 import '../widgets/driver_cards.dart';
-import '../widgets/publish_route_sheet.dart';
+import 'publish_route_screen.dart';
 import '../widgets/request_preview_sheet.dart';
 import '../widgets/routb_trip_map.dart';
 import 'route_detail_screen.dart';
-
-/// Cuánto sube el cuerpo de la pantalla sobre el hero del conductor.
-///
-/// Flutter no admite margen negativo, así que el solapamiento se hace
-/// desplazando el cuerpo. El hero reserva este hueco en su padding inferior
-/// (más 16 px de aire) y el cuerpo lo sube exactamente esta misma cantidad:
-/// si divergieran, el contenido se montaría sobre el mapa o quedaría un hueco.
-const double _bodyOverlap = 12;
 
 /// Pestañas del modo conductor, en el orden de la barra inferior.
 enum _DriverTab { routes, history, security, profile }
 
 /// Modo conductor: publica rutas, responde solicitudes y sigue las que tiene.
 ///
-/// El hero muestra siempre la ruta seleccionada: al tocar una tarjeta de «Mis
-/// rutas» cambian el mapa, la hora y los cupos. Debajo viven las dos tarjetas
-/// del diseño.
+/// La selección vincula la tarjeta de ruta con su mapa, hora y ocupación.
 class DriverScreen extends StatefulWidget {
   const DriverScreen({required this.account, super.key});
 
@@ -69,6 +60,7 @@ class _DriverScreenState extends State<DriverScreen>
   final Set<int> _busyRequests = <int>{};
   int? _highlightedTripId;
   bool _asked = false;
+  int _loadGeneration = 0;
   bool _appInForeground = true;
   ValueNotifier<int>? _refreshSignal;
   VoidCallback? _refreshListener;
@@ -84,14 +76,14 @@ class _DriverScreenState extends State<DriverScreen>
     // El estado «vigente» de una ruta depende del reloj. Un latido lento
     // mantiene el indicador del centro al día sin consultar al backend.
     _activeTimer = Timer.periodic(const Duration(seconds: 60), (_) {
-      if (mounted && _appInForeground) setState(() {});
+      if (mounted && _appInForeground) setState(_moveFinishedTrips);
     });
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _appInForeground = state == AppLifecycleState.resumed;
-    if (mounted) setState(() {});
+    if (mounted) setState(_moveFinishedTrips);
   }
 
   @override
@@ -176,25 +168,32 @@ class _DriverScreenState extends State<DriverScreen>
     setState(() => _tab = tab);
   }
 
-  /// Rutas que todavía cuentan como activas para el botón central.
-  ///
-  /// «Activa» es una ruta publicada que aún no terminó: programada, en curso o
-  /// próxima. Una ruta de hoy que ya superó su ventana de viaje deja de
-  /// encender el indicador aunque siga en «Mis rutas» hasta que cambie el día.
-  List<Trip> get _activeTrips {
+  void _moveFinishedTrips() {
     final now = DateTime.now();
-    return _state.trips
-        .where((trip) {
-          if (!trip.status.isActive) return false;
-          final phase = trip.phaseAt(now);
-          return phase == TripPhase.scheduled || phase == TripPhase.onCourse;
-        })
-        .toList(growable: false);
+    final finished = _state.trips.where((trip) {
+      final phase = trip.phaseAt(now);
+      return phase == TripPhase.completed || phase == TripPhase.cancelled;
+    }).toList();
+    if (finished.isEmpty) return;
+    final ids = finished.map((trip) => trip.id).toSet();
+    final current = _state.trips
+        .where((trip) => !ids.contains(trip.id))
+        .toList();
+    _state = _state.copyWith(
+      trips: current,
+      history: [
+        ...finished,
+        ..._state.history.where((trip) => !ids.contains(trip.id)),
+      ],
+      selected: ids.contains(_state.selected?.id)
+          ? current.firstOrNull
+          : _state.selected,
+    );
   }
 
   /// Ruta activa que debe abrir el botón central: la de salida más próxima.
   Trip? get _nearestTrip {
-    final trips = _activeTrips;
+    final trips = _state.trips;
     if (trips.isEmpty) return null;
 
     final now = DateTime.now();
@@ -257,36 +256,25 @@ class _DriverScreenState extends State<DriverScreen>
   }
 
   Future<void> _load() async {
+    final generation = ++_loadGeneration;
     try {
-      final mine = await _trips.listMine();
-      // El historial son las rutas canceladas o cuya fecha ya pasó.
-      final history = await _trips.listMine(scope: 'history');
-      // En «Mis rutas» solo quedan las vigentes (hoy o mañana): las que ya
-      // pasaron de fecha viven en el historial.
-      final now = DateTime.now();
-      final current = mine
-          .where((trip) => !trip.isPastDate(now))
-          .toList(growable: false);
-      // Los viajes vigentes ya vienen enriquecidos directamente desde listMine().
-      final enriched = current;
+      final trips = await _trips.listMine(scope: 'all');
 
-      if (!mounted) return;
-      final previous = _state.selected;
-      final selected = previous == null
-          ? enriched.firstOrNull
-          : enriched.where((trip) => trip.id == previous.id).firstOrNull ??
-                enriched.firstOrNull;
+      if (!mounted || generation != _loadGeneration) return;
+      final selected =
+          trips.where((trip) => trip.id == _state.selected?.id).firstOrNull ??
+          trips.firstOrNull;
       setState(() {
         _state = DriverState(
           status: DriverStatus.ready,
-          trips: enriched,
-          history: history,
+          trips: trips,
           selected: selected,
         );
+        _moveFinishedTrips();
       });
     } on Exception catch (error, stack) {
       logFailure('la carga de rutas', error, stack);
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(
         () => _state = DriverState(
           status: DriverStatus.failed,
@@ -464,42 +452,21 @@ class _DriverScreenState extends State<DriverScreen>
       return;
     }
 
-    final draft = await showPublishRouteSheet(
+    final published = await openPublishRouteScreen(
       context: context,
       driverName: account.name,
       driverInitials: initialsOf(account.name),
     );
-    if (draft == null || !mounted) return;
-
-    try {
-      final published = await _trips.publish(
-        origin: draft.origin,
-        destination: draft.destination,
-        departureTime: draft.departure.label,
-        departureDate: draft.departureDate,
-        meetingPoint: draft.meetingPoint.trim(),
-        seats: draft.seats,
-        direction: draft.direction,
-        driverPoint: draft.driverPoint,
+    if (published == null || !mounted) return;
+    setState(() {
+      _highlightedTripId = published.id;
+      _state = _state.copyWith(
+        status: DriverStatus.ready,
+        trips: <Trip>[published, ..._state.trips],
+        selected: published,
       );
-      if (!mounted) return;
-      setState(() {
-        _highlightedTripId = published.id;
-        _state = _state.copyWith(
-          status: DriverStatus.ready,
-          trips: <Trip>[published, ..._state.trips],
-          selected: published,
-        );
-      });
-      RoutbToast.show(context, 'Ruta publicada. Ya la ven los pasajeros');
-    } on ApiException catch (error) {
-      if (!mounted) return;
-      if (error.detail == 'vehicle_required') {
-        await _showVehicleRequired();
-        return;
-      }
-      RoutbToast.show(context, error.message);
-    }
+    });
+    RoutbToast.show(context, 'Ruta publicada. Ya la ven los pasajeros');
   }
 
   /// N2: sin modelo, color y placa el servidor no permite publicar.
@@ -548,7 +515,9 @@ class _DriverScreenState extends State<DriverScreen>
           Account(
             name: name.isEmpty ? widget.account.name : name,
             role: widget.account.role,
+            driverEnabled: widget.account.driverEnabled,
             token: widget.account.token,
+            id: widget.account.id,
           ),
         );
       },
@@ -560,10 +529,6 @@ class _DriverScreenState extends State<DriverScreen>
 
     return Scaffold(
       backgroundColor: palette.background,
-      floatingActionButton:
-          _tab == _DriverTab.routes && _state.status == DriverStatus.ready
-          ? _NewRouteButton(onPressed: () => _openPublishSheet(account))
-          : null,
       bottomNavigationBar: RoutbNavBar(
         items: const [
           RoutbNavItem(label: 'Mis rutas', icon: Icons.route_rounded),
@@ -582,37 +547,35 @@ class _DriverScreenState extends State<DriverScreen>
           builder: (context, constraints) {
             return Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(
-                  maxWidth: RoutbTheme.contentMaxWidth,
+                constraints: BoxConstraints(
+                  maxWidth: RoutbJourneyBoard.maxWidth,
                 ),
                 child: switch (_tab) {
-                  _DriverTab.routes => switch (_state.status) {
-                    DriverStatus.loading => const _LoadingBody(),
-                    DriverStatus.failed => _FailedBody(
-                      message: _state.errorMessage ?? 'Algo salió mal.',
-                      onRetry: _load,
+                  _DriverTab.routes => _Body(
+                    account: account,
+                    state: _state,
+                    onPublish: () => _openPublishSheet(account),
+                    busyRequests: _busyRequests,
+                    highlightedTripId: _highlightedTripId,
+                    onSelect: (trip) => setState(
+                      () => _state = _state.copyWith(selected: trip),
                     ),
-                    DriverStatus.ready => _Body(
-                      account: account,
-                      state: _state,
-                      busyRequests: _busyRequests,
-                      highlightedTripId: _highlightedTripId,
-                      onSelect: (trip) => setState(
-                        () => _state = _state.copyWith(selected: trip),
-                      ),
-                      onAccept: _accept,
-                      onReject: _reject,
-                      onOpenPreview: _openRequestPreview,
-                      onCancel: _confirmCancel,
-                      onOpenDetail: _openDetail,
-                      onRefresh: _load,
-                    ),
-                  },
+                    onAccept: _accept,
+                    onReject: _reject,
+                    onOpenPreview: _openRequestPreview,
+                    onCancel: _confirmCancel,
+                    onOpenDetail: _openDetail,
+                    onRefresh: _load,
+                  ),
                   _DriverTab.history => _HistoryTab(
                     state: _state,
                     onRefresh: _load,
+                    onOpen: _openHistoryDetail,
                   ),
                   _DriverTab.security => SecurityScreen(
+                    contactsStore: account.id == null
+                        ? null
+                        : EmergencyContactsStore(account.id!),
                     role: UserRole.driver,
                     userName: account.name,
                     activeTrip: _activeTripInfo,
@@ -651,6 +614,20 @@ class _DriverScreenState extends State<DriverScreen>
     );
     if (mounted) await _load();
   }
+
+  /// Abre una ruta del historial solo para consultarla.
+  Future<void> _openHistoryDetail(Trip trip) async {
+    await Navigator.of(context).push(
+      RoutbPageRoute<void>(
+        child: RouteDetailScreen(
+          trip: trip,
+          readOnly: true,
+          onChanged: (_) {},
+          onCancelled: () {},
+        ),
+      ),
+    );
+  }
 }
 
 extension on List<Trip> {
@@ -670,6 +647,7 @@ class _Body extends StatelessWidget {
   const _Body({
     required this.account,
     required this.state,
+    required this.onPublish,
     required this.busyRequests,
     required this.highlightedTripId,
     required this.onSelect,
@@ -683,6 +661,7 @@ class _Body extends StatelessWidget {
 
   final Account account;
   final DriverState state;
+  final VoidCallback onPublish;
   final Set<int> busyRequests;
   final int? highlightedTripId;
   final ValueChanged<Trip> onSelect;
@@ -695,310 +674,172 @@ class _Body extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.palette;
-
-    return RefreshIndicator(
+    final selected = state.selected;
+    return RoutbJourneyBoard(
+      storageKey: 'driver-routes',
       onRefresh: onRefresh,
-      child: CustomScrollView(
-        key: const PageStorageKey<String>('driver-routes'),
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          SliverToBoxAdapter(
-            child: HeroSection(userName: account.name, trip: state.selected),
-          ),
-          // El cuerpo queda ligeramente separado del hero para que las
-          // secciones respiren sin cambiar la posición ni el tamaño del hero.
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(14, 0, 14, 0),
-            sliver: SliverToBoxAdapter(
-              child: Transform.translate(
-                offset: const Offset(0, 12),
-                child: Column(
-                  children: [
-                    if (state.tripsWithPendingRequests.isNotEmpty) ...[
-                      RoutbCard(
-                        borderColor: palette.amber.withValues(alpha: 0.45),
-                        borderWidth: 1.2,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            RoutbCardHeader(
-                              title: 'Solicitudes pendientes',
-                              icon: Icons.notifications_active_outlined,
-                              count: state.pendingRequestCount,
-                            ),
-                            for (final pendingTrip
-                                in state.tripsWithPendingRequests)
-                              for (final request
-                                  in pendingTrip.requests.pending)
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 8),
-                                  child: RequestTile(
-                                    request: request,
-                                    trip: pendingTrip,
-                                    busy: busyRequests.contains(request.id),
-                                    onTapPreview: () =>
-                                        onOpenPreview(pendingTrip, request),
-                                    onAccept: () =>
-                                        onAccept(pendingTrip, request),
-                                    onReject: () =>
-                                        onReject(pendingTrip, request),
-                                  ),
-                                ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                    ],
-                    RoutbCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          RoutbCardHeader(
-                            title: 'Mis rutas',
-                            icon: Icons.route_rounded,
-                            count: state.trips.length,
-                          ),
-                          if (!state.hasTrips)
-                            RoutbEmptyState(
-                              icon: Icons.route_rounded,
-                              message: state.hasHistory
-                                  ? 'No tienes rutas vigentes ahora mismo. '
-                                        'Tus rutas anteriores están en la '
-                                        'pestaña Historial.'
-                                  : 'Todavía no has publicado ninguna ruta. '
-                                        'Crea la primera y los pasajeros la '
-                                        'verán al instante.',
-                            )
-                          else
-                            for (final item in state.trips)
-                              RoutbEntrance(
-                                index: state.trips.indexOf(item),
-                                child: RouteCard(
-                                  trip: item,
-                                  selected: item.id == state.selected?.id,
-                                  highlight: item.id == highlightedTripId,
-                                  onSelect: () => onSelect(item),
-                                  onOpenDetail: () => onOpenDetail(item),
-                                  onCancel: () => onCancel(item),
-                                ),
-                              ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 96),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Hero del modo conductor: mapa, hora y cupos de la ruta seleccionada.
-class HeroSection extends StatelessWidget {
-  const HeroSection({required this.userName, required this.trip, super.key});
-
-  final String userName;
-  final Trip? trip;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-    final selected = trip;
-
-    return Container(
-      decoration: BoxDecoration(
-        gradient: palette.heroGradient,
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(34)),
-      ),
-      // El padding inferior deja el hueco que ocupa el cuerpo al subir sobre el
-      // hero. Las dos mitades del solapamiento salen de la misma constante para
-      // que no se descuadren al tocar una.
-      padding: const EdgeInsets.fromLTRB(18, 0, 18, _bodyOverlap + 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      header: Column(
         children: [
-          const SizedBox(height: 12),
-          HeroBar(userName: userName, wave: true),
-          const SizedBox(height: 16),
-          if (selected == null)
-            _EmptyHeroMessage()
-          else ...[
-            // El alto del mapa cede en pantallas cortas para que las
-            // solicitudes y las rutas tengan más espacio visible.
-            Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: const Color(0x1FFFFFFF),
-                borderRadius: BorderRadius.circular(RoutbTheme.radiusTile + 4),
-                border: Border.all(color: const Color(0x2EFFFFFF)),
-              ),
-              child: RoutbTripMap(trip: selected, height: _mapHeight(context)),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: const Color(0x18FFFFFF),
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: const Color(0x26FFFFFF)),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          selected.routeLabel,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: RoutbText.copy(
-                            12,
-                            color: const Color(0xCCFFFFFF),
-                            weight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          selected.departureLabel,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: RoutbText.headline(
-                            28,
-                            color: Colors.white,
-                            height: 1.05,
-                          ),
-                        ),
-                      ],
-                    ),
+          RoutbJourneyHeader(
+            title: 'Mis rutas',
+            userName: account.name,
+            controls: state.status != DriverStatus.ready
+                ? const SizedBox.shrink()
+                : JourneyAction(
+                    icon: Icons.add_road_rounded,
+                    label: 'Nueva ruta',
+                    onTap: onPublish,
                   ),
-                  const SizedBox(width: 12),
-                  // La columna de cupos se limita para que en pantallas
-                  // estrechas el texto de hora y el de cupos repartan el ancho
-                  // en vez de desbordar.
-                  Flexible(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        HeroSeatSlots(trip: selected),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${selected.availableSeats}/${selected.totalSeats} cupos libres',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.end,
-                          style: RoutbText.copy(
-                            11.5,
-                            color: const Color(0xCCFFFFFF),
-                            weight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
+          ),
+          if (selected != null) ...[
+            const SizedBox(height: 16),
+            _SelectedRoute(trip: selected),
           ],
         ],
       ),
-    );
-  }
-
-  /// Alto del mapa según la pantalla.
-  ///
-  /// El hero es un bloque grande por diseño, pero con 168 fijos se comía más de
-  /// la mitad de un teléfono corto y el contenido de verdad —las solicitudes y
-  /// las rutas— quedaba aplastado contra el mapa. Los tres tramos están
-  /// elegidos para que el hero ocupe siempre una proporción parecida del alto.
-  static double _mapHeight(BuildContext context) {
-    final height = MediaQuery.sizeOf(context).height;
-    if (height < 620) return 92;
-    if (height < 780) return 120;
-    return 150;
-  }
-}
-
-class _EmptyHeroMessage extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(top: 16),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: const Color(0x1FFFFFFF),
-        borderRadius: BorderRadius.circular(RoutbTheme.radiusTile),
-        border: Border.all(color: const Color(0x24FFFFFF)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.add_road_rounded, color: Colors.white, size: 22),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'Publica tu primera ruta para ver aquí el mapa, la hora de salida '
-              'y los cupos.',
-              style: RoutbText.copy(13, color: const Color(0xD9FFFFFF)),
-            ),
+      slivers: switch (state.status) {
+        DriverStatus.loading => const [JourneyFeedbackSliver.loading()],
+        DriverStatus.failed => [
+          JourneyFeedbackSliver.error(
+            message: state.errorMessage ?? 'No se pudieron cargar tus rutas.',
+            onRetry: onRefresh,
           ),
         ],
-      ),
+        DriverStatus.ready => [
+          if (state.pendingRequestCount > 0) ...[
+            SliverToBoxAdapter(
+              child: JourneySectionTitle(
+                'Solicitudes pendientes',
+                count: state.pendingRequestCount,
+              ),
+            ),
+            SliverList.list(
+              children: [
+                for (final trip in state.tripsWithPendingRequests)
+                  for (final request in trip.requests.pending)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: RequestTile(
+                        request: request,
+                        trip: trip,
+                        busy: busyRequests.contains(request.id),
+                        onTapPreview: () => onOpenPreview(trip, request),
+                        onAccept: () => onAccept(trip, request),
+                        onReject: () => onReject(trip, request),
+                      ),
+                    ),
+              ],
+            ),
+          ],
+          SliverToBoxAdapter(
+            child: JourneySectionTitle(
+              'Rutas publicadas',
+              count: state.trips.length,
+            ),
+          ),
+          if (!state.hasTrips)
+            SliverToBoxAdapter(
+              child: RoutbCard(
+                child: RoutbEmptyState(
+                  icon: Icons.add_road_rounded,
+                  message: state.hasHistory
+                      ? 'No tienes rutas vigentes. Puedes consultar las anteriores en Historial.'
+                      : 'Publica tu primera ruta para que otros estudiantes puedan solicitar un cupo.',
+                ),
+              ),
+            )
+          else
+            SliverList.builder(
+              itemCount: state.trips.length,
+              itemBuilder: (context, index) {
+                final trip = state.trips[index];
+                return RouteCard(
+                  key: ValueKey(trip.id),
+                  trip: trip,
+                  selected: trip.id == selected?.id,
+                  highlight: trip.id == highlightedTripId,
+                  onSelect: () => onSelect(trip),
+                  onOpenDetail: () => onOpenDetail(trip),
+                  onCancel: () => onCancel(trip),
+                );
+              },
+            ),
+        ],
+      },
     );
   }
 }
 
-/// `.fab`: botón flotante de nueva ruta.
-class _NewRouteButton extends StatelessWidget {
-  const _NewRouteButton({required this.onPressed});
-
-  final VoidCallback onPressed;
+class _SelectedRoute extends StatelessWidget {
+  const _SelectedRoute({required this.trip});
+  final Trip trip;
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.palette;
-
-    return Semantics(
-      button: true,
-      label: 'Publicar una nueva ruta',
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: palette.primaryGradient,
-          borderRadius: BorderRadius.circular(RoutbTheme.radiusPill),
-          boxShadow: palette.raisedShadow,
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onPressed,
-            borderRadius: BorderRadius.circular(RoutbTheme.radiusPill),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.add_rounded, color: Colors.white, size: 20),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Nueva ruta',
-                    style: RoutbText.copy(
-                      14,
-                      color: palette.onBrand,
-                      weight: FontWeight.w700,
-                    ),
-                  ),
-                ],
+    final p = context.palette;
+    return RoutbCard(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              Text(
+                'Ruta seleccionada',
+                style: RoutbText.copy(12, color: p.muted),
               ),
-            ),
+              LivePill(phase: trip.phaseAt(DateTime.now()), onDark: false),
+            ],
           ),
-        ),
+          const SizedBox(height: 3),
+          Text(trip.routeLabel, style: RoutbText.headline(21, color: p.ink)),
+          const SizedBox(height: 12),
+          RoutbTripMap(
+            trip: trip,
+            height: MediaQuery.sizeOf(context).height < 680 ? 108 : 148,
+            showPhase: false,
+            animateRoute: !MediaQuery.disableAnimationsOf(context),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      trip.departureDateLabel,
+                      style: RoutbText.copy(12, color: p.muted),
+                    ),
+                    Text(
+                      trip.departureLabel,
+                      style: RoutbText.headline(23, color: p.ink),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    HeroSeatSlots(trip: trip),
+                    const SizedBox(height: 3),
+                    Text(
+                      '${trip.availableSeats}/${trip.totalSeats} cupos libres',
+                      style: RoutbText.copy(12, color: p.muted),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -1009,72 +850,114 @@ class _NewRouteButton extends StatelessWidget {
 /// Sigue el mismo esquema que «Mis viajes» del pasajero: un hero con la cuenta
 /// y debajo la lista. Las rutas vigentes siguen en «Mis rutas».
 class _HistoryTab extends StatelessWidget {
-  const _HistoryTab({required this.state, required this.onRefresh});
+  const _HistoryTab({
+    required this.state,
+    required this.onRefresh,
+    required this.onOpen,
+  });
 
   final DriverState state;
   final Future<void> Function() onRefresh;
+  final ValueChanged<Trip> onOpen;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        const RoutbSectionHeader(
-          title: 'Historial',
-          subtitle: 'Rutas canceladas o que ya pasaron',
+    return RoutbSectionPage(
+      title: 'Historial',
+      subtitle: 'Rutas completadas y canceladas',
+      icon: Icons.history_rounded,
+      body: (_) => switch (state.status) {
+        DriverStatus.loading => const _LoadingBody(),
+        DriverStatus.failed => _FailedBody(
+          message: state.errorMessage ?? 'Algo salió mal.',
+          onRetry: onRefresh,
         ),
-        Expanded(
-          child: switch (state.status) {
-            DriverStatus.loading => const _LoadingBody(),
-            DriverStatus.failed => _FailedBody(
-              message: state.errorMessage ?? 'Algo salió mal.',
-              onRetry: onRefresh,
-            ),
-            DriverStatus.ready => _HistoryList(
-              trips: state.history,
-              onRefresh: onRefresh,
-            ),
-          },
+        DriverStatus.ready => _HistoryList(
+          trips: state.history,
+          onRefresh: onRefresh,
+          onOpen: onOpen,
         ),
-      ],
+      },
     );
   }
 }
 
 /// Lista del historial, o su estado vacío, con «deslizar para actualizar».
 class _HistoryList extends StatelessWidget {
-  const _HistoryList({required this.trips, required this.onRefresh});
+  const _HistoryList({
+    required this.trips,
+    required this.onRefresh,
+    required this.onOpen,
+  });
 
   final List<Trip> trips;
   final Future<void> Function() onRefresh;
+  final ValueChanged<Trip> onOpen;
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
+    final now = DateTime.now();
+    final completed = <Trip>[];
+    final cancelled = <Trip>[];
+    for (final trip in trips) {
+      if (trip.phaseAt(now) == TripPhase.cancelled) {
+        cancelled.add(trip);
+      } else {
+        completed.add(trip);
+      }
+    }
+
+    Widget tile(Trip trip) => Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: HistoryRouteTile(trip: trip, onTap: () => onOpen(trip)),
+    );
+
     return RefreshIndicator(
       onRefresh: onRefresh,
       child: trips.isEmpty
-          ? ListView(
+          ? CustomScrollView(
               key: const PageStorageKey<String>('driver-history-empty'),
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(24),
-              children: const [
-                SizedBox(height: 90),
-                RoutbEmptyState(
-                  icon: Icons.history_rounded,
-                  message:
-                      'Aquí aparecen las rutas que cancelaste y las que ya '
-                      'pasaron. Las vigentes siguen en «Mis rutas».',
+              slivers: const [
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(24),
+                      child: RoutbEmptyState(
+                        icon: Icons.history_rounded,
+                        message:
+                            'Todavía no tienes rutas completadas ni canceladas. '
+                            'Las vigentes siguen en «Mis rutas».',
+                      ),
+                    ),
+                  ),
                 ),
               ],
             )
-          : ListView.builder(
+          : ListView(
               key: const PageStorageKey<String>('driver-history'),
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(14, 16, 14, 24),
-              itemCount: trips.length,
-              itemBuilder: (context, index) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: HistoryRouteTile(trip: trips[index]),
-              ),
+              padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
+              children: [
+                if (completed.isNotEmpty)
+                  RoutbHistorySection(
+                    title: 'Completadas',
+                    icon: Icons.check_circle_outline_rounded,
+                    color: palette.mint,
+                    count: completed.length,
+                    children: [for (final trip in completed) tile(trip)],
+                  ),
+                if (cancelled.isNotEmpty)
+                  RoutbHistorySection(
+                    title: 'Canceladas',
+                    icon: Icons.cancel_outlined,
+                    color: palette.rose,
+                    count: cancelled.length,
+                    children: [for (final trip in cancelled) tile(trip)],
+                  ),
+              ],
             ),
     );
   }

@@ -103,12 +103,16 @@ class Trip {
 
     return Trip(
       id: json['id'] as int? ?? 0,
-      origin: (json['origin'] as String?)?.trim().isNotEmpty == true
-          ? (json['origin'] as String).trim()
-          : 'Centro',
-      destination: (json['destination'] as String?)?.trim().isNotEmpty == true
-          ? (json['destination'] as String).trim()
-          : 'UTB',
+      origin: Zones.displayAddress(
+        (json['origin'] as String?)?.trim().isNotEmpty == true
+            ? (json['origin'] as String).trim()
+            : 'Centro',
+      ),
+      destination: Zones.displayAddress(
+        (json['destination'] as String?)?.trim().isNotEmpty == true
+            ? (json['destination'] as String).trim()
+            : 'UTB',
+      ),
       totalSeats: (json['total_seats'] as int?)?.clamp(1, 4) ?? 4,
       availableSeats: (json['available_seats'] as int?) ?? 0,
       rawDeparture: rawDeparture,

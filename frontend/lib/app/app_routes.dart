@@ -5,6 +5,10 @@ import 'package:flutter/material.dart';
 import '../app/dependencies.dart';
 import '../core/models/user_role.dart';
 import '../core/theme/routb_motion.dart';
+import '../core/network/api_exception.dart';
+import '../core/widgets/travel_mode_selector.dart';
+import '../core/widgets/routb_toast.dart';
+import '../features/profile/widgets/vehicle_sheet.dart';
 import '../features/auth/data/auth_repository.dart';
 import '../features/driver/screens/driver_screen.dart';
 import '../features/passenger/screens/passenger_screen.dart';
@@ -177,9 +181,42 @@ class _ModeRouteState extends State<ModeRoute> {
     );
   }
 
+  late Account _account = widget.account;
+  bool _switching = false;
+
+  Future<void> _selectMode(UserRole target) async {
+    if (_switching || target == _account.role) return;
+    final previous = _account;
+    final onboarding = target == UserRole.driver && !previous.driverEnabled;
+    setState(() {
+      _switching = true;
+      if (!onboarding) _account = previous.withMode(target);
+    });
+    final auth = RoutbScopeDependencies.of(context).auth;
+    try {
+      final profile = onboarding
+          ? await showVehicleSheet(context: context, auth: auth, activate: true)
+          : await auth.switchTravelMode(target);
+      if (!mounted || profile == null) return;
+      setState(() => _account = Account.fromProfile(profile, _account.token));
+    } on Exception catch (error) {
+      if (!mounted) return;
+      setState(() => _account = previous);
+      RoutbToast.show(context, describeFailure(error));
+    } finally {
+      if (mounted) setState(() => _switching = false);
+    }
+  }
+
   @override
-  Widget build(BuildContext context) => switch (widget.account.role) {
-    UserRole.driver => DriverScreen(account: widget.account),
-    UserRole.passenger => PassengerScreen(account: widget.account),
-  };
+  Widget build(BuildContext context) => TravelModeScope(
+    mode: _account.role,
+    driverEnabled: _account.driverEnabled,
+    busy: _switching,
+    onSelect: _selectMode,
+    child: switch (_account.role) {
+      UserRole.driver => DriverScreen(account: _account),
+      UserRole.passenger => PassengerScreen(account: _account),
+    },
+  );
 }

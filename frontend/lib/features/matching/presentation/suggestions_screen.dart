@@ -1,432 +1,418 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:latlong2/latlong.dart';
 
 import '../../../app/dependencies.dart';
+import '../../../core/constants/zones.dart';
+import '../../../core/models/trip.dart';
 import '../../../core/models/trip_schedule.dart';
-import '../../../core/models/trip_suggestion.dart';
+import '../../../core/network/api_exception.dart';
 import '../../../core/theme/routb_palette.dart';
 import '../../../core/theme/routb_text.dart';
-import '../../../core/widgets/address_search_field.dart';
-import '../../../core/widgets/date_quick_picker.dart';
 import '../../../core/widgets/routb_button.dart';
 import '../../../core/widgets/routb_card.dart';
+import '../../../core/widgets/routb_field.dart';
+import '../../../core/widgets/routb_seats.dart';
 import '../../../core/widgets/routb_sheet.dart';
 import '../../../core/widgets/routb_toast.dart';
-import '../../trips/data/trip_repository.dart';
-import 'suggestions_map.dart';
+import '../../../core/widgets/routb_trip_form_page.dart';
+import '../../passenger/screens/reserve_seats_screen.dart';
+import '../../passenger/widgets/trip_card.dart';
 
+/// Explorador de viajes por sentido y barrio.
+///
+/// Aquí se investigan viajes, no se pide cupo: el pasajero elige «Hacia UTB» o
+/// «Desde UTB» y toca un barrio para ver las salidas que todavía no han
+/// ocurrido, hoy y mañana, sin filtrar por una hora concreta.
+///
+/// La solicitud se hace al tocar un viaje: se abre la pantalla de reserva, que es
+/// donde se piden la dirección exacta y los cupos.
 class SuggestionsScreen extends StatefulWidget {
-  const SuggestionsScreen({this.initialDirection, this.initialDate, super.key});
+  const SuggestionsScreen({
+    this.initialDirection,
+    this.passengerId,
+    this.initialZone,
+    this.onSelectionChanged,
+    super.key,
+  });
 
+  /// `'to_campus'` o `'from_campus'`. Sin valor, empieza hacia la UTB.
   final String? initialDirection;
-  final DateTime? initialDate;
+  final int? passengerId;
+  final String? initialZone;
+  final void Function(String direction, String? zone)? onSelectionChanged;
 
   @override
   State<SuggestionsScreen> createState() => _SuggestionsScreenState();
 }
 
-class _StopDraft {
-  SelectedLocation? location;
-  int seats = 1;
-  String placeType = 'door';
-}
-
 class _SuggestionsScreenState extends State<SuggestionsScreen> {
-  final List<_StopDraft> _stops = <_StopDraft>[_StopDraft()];
   late String _direction = widget.initialDirection ?? 'to_campus';
-  late DateTime _date = TripSchedule.clampToTripWindow(
-    widget.initialDate ?? DateTime.now(),
-  );
-  TimeOfDay _time = const TimeOfDay(hour: 7, minute: 0);
-  int _seatCount = 1;
-  bool _loading = false;
-  bool _relaxed = false;
-  List<TripSuggestion> _suggestions = const <TripSuggestion>[];
+  final GlobalKey _resultsKey = GlobalKey();
 
-  RoutbDependencies get _dependencies => RoutbScopeDependencies.of(context);
+  List<Trip> _trips = const <Trip>[];
+  late String? _zone = widget.initialZone;
+  final _search = TextEditingController();
+  int _limit = 6;
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  bool _loading = true;
+  bool _failed = false;
+  bool _asked = false;
+
+  bool get _toCampus => _direction == 'to_campus';
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_asked) return;
+    _asked = true;
+    unawaited(_load());
+  }
+
+  /// Carga hoy y mañana de una sola vez.
+  ///
+  /// El filtro por barrio se resuelve en el cliente sobre esta lista, así que
+  /// tocar un barrio no depende de una hora ni de otra llamada al backend.
+  Future<void> _load() async {
+    try {
+      final repository = RoutbScopeDependencies.of(context).trips;
+      final today = TripSchedule.dateOnly(DateTime.now());
+      final tomorrow = today.add(const Duration(days: 1));
+      final days = await Future.wait(<Future<List<Trip>>>[
+        repository.listAvailable(departureDate: today),
+        repository.listAvailable(departureDate: tomorrow),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _trips = <Trip>[...days[0], ...days[1]];
+        _loading = false;
+        _failed = false;
+      });
+    } on Exception catch (error, stack) {
+      logFailure('la búsqueda de viajes por barrio', error, stack);
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _failed = true;
+      });
+    }
+  }
+
+  void _retry() {
+    setState(() {
+      _loading = true;
+      _failed = false;
+    });
+    unawaited(_load());
+  }
+
+  /// Viajes que salen desde ese momento en adelante para el barrio elegido.
+  List<Trip> get _upcomingTrips {
+    final now = DateTime.now();
+    final matches = [
+      for (final trip in _trips)
+        if ((widget.passengerId == null ||
+                trip.driverId != widget.passengerId) &&
+            !trip.hasDeparted(now) &&
+            _goesToCampus(trip) == _toCampus)
+          trip,
+    ];
+    // Se ordena por el momento real de salida, no solo por la hora del día:
+    // así los viajes de mañana quedan después de los de hoy.
+    matches.sort((a, b) {
+      final left = a.departureDateTime;
+      final right = b.departureDateTime;
+      if (left == null && right == null) return a.id.compareTo(b.id);
+      if (left == null) return 1;
+      if (right == null) return -1;
+      final byMoment = left.compareTo(right);
+      return byMoment != 0 ? byMoment : a.id.compareTo(b.id);
+    });
+    return matches;
+  }
+
+  /// `true` si el viaje termina en la UTB.
+  ///
+  /// Los viajes antiguos pueden no traer `direction`, así que se cae al texto
+  /// del destino.
+  bool _goesToCampus(Trip trip) {
+    if (trip.direction == 'to_campus') return true;
+    if (trip.direction == 'from_campus') return false;
+    return Zones.isCampus(trip.destination) ||
+        trip.destination.toLowerCase().contains('utb');
+  }
+
+  String _tripNeighborhood(Trip trip) =>
+      Zones.normalize(_toCampus ? trip.origin : trip.destination);
+
+  void _updateSelection(String direction, String? zone) {
+    setState(() {
+      _direction = direction;
+      _zone = zone;
+    });
+    widget.onSelectionChanged?.call(direction, zone);
+  }
+
+  void _selectZone(String zone) {
+    FocusManager.instance.primaryFocus?.unfocus();
+    _search.clear();
+    _limit = 6;
+    _updateSelection(_direction, zone);
+    // La lista de barrios es larga: al elegir uno se sustituye por los
+    // resultados, y este ajuste lleva la vista al encabezado de la lista.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final results = _resultsKey.currentContext;
+      if (results == null) return;
+      Scrollable.ensureVisible(
+        results,
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
+        alignment: 0.02,
+      );
+    });
+  }
+
+  Future<void> _reserve(Trip trip) async {
+    final result = await openReserveSeatsScreen(context: context, trip: trip);
+    if (result == null || !mounted) return;
+
+    final seats = result.seatCount;
+    final driver = trip.hasDriverName
+        ? trip.driverName!.split(' ').first
+        : 'el conductor';
+    RoutbToast.show(
+      context,
+      'Solicitud de $seats ${seats == 1 ? 'cupo' : 'cupos'} enviada a $driver',
+    );
+    unawaited(_load());
+  }
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    return Scaffold(
-      backgroundColor: palette.background,
-      appBar: AppBar(title: const Text('Encuentra tu viaje')),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
-          children: <Widget>[
-            RoutbCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    '¿Hacia dónde viajas?',
-                    style: RoutbText.headline(18, color: palette.ink),
-                  ),
-                  const SizedBox(height: 12),
-                  RoutbSegmented<String>(
-                    options: const <({String value, String label})>[
-                      (value: 'to_campus', label: 'Hacia UTB'),
-                      (value: 'from_campus', label: 'Desde UTB'),
-                    ],
-                    value: _direction,
-                    onChanged: (value) => setState(() {
-                      _direction = value;
-                      if (_direction == 'to_campus' && _stops.length > 1) {
-                        _stops.removeRange(1, _stops.length);
-                      }
-                    }),
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: <Widget>[
-                      DateQuickPicker(
-                        value: _date,
-                        onChanged: (value) => setState(() => _date = value),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Material(
-                          color: palette.surface,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(99),
-                            side: BorderSide(color: palette.line),
-                          ),
-                          child: InkWell(
-                            onTap: _pickTime,
-                            borderRadius: BorderRadius.circular(99),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: <Widget>[
-                                  Icon(
-                                    Icons.schedule_rounded,
-                                    size: 16,
-                                    color: palette.brand,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Flexible(
-                                    child: Text(
-                                      _time.format(context),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: RoutbText.copy(
-                                        12.5,
-                                        color: palette.ink,
-                                        weight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  DropdownButtonFormField<int>(
-                    initialValue: _seatCount,
-                    decoration: InputDecoration(
-                      labelText: 'Personas del grupo',
-                      filled: true,
-                      fillColor: palette.surface,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide(color: palette.line),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide(color: palette.line),
-                      ),
-                    ),
-                    items: List<DropdownMenuItem<int>>.generate(
-                      4,
-                      (index) => DropdownMenuItem(
-                        value: index + 1,
-                        child: Text('${index + 1}'),
-                      ),
-                    ),
-                    onChanged: (value) =>
-                        setState(() => _seatCount = value ?? 1),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 14),
-            for (var index = 0; index < _stops.length; index++) ...[
-              RoutbCard(
-                margin: const EdgeInsets.only(bottom: 14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      _direction == 'to_campus'
-                          ? 'Punto de recogida'
-                          : 'Parada ${index + 1}',
-                      style: RoutbText.headline(16, color: palette.ink),
-                    ),
-                    const SizedBox(height: 8),
-                    AddressSearchField(
-                      key: ValueKey<int>(index),
-                      toCampus: _direction == 'to_campus',
-                      label: _direction == 'to_campus'
-                          ? 'Escribe dirección o barrio de recogida'
-                          : 'Escribe dirección o barrio de bajada',
-                      onLocationSelected: (location) =>
-                          setState(() => _stops[index].location = location),
-                      onLocationCleared: () =>
-                          setState(() => _stops[index].location = null),
-                    ),
-                    if (_direction == 'from_campus') ...[
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<int>(
-                        initialValue: _stops[index].seats,
-                        decoration: InputDecoration(
-                          labelText: 'Personas que bajan aquí',
-                          filled: true,
-                          fillColor: palette.surface,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(14),
-                            borderSide: BorderSide(color: palette.line),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(14),
-                            borderSide: BorderSide(color: palette.line),
-                          ),
-                        ),
-                        items: List<DropdownMenuItem<int>>.generate(
-                          _seatCount,
-                          (seatIndex) => DropdownMenuItem(
-                            value: seatIndex + 1,
-                            child: Text('${seatIndex + 1}'),
-                          ),
-                        ),
-                        onChanged: (value) =>
-                            setState(() => _stops[index].seats = value ?? 1),
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      initialValue: _stops[index].placeType,
-                      decoration: InputDecoration(
-                        labelText: 'Tipo de punto',
-                        filled: true,
-                        fillColor: palette.surface,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: BorderSide(color: palette.line),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: BorderSide(color: palette.line),
-                        ),
-                      ),
-                      items: const <DropdownMenuItem<String>>[
-                        DropdownMenuItem(
-                          value: 'door',
-                          child: Text('En la puerta'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'meeting_point',
-                          child: Text('Punto de encuentro'),
-                        ),
-                      ],
-                      onChanged: (value) => setState(
-                        () => _stops[index].placeType = value ?? 'door',
-                      ),
-                    ),
-                    if (_direction == 'from_campus' && _stops.length > 1)
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton.icon(
-                          onPressed: () =>
-                              setState(() => _stops.removeAt(index)),
-                          icon: const Icon(Icons.remove_circle_outline),
-                          label: const Text('Quitar parada'),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ],
-            if (_direction == 'from_campus' && _stops.length < _seatCount)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: TextButton.icon(
-                  onPressed: () => setState(() => _stops.add(_StopDraft())),
-                  icon: const Icon(Icons.add_location_alt_outlined),
-                  label: const Text('Agregar otra parada'),
-                ),
-              ),
-            RoutbButton(
-              label: 'Buscar viajes compatibles',
-              icon: Icons.search_rounded,
-              busy: _loading,
-              onPressed: _loading ? null : () => _search(relaxed: false),
-            ),
-            if (_suggestions.isEmpty && !_loading && _relaxed)
-              Padding(
-                padding: const EdgeInsets.only(top: 10),
-                child: RoutbButton(
-                  label: 'Ver más opciones',
-                  variant: RoutbButtonVariant.secondary,
-                  onPressed: () => _search(relaxed: true),
-                ),
-              ),
-            if (_suggestions.isEmpty && !_loading && !_relaxed)
-              Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: Center(
-                  child: Text(
-                    'Datos © OpenStreetMap',
-                    style: RoutbText.copy(11, color: palette.muted),
-                  ),
-                ),
-              ),
-            const SizedBox(height: 16),
-            if (_suggestions.isNotEmpty) ...[
-              SuggestionsMap(
-                suggestions: _suggestions,
-                passengerPoints: <LatLng>[
-                  for (final stop in _stops)
-                    if (stop.location != null)
-                      LatLng(stop.location!.lat, stop.location!.lng),
-                ],
-              ),
-              const SizedBox(height: 12),
-            ],
-            for (final suggestion in _suggestions) _suggestionCard(suggestion),
-            if (_suggestions.isNotEmpty)
-              Center(
-                child: Text(
-                  'Datos © OpenStreetMap',
-                  style: RoutbText.copy(11, color: palette.muted),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
 
-  Widget _suggestionCard(TripSuggestion item) {
-    final palette = context.palette;
-    final eta = item.etaPickup == null
-        ? 'Hora por confirmar'
-        : TimeOfDay.fromDateTime(item.etaPickup!.toLocal()).format(context);
-    return RoutbCard(
-      margin: const EdgeInsets.only(bottom: 10),
-      onTap: () => _request(item),
-      child: Row(
-        children: <Widget>[
-          Expanded(
+    return RoutbTripFormPage(
+      title: '¿A dónde vas?',
+      subtitle: 'Viajes de hoy y mañana',
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          RoutbCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
+              children: [
                 Text(
-                  '${item.origin} → ${item.destination}',
-                  style: RoutbText.headline(15, color: palette.ink),
+                  '¿Hacia dónde viajas?',
+                  style: RoutbText.headline(18, color: palette.ink),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  '${item.driverName} · Recogida estimada $eta · Desvío ${item.detourMinutes} min',
-                  style: RoutbText.copy(12, color: palette.muted),
+                const SizedBox(height: 12),
+                RoutbSegmented<String>(
+                  options: const [
+                    (value: 'to_campus', label: 'Hacia UTB'),
+                    (value: 'from_campus', label: 'Desde UTB'),
+                  ],
+                  value: _direction,
+                  onChanged: (value) => _updateSelection(value, _zone),
                 ),
+                if (_zone == null) ...[
+                  const SizedBox(height: 18),
+                  Text(
+                    _toCampus ? 'Barrio de salida' : 'Barrio de llegada',
+                    style: RoutbText.headline(16, color: palette.ink),
+                  ),
+                  const SizedBox(height: 8),
+                  RoutbField(
+                    controller: _search,
+                    hint: 'Buscar un barrio',
+                    icon: Icons.search_rounded,
+                    textInputAction: TextInputAction.search,
+                    onChanged: (_) => setState(() => _limit = 6),
+                    suffix: _search.text.isEmpty
+                        ? null
+                        : IconButton(
+                            tooltip: 'Borrar búsqueda',
+                            icon: const Icon(Icons.close_rounded),
+                            onPressed: () => setState(() {
+                              _search.clear();
+                              _limit = 6;
+                            }),
+                          ),
+                  ),
+                ],
               ],
             ),
           ),
-          Icon(Icons.chevron_right_rounded, color: palette.brand),
+          const SizedBox(height: 18),
+          if (_zone == null) _zonePicker(palette) else _results(palette),
         ],
       ),
     );
   }
 
-  Future<void> _search({required bool relaxed}) async {
-    if (_stops.any((stop) => stop.location == null)) {
-      RoutbToast.show(context, 'Completa la dirección de cada parada.');
-      return;
-    }
-    if (_direction == 'from_campus' &&
-        _stops.fold<int>(0, (sum, stop) => sum + stop.seats) != _seatCount) {
-      RoutbToast.show(
-        context,
-        'La suma de personas por parada debe ser $_seatCount.',
-      );
-      return;
-    }
-    setState(() {
-      _loading = true;
-      _relaxed = relaxed;
-      _suggestions = const <TripSuggestion>[];
-    });
-    try {
-      final time =
-          '${_time.hourOfPeriod == 0 ? 12 : _time.hourOfPeriod}:${_time.minute.toString().padLeft(2, '0')} ${_time.period.name.toUpperCase()}';
-      final points = _stops
-          .map((stop) => (lat: stop.location!.lat, lng: stop.location!.lng))
-          .toList();
-      final result = await _dependencies.matching.suggestions(
-        direction: _direction,
-        points: points,
-        date: _date,
-        time: time,
-        seatCount: _seatCount,
-        relaxed: relaxed,
-      );
-      if (!mounted) return;
-      setState(() {
-        _suggestions = result;
-        _relaxed = !relaxed && result.isEmpty;
-      });
-    } on Exception catch (error) {
-      if (mounted) RoutbToast.show(context, error.toString());
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _request(TripSuggestion suggestion) async {
-    final requestedAt = DateTime(
-      _date.year,
-      _date.month,
-      _date.day,
-      _time.hour,
-      _time.minute,
-    );
-    final stops = <RequestStopInput>[
-      for (final stop in _stops)
-        RequestStopInput(
-          seats: _direction == 'to_campus' ? _seatCount : stop.seats,
-          placeType: stop.placeType,
-          location: stop.location!,
-        ),
-    ];
-    try {
-      await _dependencies.trips.requestSeat(
-        suggestion.tripId,
-        seatCount: _seatCount,
-        requestedAt: requestedAt,
-        stops: stops,
-      );
-      if (mounted) {
-        RoutbToast.show(
-          context,
-          'Solicitud enviada a ${suggestion.driverName}.',
-        );
+  Widget _zonePicker(RoutbPalette palette) {
+    final query = Zones.normalize(_search.text);
+    final names = Zones.neighborhoodNames;
+    final List<String> choices;
+    if (query.isEmpty) {
+      final closest = <String>{};
+      for (final trip in _upcomingTrips) {
+        final endpoint = _tripNeighborhood(trip);
+        for (final name in names) {
+          if (endpoint.contains(Zones.normalize(name))) closest.add(name);
+          if (closest.length == 3) break;
+        }
+        if (closest.length == 3) break;
       }
-    } on Exception catch (error) {
-      if (mounted) RoutbToast.show(context, error.toString());
+      choices = closest.toList();
+    } else {
+      choices =
+          names.where((name) => Zones.normalize(name).contains(query)).toList()
+            ..sort((a, b) {
+              final left = Zones.normalize(a);
+              final right = Zones.normalize(b);
+              if (left.startsWith(query) != right.startsWith(query)) {
+                return left.startsWith(query) ? -1 : 1;
+              }
+              return left.compareTo(right);
+            });
     }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          query.isEmpty
+              ? 'Barrios con salidas próximas'
+              : 'Barrios encontrados',
+          style: RoutbText.headline(18, color: palette.ink),
+        ),
+        const SizedBox(height: 10),
+        if (_failed)
+          TextButton.icon(
+            onPressed: _retry,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Reintentar la carga de viajes'),
+          ),
+        if (query.isEmpty && _loading)
+          const LinearProgressIndicator()
+        else if (choices.isEmpty && (query.isNotEmpty || !_failed))
+          Text(
+            query.isEmpty
+                ? 'Todavía no hay salidas para este sentido.'
+                : 'Ningún barrio coincide. Prueba con otra parte del nombre.',
+            style: RoutbText.copy(14, color: palette.muted),
+          )
+        else if (choices.isNotEmpty)
+          Material(
+            color: palette.card,
+            borderRadius: BorderRadius.circular(22),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                for (final name in choices.take(_limit))
+                  ListTile(
+                    key: ValueKey('barrio-$name'),
+                    leading: Icon(Icons.place_outlined, color: palette.brand),
+                    title: Text(
+                      name,
+                      style: RoutbText.headline(16, color: palette.ink),
+                    ),
+                    trailing: Icon(
+                      Icons.chevron_right_rounded,
+                      color: palette.muted,
+                    ),
+                    onTap: () => _selectZone(name),
+                  ),
+                if (choices.length > _limit)
+                  TextButton(
+                    onPressed: () => setState(() => _limit += 6),
+                    child: const Text('Ver más coincidencias'),
+                  ),
+              ],
+            ),
+          ),
+      ],
+    );
   }
 
-  Future<void> _pickTime() async {
-    final value = await showTimePicker(context: context, initialTime: _time);
-    if (value != null && mounted) setState(() => _time = value);
+  Widget _results(RoutbPalette palette) {
+    final zone = _zone!;
+    final needle = Zones.normalize(zone);
+    final trips = _upcomingTrips
+        .where((trip) => _tripNeighborhood(trip).contains(needle))
+        .toList();
+
+    return Column(
+      key: _resultsKey,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: Text(
+                _toCampus ? 'Desde $zone' : 'Hacia $zone',
+                style: RoutbText.headline(16, color: palette.ink),
+              ),
+            ),
+            TextButton(
+              onPressed: () => _updateSelection(_direction, null),
+              child: const Text('Cambiar barrio'),
+            ),
+          ],
+        ),
+        if (_loading)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 28),
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if (_failed)
+          RoutbEmptyState(
+            icon: Icons.cloud_off_rounded,
+            message: 'No se pudieron cargar los viajes.',
+            action: RoutbButton(
+              label: 'Reintentar',
+              icon: Icons.refresh_rounded,
+              variant: RoutbButtonVariant.secondary,
+              expand: false,
+              height: 44,
+              onPressed: _retry,
+            ),
+          )
+        else if (trips.isEmpty)
+          RoutbEmptyState(
+            icon: Icons.search_off_rounded,
+            message: _toCampus
+                ? 'No hay viajes desde $zone por ahora. Prueba con otro barrio.'
+                : 'No hay viajes hacia $zone por ahora. Prueba con otro barrio.',
+            action: RoutbButton(
+              label: 'Elegir otro barrio',
+              variant: RoutbButtonVariant.secondary,
+              expand: false,
+              height: 44,
+              onPressed: () => _updateSelection(_direction, null),
+            ),
+          )
+        else ...<Widget>[
+          Text(
+            trips.length == 1
+                ? '1 viaje disponible'
+                : '${trips.length} viajes disponibles',
+            style: RoutbText.copy(12, color: palette.muted),
+          ),
+          const SizedBox(height: 10),
+          for (var index = 0; index < trips.length; index++)
+            TripCard(
+              trip: trips[index],
+              index: index,
+              onReserve: () => _reserve(trips[index]),
+            ),
+        ],
+      ],
+    );
   }
 }

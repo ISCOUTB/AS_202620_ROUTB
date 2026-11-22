@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../../app/app_routes.dart';
+import '../../../app/dependencies.dart';
+import '../../../core/models/trip.dart';
+import '../../../core/network/api_exception.dart';
 import '../../../core/constants/zones.dart';
 import '../../../core/models/travel_time.dart';
 import '../../../core/models/trip_schedule.dart';
@@ -12,10 +16,11 @@ import '../../../core/widgets/routb_button.dart';
 import '../../../core/widgets/routb_card.dart';
 import '../../../core/widgets/routb_field.dart';
 import '../../../core/widgets/routb_seats.dart';
-import '../../../core/widgets/routb_sheet.dart';
+import '../../../core/widgets/routb_sheet.dart' show RoutbSegmented;
+import '../../../core/widgets/routb_trip_form_page.dart';
 import '../../../core/widgets/route_map.dart';
 
-/// Ruta en construcción dentro de la hoja de publicación.
+/// Ruta en construcción dentro de la pantalla de publicación.
 ///
 /// Se va mutando mientras la persona ajusta el formulario, y la vista previa se
 /// redibuja en cada cambio, igual que en el diseño.
@@ -88,41 +93,17 @@ class DraftRoute {
   String get direction => toCampus ? 'to_campus' : 'from_campus';
 }
 
-/// Abre la hoja de publicación y devuelve el borrador, o `null` si se cerró.
-///
-/// ```dart
-/// final draft = await showPublishRouteSheet(
-///   context: context,
-///   driverName: account.name,
-///   driverInitials: initialsOf(account.name),
-/// );
-/// ```
-Future<DraftRoute?> showPublishRouteSheet({
+/// Devuelve la ruta que el servidor confirmó al publicar.
+Future<Trip?> openPublishRouteScreen({
   required BuildContext context,
   required String driverName,
   required String driverInitials,
 }) {
-  return showModalBottomSheet<DraftRoute>(
-    context: context,
-    isScrollControlled: true,
-    isDismissible: true,
-    enableDrag: true,
-    showDragHandle: false,
-    backgroundColor: context.palette.surface,
-    barrierColor: const Color(0x8C0A0820),
-    constraints: const BoxConstraints(maxWidth: 640),
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-    ),
-    builder: (sheetContext) => DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: 0.91,
-      minChildSize: 0.5,
-      maxChildSize: 1.0,
-      builder: (context, scrollController) => _PublishSheet(
+  return Navigator.of(context).push<Trip>(
+    RoutbPageRoute(
+      child: _PublishRouteScreen(
         driverName: driverName,
         driverInitials: driverInitials,
-        scrollController: scrollController,
       ),
     ),
   );
@@ -131,7 +112,7 @@ Future<DraftRoute?> showPublishRouteSheet({
 /// Vista compacta del trayecto antes de publicar (G10).
 ///
 /// Reutiliza [RouteMap] con las coordenadas ya elegidas en el formulario. Si el
-/// conductor todavía no marcó su punto, la hoja no construye este widget.
+/// conductor todavía no marcó su punto, la pantalla no construye este widget.
 class PublishRouteMapPreview extends StatelessWidget {
   const PublishRouteMapPreview({
     required this.origin,
@@ -165,22 +146,20 @@ class PublishRouteMapPreview extends StatelessWidget {
   }
 }
 
-class _PublishSheet extends StatefulWidget {
-  const _PublishSheet({
+class _PublishRouteScreen extends StatefulWidget {
+  const _PublishRouteScreen({
     required this.driverName,
     required this.driverInitials,
-    required this.scrollController,
   });
 
   final String driverName;
   final String driverInitials;
-  final ScrollController scrollController;
 
   @override
-  State<_PublishSheet> createState() => _PublishSheetState();
+  State<_PublishRouteScreen> createState() => _PublishRouteScreenState();
 }
 
-class _PublishSheetState extends State<_PublishSheet> {
+class _PublishRouteScreenState extends State<_PublishRouteScreen> {
   late final DraftRoute _draft = DraftRoute(
     driverName: widget.driverName,
     driverInitials: widget.driverInitials,
@@ -219,11 +198,56 @@ class _PublishSheetState extends State<_PublishSheet> {
     return best;
   }
 
+  bool _publishing = false;
+  String? _error;
+
+  String? get _missing {
+    if (_draft.driverPoint == null) {
+      return 'Selecciona una dirección o un punto en el mapa.';
+    }
+    if (!_draft.toCampus && _draft.meetingPoint.trim().length < 3) {
+      return 'Describe el punto de encuentro en la UTB con al menos tres caracteres.';
+    }
+    return null;
+  }
+
+  Future<void> _submit() async {
+    if (_publishing || _missing != null) return;
+    setState(() {
+      _publishing = true;
+      _error = null;
+    });
+    try {
+      final trip = await RoutbScopeDependencies.of(context).trips.publish(
+        origin: _draft.origin,
+        destination: _draft.destination,
+        departureTime: _draft.departure.label,
+        departureDate: _draft.departureDate,
+        meetingPoint: _draft.toCampus
+            ? 'Por coordinar'
+            : _draft.meetingPoint.trim(),
+        seats: _draft.seats,
+        direction: _draft.direction,
+        driverPoint: _draft.driverPoint,
+      );
+      if (mounted) Navigator.of(context).pop(trip);
+    } on Exception catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _publishing = false;
+        _error = error is ApiException && error.detail == 'vehicle_required'
+            ? 'Completa los datos del vehículo en Perfil para publicar.'
+            : describeFailure(error);
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return RoutbSheetScaffold(
+    return RoutbTripFormPage(
+      busy: _publishing,
       title: 'Nueva ruta',
-      scrollController: widget.scrollController,
+      subtitle: _draft.toCampus ? 'Hacia la UTB' : 'Desde la UTB',
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -243,10 +267,12 @@ class _PublishSheetState extends State<_PublishSheet> {
                   onChanged: (value) => setState(() => _draft.toCampus = value),
                 ),
                 const SizedBox(height: 12),
-                DateQuickPicker(
-                  value: _draft.departureDate,
-                  onChanged: (date) =>
-                      setState(() => _draft.departureDate = date),
+                Center(
+                  child: DateQuickPicker(
+                    value: _draft.departureDate,
+                    onChanged: (date) =>
+                        setState(() => _draft.departureDate = date),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 DepartureStepper(
@@ -267,8 +293,8 @@ class _PublishSheetState extends State<_PublishSheet> {
               children: [
                 SectionLabel(
                   title: _draft.toCampus
-                      ? 'Punto de salida en Cartagena'
-                      : 'Punto de llegada en Cartagena',
+                      ? 'Punto de salida'
+                      : 'Punto de llegada',
                   trailing: _draft.driverPoint != null
                       ? _draft.zone.name
                       : 'Obligatorio',
@@ -346,25 +372,16 @@ class _PublishSheetState extends State<_PublishSheet> {
               ],
             ),
           ),
-
-          const RoutbHint(
-            'El trayecto se calcula y publica con base en el barrio y las paradas.',
-            margin: EdgeInsets.only(top: 14),
-          ),
         ],
       ),
-      footer: RoutbButton(
-        label: 'Publicar ruta',
-        onPressed:
-            ((!_draft.toCampus && _draft.meetingPoint.trim().length < 3) ||
-                _draft.driverPoint == null)
-            ? null
-            : () {
-                if (_draft.toCampus && _draft.meetingPoint.trim().isEmpty) {
-                  _draft.meetingPoint = 'Por coordinar';
-                }
-                Navigator.of(context).pop(_draft);
-              },
+      footer: RoutbFormFooter(
+        error: _error,
+        hint: _missing,
+        action: RoutbButton(
+          label: 'Publicar ruta',
+          busy: _publishing,
+          onPressed: _missing == null && !_publishing ? _submit : null,
+        ),
       ),
     );
   }
@@ -450,12 +467,15 @@ class DepartureStepper extends StatelessWidget {
                           color: palette.brand,
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                          departure.label,
-                          style: RoutbText.headline(
-                            28,
-                            color: palette.ink,
-                            height: 1,
+                        Flexible(
+                          child: Text(
+                            departure.label,
+                            textAlign: TextAlign.center,
+                            style: RoutbText.headline(
+                              28,
+                              color: palette.ink,
+                              height: 1,
+                            ),
                           ),
                         ),
                       ],

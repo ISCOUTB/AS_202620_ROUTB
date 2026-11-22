@@ -38,9 +38,3 @@ String emergencyContactMessage({
       '${activeTrip.destination}, con salida ${activeTrip.departureLabel}. '
       'Te aviso por seguridad.';
 }
-
-/// Mensaje que se prellenará al escribirle al equipo de soporte.
-String supportMessage({required String userName, required String roleLabel}) {
-  final name = userName.trim().isEmpty ? 'un estudiante' : userName.trim();
-  return 'Hola, soy $name ($roleLabel). Necesito ayuda con ROUTB.';
-}

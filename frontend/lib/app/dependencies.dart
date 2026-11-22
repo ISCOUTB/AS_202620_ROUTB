@@ -9,6 +9,7 @@ import '../features/auth/screens/auth_flow.dart';
 import '../features/matching/data/matching_repository.dart';
 import '../features/notifications/data/notifications_repository.dart';
 import '../features/notifications/push_notification_service.dart';
+import '../features/safety/data/support_repository.dart';
 import '../features/trips/data/trip_repository.dart';
 import 'app_routes.dart';
 
@@ -24,8 +25,10 @@ class RoutbDependencies {
     required this.matching,
     required this.push,
     required this.theme,
+    SupportRepository? support,
     GlobalKey<NavigatorState>? navigatorKey,
-  }) : navigatorKey = navigatorKey ?? GlobalKey<NavigatorState>();
+  }) : support = support ?? SupportRepository(ApiClient(session)),
+       navigatorKey = navigatorKey ?? GlobalKey<NavigatorState>();
 
   /// Clave global de navegación para redirecciones (ej. sesión expirada).
   final GlobalKey<NavigatorState> navigatorKey;
@@ -44,6 +47,8 @@ class RoutbDependencies {
 
   /// Registro de token y recepción de avisos FCM.
   final PushNotificationService push;
+
+  final SupportRepository support;
 
   /// Señal para que las pantallas vuelvan a consultar solicitudes y viajes.
   final ValueNotifier<int> requestRefresh = ValueNotifier<int>(0);
@@ -95,6 +100,7 @@ class RoutbDependencies {
       trips: TripRepository(api),
       matching: MatchingRepository(api),
       push: PushNotificationService(repository: NotificationsRepository(api)),
+      support: SupportRepository(api),
       theme: theme,
       navigatorKey: navKey,
     );

@@ -59,8 +59,54 @@ class RoutbNavBar extends StatelessWidget {
     final palette = context.palette;
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
+    final scaler = MediaQuery.textScalerOf(context);
+    final tabWidth = (MediaQuery.sizeOf(context).width - 72) / 4;
+    // La etiqueta más ancha decide cuándo dividir cada lado en dos filas.
+    final labelWidth = items
+        .map((item) {
+          final painter = TextPainter(
+            text: TextSpan(
+              text: item.label,
+              style: RoutbText.copy(
+                9.5,
+                color: palette.ink,
+                weight: FontWeight.w700,
+              ),
+            ),
+            textDirection: Directionality.of(context),
+            textScaler: scaler,
+          )..layout();
+          final width = painter.width;
+          painter.dispose();
+          return width;
+        })
+        .reduce((a, b) => a > b ? a : b);
+    final stacked = labelWidth + 14 > tabWidth;
+    final wraps = stacked && labelWidth + 14 > tabWidth * 2;
+    final tabHeight = 36 + scaler.scale(9.5) * (wraps ? 3 : 1.6);
+    final barHeight = stacked ? tabHeight * 2 : _barHeight;
+    Widget tab(int index) => _RoutbNavTab(
+      item: items[index],
+      selected: index == selectedIndex,
+      onTap: () => onSelected(index),
+    );
+    Widget side(int first) => Expanded(
+      child: stacked
+          ? Column(
+              children: [
+                Expanded(child: tab(first)),
+                Expanded(child: tab(first + 1)),
+              ],
+            )
+          : Row(
+              children: [
+                Expanded(child: tab(first)),
+                Expanded(child: tab(first + 1)),
+              ],
+            ),
+    );
     return SizedBox(
-      height: _barHeight + bottomInset,
+      height: barHeight + bottomInset,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -70,7 +116,7 @@ class RoutbNavBar extends StatelessWidget {
             left: 0,
             right: 0,
             bottom: 0,
-            height: 70 + bottomInset,
+            height: (stacked ? barHeight : 70) + bottomInset,
             child: DecoratedBox(
               decoration: BoxDecoration(
                 color: palette.card,
@@ -86,46 +132,16 @@ class RoutbNavBar extends StatelessWidget {
             left: 0,
             right: 0,
             bottom: bottomInset,
-            height: 70,
+            height: stacked ? barHeight : 70,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 6),
               child: Row(
-                children: [
-                  Expanded(
-                    child: _RoutbNavTab(
-                      item: items[0],
-                      selected: selectedIndex == 0,
-                      onTap: () => onSelected(0),
-                    ),
-                  ),
-                  Expanded(
-                    child: _RoutbNavTab(
-                      item: items[1],
-                      selected: selectedIndex == 1,
-                      onTap: () => onSelected(1),
-                    ),
-                  ),
-                  const SizedBox(width: 60),
-                  Expanded(
-                    child: _RoutbNavTab(
-                      item: items[2],
-                      selected: selectedIndex == 2,
-                      onTap: () => onSelected(2),
-                    ),
-                  ),
-                  Expanded(
-                    child: _RoutbNavTab(
-                      item: items[3],
-                      selected: selectedIndex == 3,
-                      onTap: () => onSelected(3),
-                    ),
-                  ),
-                ],
+                children: [side(0), const SizedBox(width: 60), side(2)],
               ),
             ),
           ),
           Positioned(
-            top: 0,
+            top: stacked ? (barHeight - 58) / 2 : 0,
             left: 0,
             right: 0,
             child: Center(
@@ -213,8 +229,6 @@ class _RoutbNavTab extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   item.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
                   style: RoutbText.copy(
                     9.5,

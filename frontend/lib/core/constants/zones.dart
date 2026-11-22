@@ -225,6 +225,32 @@ abstract final class Zones {
       longitude >= -75.9 &&
       longitude <= -75.2;
 
+  /// Etiqueta de un lugar sin el sufijo «, Cartagena» cuando no corresponde.
+  ///
+  /// Turbaco es un municipio aparte y los viajes publicados antes de esta
+  /// corrección lo guardaron como «Turbaco, Cartagena». Se limpia al leerlos
+  /// para no mostrar una ubicación incorrecta.
+  static String displayAddress(String raw) {
+    final trimmed = raw.trim();
+    if (!normalize(trimmed).contains('turbaco')) return trimmed;
+    return trimmed
+        .replaceAll(RegExp(r',\s*Cartagena\s*$', caseSensitive: false), '')
+        .trim();
+  }
+
+  /// Etiqueta de una zona con su municipio: «Manga, Cartagena».
+  ///
+  /// Turbaco queda solo porque no pertenece al municipio de Cartagena.
+  static String addressLabel(String name) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return trimmed;
+    final normalized = normalize(trimmed);
+    if (normalized.contains('cartagena') || normalized.contains('turbaco')) {
+      return displayAddress(trimmed);
+    }
+    return '$trimmed, Cartagena';
+  }
+
   /// Estima los minutos desde el campus para un barrio recién ubicado.
   ///
   /// Solo se usa cuando la fuente geográfica no trae un tiempo propio. La

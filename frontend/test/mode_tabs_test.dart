@@ -1,25 +1,38 @@
+import 'dart:async';
+
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:frontend/app/dependencies.dart';
+import 'package:frontend/app/app_routes.dart';
 import 'package:frontend/core/models/user_role.dart';
+import 'package:frontend/core/models/trip.dart';
+import 'package:frontend/core/widgets/address_search_field.dart';
+import 'package:frontend/core/widgets/routb_button.dart';
+import 'package:frontend/features/driver/screens/publish_route_screen.dart';
+import 'package:frontend/features/passenger/screens/reserve_seats_screen.dart';
 import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/core/storage/session_store.dart';
 import 'package:frontend/core/theme/routb_theme.dart';
 import 'package:frontend/core/theme/theme_controller.dart';
+import 'package:frontend/core/widgets/date_quick_picker.dart';
 import 'package:frontend/core/widgets/routb_hero.dart';
 import 'package:frontend/core/widgets/routb_nav_bar.dart';
 import 'package:frontend/features/auth/data/auth_repository.dart';
 import 'package:frontend/features/driver/screens/driver_screen.dart';
+import 'package:frontend/features/driver/widgets/driver_cards.dart';
+import 'package:frontend/features/driver/widgets/routb_trip_map.dart';
 import 'package:frontend/features/matching/data/matching_repository.dart';
 import 'package:frontend/features/notifications/data/notifications_repository.dart';
 import 'package:frontend/features/notifications/push_notification_service.dart';
 import 'package:frontend/features/passenger/screens/passenger_screen.dart';
+import 'package:frontend/features/passenger/widgets/trip_card.dart';
 import 'package:frontend/features/trips/data/trip_repository.dart';
 
 const Map<String, String> _json = <String, String>{
@@ -76,29 +89,21 @@ class _DriverApi {
   late final http.Client client = MockClient((request) async {
     final path = request.url.path;
     if (request.method == 'GET' && path == '/trips/my-trips') {
-      if (request.url.queryParameters['scope'] == 'history') {
-        return http.Response(
-          jsonEncode(<Map<String, dynamic>>[
-            _tripJson(
-              id: 2,
-              origin: 'Centro',
-              destination: 'UTB',
-              status: 'cancelled',
-            ),
-            _tripJson(
-              id: 3,
-              origin: 'Bocagrande',
-              destination: 'UTB',
-              date: '2026-01-01',
-            ),
-          ]),
-          200,
-          headers: _json,
-        );
-      }
       return http.Response(
-        jsonEncode(<Map<String, dynamic>>[
+        jsonEncode([
           _tripJson(id: 1, origin: 'Manga', destination: 'UTB'),
+          _tripJson(
+            id: 2,
+            origin: 'Centro',
+            destination: 'UTB',
+            status: 'cancelled',
+          ),
+          _tripJson(
+            id: 3,
+            origin: 'Bocagrande',
+            destination: 'UTB',
+            date: '2026-01-01',
+          ),
         ]),
         200,
         headers: _json,
@@ -226,14 +231,339 @@ Future<void> _openEditAccount(WidgetTester tester) async {
 
 /// Baja hasta el final de la lista del perfil para alcanzar el botón de salir.
 Future<void> _scrollToLogout(WidgetTester tester) async {
-  await tester.drag(find.byType(ListView), const Offset(0, -500));
+  await tester.scrollUntilVisible(
+    find.text('Cerrar sesión'),
+    300,
+    scrollable: find.byType(Scrollable).first,
+  );
   await _settle(tester);
 }
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues(<String, Object>{}));
 
+  testWidgets('conserva el borrador y publica al reintentar', (tester) async {
+    _usePhone(tester, const Size(390, 844));
+    final submissions = <Map<String, dynamic>>[];
+    final first = Completer<http.Response>();
+    final dependencies = _dependencies(
+      MockClient((request) async {
+        submissions.add(jsonDecode(request.body) as Map<String, dynamic>);
+        if (submissions.length == 1) return first.future;
+        return http.Response(
+          jsonEncode(_tripJson(id: 48, origin: 'Manga', destination: 'UTB')),
+          201,
+          headers: _json,
+        );
+      }),
+    );
+    addTearDown(dependencies.dispose);
+    Trip? published;
+    await tester.pumpWidget(
+      _app(
+        dependencies,
+        Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              child: const Text('Abrir'),
+              onPressed: () async {
+                published = await openPublishRouteScreen(
+                  context: context,
+                  driverName: 'Ana',
+                  driverInitials: 'A',
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Abrir'));
+    await _settle(tester);
+    tester
+        .widget<AddressSearchField>(find.byType(AddressSearchField))
+        .onLocationSelected(
+          const SelectedLocation(lat: 10.41, lng: -75.53, addressText: 'Manga'),
+        );
+    await tester.pump();
+    await tester.tap(find.text('Publicar ruta'));
+    await tester.pump();
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    expect(find.text('Nueva ruta'), findsOneWidget);
+    first.complete(http.Response('{}', 503, headers: _json));
+    await _settle(tester);
+    expect(
+      find.textContaining('El servidor está teniendo problemas'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Publicar ruta'));
+    await _settle(tester);
+    expect(published?.id, 48);
+    expect(submissions, hasLength(2));
+    expect(submissions.last, submissions.first);
+  });
+
+  testWidgets('actualiza disponibilidad si otro pasajero toma el último cupo', (
+    tester,
+  ) async {
+    _usePhone(tester, const Size(390, 844));
+    final trip = _tripJson(id: 48, origin: 'Manga', destination: 'UTB');
+    final calls = <String>[];
+    final dependencies = _dependencies(
+      MockClient((request) async {
+        calls.add('${request.method} ${request.url.path}');
+        if (request.method == 'POST') {
+          return http.Response(
+            jsonEncode({
+              'detail':
+                  'No hay suficientes cupos disponibles para esta solicitud',
+            }),
+            409,
+            headers: _json,
+          );
+        }
+        return http.Response(
+          jsonEncode({...trip, 'available_seats': 0}),
+          200,
+          headers: _json,
+        );
+      }),
+    );
+    addTearDown(dependencies.dispose);
+    await tester.pumpWidget(
+      _app(
+        dependencies,
+        Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              child: const Text('Abrir'),
+              onPressed: () => openReserveSeatsScreen(
+                context: context,
+                trip: Trip.fromJson(trip),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Abrir'));
+    await _settle(tester);
+    tester
+        .widget<AddressSearchField>(find.byType(AddressSearchField))
+        .onLocationSelected(
+          const SelectedLocation(lat: 10.41, lng: -75.53, addressText: 'Manga'),
+        );
+    await tester.pump();
+    await tester.tap(find.textContaining('Enviar solicitud a'));
+    await _settle(tester);
+    expect(calls, ['POST /requests/trips/48', 'GET /trips/48']);
+    expect(find.text('Ya no quedan cupos.'), findsOneWidget);
+    expect(
+      tester.widget<RoutbButton>(find.byType(RoutbButton).last).onPressed,
+      isNull,
+    );
+  });
+
+  testWidgets('las cuatro etiquetas caben con texto al 200 % a 320 píxeles', (
+    tester,
+  ) async {
+    _usePhone(tester, const Size(320, 568));
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: RoutbTheme.dark(),
+        home: Scaffold(
+          bottomNavigationBar: RoutbNavBar(
+            items: const [
+              RoutbNavItem(label: 'Mis rutas', icon: Icons.route),
+              RoutbNavItem(label: 'Historial', icon: Icons.history),
+              RoutbNavItem(label: 'Seguridad', icon: Icons.shield),
+              RoutbNavItem(label: 'Perfil', icon: Icons.person),
+            ],
+            selectedIndex: 0,
+            onCenterTap: () {},
+            onSelected: (_) {},
+          ),
+        ),
+      ),
+    );
+    expect(tester.takeException(), isNull);
+    for (final label in ['Mis rutas', 'Historial', 'Seguridad', 'Perfil']) {
+      final paragraph = tester.renderObject<RenderParagraph>(_tab(label));
+      expect(paragraph.didExceedMaxLines, isFalse);
+      expect(_tab(label).hitTestable(), findsOneWidget);
+    }
+  });
+
+  testWidgets('activa conductor desde Perfil y alterna sin cambiar de sesión', (
+    tester,
+  ) async {
+    _usePhone(tester, const Size(390, 844));
+    var enabled = false;
+    var mode = 'passenger';
+    var offline = false;
+    final confirmMode = Completer<void>();
+    final writes = <String>[];
+    final dependencies = _dependencies(
+      MockClient((request) async {
+        final path = request.url.path;
+        if (offline) throw http.ClientException('Sin red');
+        if (request.method != 'GET') {
+          expect(request.headers['Authorization'], 'Bearer t');
+          writes.add(path);
+        }
+        if (path == '/users/me/driver') {
+          expect(jsonDecode(request.body)['vehicle_plate'], 'ABC-123');
+          enabled = true;
+          mode = 'driver';
+        }
+        if (path == '/users/me/mode') {
+          await confirmMode.future;
+          mode = jsonDecode(request.body)['mode'];
+        }
+        if (path == '/auth/me' || path.startsWith('/users/me/')) {
+          return http.Response(
+            jsonEncode({
+              ..._profileJson(
+                name: 'Ana',
+                lastName: 'Ruiz',
+                phone: '3007654321',
+                role: enabled ? 'driver' : 'passenger',
+              ),
+              'driver_enabled': enabled,
+              'active_mode': mode,
+            }),
+            200,
+            headers: _json,
+          );
+        }
+        return http.Response('[]', 200, headers: _json);
+      }),
+    );
+    addTearDown(dependencies.dispose);
+    await dependencies.session.save(
+      token: 't',
+      name: 'Ana',
+      role: UserRole.passenger,
+      userId: 7,
+    );
+    await tester.pumpWidget(
+      _app(dependencies, const ModeRoute(account: _passenger)),
+    );
+    await _settle(tester);
+    await tester.tap(_tab('Perfil'));
+    await _settle(tester);
+    await tester.tap(find.text('Quiero ser conductor'));
+    await _settle(tester);
+    final fields = find.byType(TextField);
+    await tester.enterText(fields.at(0), 'Spark');
+    await tester.enterText(fields.at(1), 'abc123');
+    await tester.enterText(fields.at(2), 'Gris');
+    await tester.tap(find.text('Habilitar modo conductor'));
+    await _settle(tester);
+    expect(find.byType(DriverScreen), findsOneWidget);
+    await tester.tap(find.byTooltip('Cambiar modo de viaje'));
+    await _settle(tester);
+    await tester.tap(
+      find.widgetWithText(CheckedPopupMenuItem<UserRole>, 'Pasajero'),
+    );
+    await _settle(tester);
+    expect(find.byType(PassengerScreen), findsOneWidget);
+    confirmMode.complete();
+    await _settle(tester);
+    expect(writes, ['/users/me/driver', '/users/me/mode']);
+    offline = true;
+    final restored = await dependencies.auth.restore();
+    expect(restored?.token, 't');
+    expect(restored?.id, 7);
+    expect(restored?.driverEnabled, true);
+    expect(restored?.role, UserRole.passenger);
+  });
+
+  testWidgets(
+    'el selector cabe con texto ampliado y restaura el modo si falla la confirmación',
+    (tester) async {
+      _usePhone(tester, const Size(320, 568));
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final switchResponse = Completer<http.Response>();
+      final dependencies = _dependencies(
+        MockClient((request) async {
+          if (request.url.path == '/users/me/mode') {
+            return switchResponse.future;
+          }
+          return http.Response('[]', 200, headers: _json);
+        }),
+      );
+      addTearDown(dependencies.dispose);
+      await tester.pumpWidget(
+        _app(dependencies, const ModeRoute(account: _driver)),
+      );
+      await _settle(tester);
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.byTooltip('Cambiar modo de viaje'));
+      await _settle(tester);
+      await tester.tap(
+        find.widgetWithText(CheckedPopupMenuItem<UserRole>, 'Pasajero'),
+      );
+      await _settle(tester);
+      expect(find.byType(PassengerScreen), findsOneWidget);
+      switchResponse.complete(http.Response('{}', 503, headers: _json));
+      await _settle(tester);
+      expect(find.byType(DriverScreen), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pump(const Duration(seconds: 3));
+    },
+  );
+
   group('Modo conductor', () {
+    testWidgets(
+      'seleccionar otra ruta conserva su mapa al pasar de dos columnas a móvil',
+      (tester) async {
+        _usePhone(tester, const Size(1024, 768));
+        final dependencies = _dependencies(
+          MockClient((request) async {
+            final routes =
+                request.url.path == '/trips/my-trips' &&
+                    request.url.queryParameters['scope'] != 'history'
+                ? [
+                    _tripJson(id: 1, origin: 'Manga', destination: 'UTB'),
+                    _tripJson(id: 2, origin: 'Centro', destination: 'UTB'),
+                  ]
+                : [];
+            return http.Response(jsonEncode(routes), 200, headers: _json);
+          }),
+        );
+        addTearDown(dependencies.dispose);
+        await tester.pumpWidget(
+          _app(dependencies, const DriverScreen(account: _driver)),
+        );
+        await _settle(tester);
+
+        final map = find.byType(RoutbTripMap);
+        final cards = find.byType(RouteCard);
+        expect(
+          tester.getRect(map).right,
+          lessThan(tester.getRect(cards.first).left),
+        );
+        expect(tester.widget<RoutbTripMap>(map).trip.id, 1);
+        await tester.tap(
+          find.descendant(of: cards.last, matching: find.text('Centro')),
+        );
+        await _settle(tester);
+
+        tester.view.physicalSize = const Size(390, 844);
+        await _settle(tester);
+        expect(tester.widget<RoutbTripMap>(map).trip.id, 2);
+        expect(
+          tester.getRect(map).bottom,
+          lessThan(tester.getRect(cards.first).top),
+        );
+      },
+    );
+
     testWidgets('el historial vive en su propia pestaña', (tester) async {
       _usePhone(tester, const Size(390, 844));
       final dependencies = _dependencies(_DriverApi().client);
@@ -283,7 +613,6 @@ void main() {
       expect(find.text('Sebastián Ríos'), findsOneWidget);
       expect(find.text('3001234567'), findsOneWidget);
       expect(find.text('Modo de pantalla'), findsOneWidget);
-      expect(find.text('Permisos'), findsOneWidget);
       expect(find.text('Editar cuenta'), findsOneWidget);
       expect(find.text('Editar perfil'), findsNothing);
       expect(find.text('Salir'), findsNothing);
@@ -296,6 +625,7 @@ void main() {
       await _settle(tester);
 
       await _scrollToLogout(tester);
+      expect(find.text('Permisos'), findsOneWidget);
       expect(find.text('Cerrar sesión'), findsOneWidget);
     });
 
@@ -378,13 +708,7 @@ void main() {
       );
       await _settle(tester);
 
-      expect(
-        calledUrls,
-        equals(<String>[
-          'GET /trips/my-trips',
-          'GET /trips/my-trips?scope=history',
-        ]),
-      );
+      expect(calledUrls, equals(<String>['GET /trips/my-trips?scope=all']));
       expect(find.text('Camila Soto'), findsOneWidget);
       expect(
         find.text('Calle Real # 20-10, Manga · 2 personas'),
@@ -499,7 +823,8 @@ void main() {
       expect(find.text('Llamar al 123'), findsOneWidget);
       expect(find.text('Soporte'), findsOneWidget);
       expect(find.text('Contactos de emergencia'), findsOneWidget);
-      expect(find.text('Información de seguridad'), findsOneWidget);
+      expect(find.text('Consejos para conductores'), findsOneWidget);
+      expect(find.text('Consejos para pasajeros'), findsNothing);
       expect(tester.takeException(), isNull);
     });
   });
@@ -583,4 +908,72 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   });
+  testWidgets(
+    'una respuesta atrasada de Hoy conserva los resultados de Mañana',
+    (tester) async {
+      _usePhone(tester, const Size(390, 844));
+      final oldResponse = Completer<http.Response>();
+      var searchCalls = 0;
+      String? todayParam;
+      String? tomorrowParam;
+      final dependencies = _dependencies(
+        MockClient((request) {
+          if (request.url.path != '/trips/') {
+            return Future.value(http.Response('[]', 200, headers: _json));
+          }
+          final date = request.url.queryParameters['departure_date'];
+          if (++searchCalls == 1) {
+            todayParam = date;
+            return oldResponse.future;
+          }
+          tomorrowParam = date;
+          return Future.value(
+            http.Response(
+              jsonEncode([
+                {
+                  ..._tripJson(
+                    id: 2,
+                    origin: 'Turbaco',
+                    destination: 'UTB',
+                    date: date,
+                  ),
+                  'departure_time': '11:59 PM',
+                },
+              ]),
+              200,
+              headers: _json,
+            ),
+          );
+        }),
+      );
+      addTearDown(dependencies.dispose);
+      await tester.pumpWidget(
+        _app(dependencies, const PassengerScreen(account: _passenger)),
+      );
+      await _settle(tester);
+      await tester.tap(
+        find.descendant(
+          of: find.byType(DateQuickPicker),
+          matching: find.text('Mañana'),
+        ),
+      );
+      await _settle(tester);
+      expect(tomorrowParam, isNot(todayParam));
+      expect(tester.widget<TripCard>(find.byType(TripCard).first).trip.id, 2);
+      final lateOld = {
+        ..._tripJson(
+          id: 1,
+          origin: 'Manga',
+          destination: 'UTB',
+          date: todayParam,
+        ),
+        'departure_time': '11:59 PM',
+      };
+      oldResponse.complete(
+        http.Response(jsonEncode([lateOld]), 200, headers: _json),
+      );
+      await _settle(tester);
+      expect(tester.widget<TripCard>(find.byType(TripCard).first).trip.id, 2);
+    },
+  );
 }

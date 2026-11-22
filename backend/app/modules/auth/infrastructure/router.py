@@ -9,6 +9,7 @@ from app.modules.auth.domain.exceptions import InvalidCredentialsError
 from app.modules.auth.infrastructure import schemas
 from app.modules.auth.infrastructure.security import get_current_user
 from app.modules.users.application import UserIdentity
+from app.modules.users.infrastructure.schemas import UserResponse
 
 router = APIRouter()
 
@@ -31,17 +32,8 @@ def login(
         )
 
 
-@router.get("/me")
+@router.get("/me", response_model=UserResponse)
 def current_user(
     user: Annotated[UserIdentity, Depends(get_current_user)],
 ):
-    return {
-        "id": user.id,
-        "name": user.name,
-        "last_name": user.last_name,
-        "phone": user.phone,
-        "role": user.role,
-        "vehicle_model": user.vehicle_model,
-        "vehicle_plate": user.vehicle_plate,
-        "vehicle_color": user.vehicle_color,
-    }
+    return user

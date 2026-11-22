@@ -9,7 +9,6 @@ import '../../../core/widgets/routb_button.dart';
 import '../../../core/widgets/routb_card.dart';
 import '../../../core/widgets/routb_field.dart';
 import '../../../core/widgets/routb_sheet.dart';
-import '../../../core/widgets/routb_toast.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../auth/data/auth_validation.dart';
 
@@ -79,6 +78,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
   String? _lastNameError;
   String? _phoneError;
   bool _saving = false;
+  String? _saveError;
 
   @override
   void dispose() {
@@ -111,7 +111,10 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
     final phone = normalizePhone(_phone.text);
     if (phone == null) return;
 
-    setState(() => _saving = true);
+    setState(() {
+      _saving = true;
+      _saveError = null;
+    });
     try {
       final updated = await widget.auth.updateProfile(
         name: _name.text,
@@ -122,11 +125,15 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
       Navigator.of(context).pop(updated);
     } on ApiException catch (error) {
       if (!mounted) return;
-      RoutbToast.show(context, error.message);
+      if (error.isConflict) {
+        setState(() => _phoneError = 'Este teléfono ya está registrado.');
+      } else {
+        setState(() => _saveError = error.message);
+      }
     } on Exception catch (error, stack) {
       logFailure('la edición del perfil', error, stack);
       if (!mounted) return;
-      RoutbToast.show(context, describeFailure(error));
+      setState(() => _saveError = describeFailure(error));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -197,11 +204,14 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
           ),
         ],
       ),
-      footer: RoutbButton(
-        label: 'Guardar cambios',
-        icon: Icons.check_rounded,
-        busy: _saving,
-        onPressed: _save,
+      footer: RoutbFormFooter(
+        error: _saveError,
+        action: RoutbButton(
+          label: 'Guardar cambios',
+          icon: Icons.check_rounded,
+          busy: _saving,
+          onPressed: _save,
+        ),
       ),
     );
   }

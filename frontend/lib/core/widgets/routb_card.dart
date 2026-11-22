@@ -91,16 +91,24 @@ class RoutbCardHeader extends StatelessWidget {
   const RoutbCardHeader({
     required this.title,
     this.icon,
+    this.leading,
     this.count,
     this.trailing,
     super.key,
-  });
+  }) : assert(
+         icon == null || leading == null,
+         'Usa icon o leading, no los dos a la vez.',
+       );
 
   /// Texto del encabezado.
   final String title;
 
   /// Icono a la izquierda del título.
   final IconData? icon;
+
+  /// Widget que sustituye a [icon] cuando el diseño necesita un glifo que
+  /// Material no trae, como el volante de la tarjeta «Vehículo».
+  final Widget? leading;
 
   /// Número que se muestra en la insignia del título.
   final int? count;
@@ -116,15 +124,16 @@ class RoutbCardHeader extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 14),
       child: Row(
         children: [
-          if (icon != null) ...[
+          if (icon != null || leading != null) ...[
             Container(
               width: 30,
               height: 30,
+              alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: palette.brandSurface,
                 borderRadius: BorderRadius.circular(9),
               ),
-              child: Icon(icon, size: 16, color: palette.brand),
+              child: leading ?? Icon(icon, size: 16, color: palette.brand),
             ),
             const SizedBox(width: 10),
           ],
@@ -223,13 +232,16 @@ class RoutbChipLabel extends StatelessWidget {
 
 /// Etiqueta atenuada para subtítulos secundarios.
 class RoutbHint extends StatelessWidget {
-  const RoutbHint(this.text, {this.margin, super.key});
+  const RoutbHint(this.text, {this.margin, this.padding, super.key});
 
   /// Texto atenuado.
   final String text;
 
   /// Espacio exterior.
   final EdgeInsetsGeometry? margin;
+
+  /// Espacio interior; si se omite, usa el estándar de la etiqueta.
+  final EdgeInsetsGeometry? padding;
 
   @override
   Widget build(BuildContext context) {
@@ -238,7 +250,8 @@ class RoutbHint extends StatelessWidget {
     return Padding(
       padding: margin ?? EdgeInsets.zero,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding:
+            padding ?? const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: palette.surface,
           borderRadius: BorderRadius.circular(14),

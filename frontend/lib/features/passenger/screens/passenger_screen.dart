@@ -15,9 +15,9 @@ import '../../../core/theme/routb_text.dart';
 import '../../../core/theme/routb_theme.dart';
 import '../../../core/widgets/date_quick_picker.dart';
 import '../../../core/widgets/route_map.dart';
-import '../../../core/widgets/routb_anim.dart';
 import '../../../core/widgets/routb_button.dart';
-import '../../../core/widgets/routb_hero.dart';
+import '../../../core/widgets/routb_journey_board.dart';
+import '../../../core/widgets/routb_history_section.dart';
 import '../../../core/widgets/routb_nav_bar.dart';
 import '../../../core/widgets/routb_section_header.dart';
 import '../../../core/widgets/routb_seats.dart';
@@ -27,12 +27,13 @@ import '../../auth/data/auth_repository.dart';
 import '../../notifications/push_notification_service.dart';
 import '../../profile/screens/profile_screen.dart';
 import '../../safety/models/active_trip_info.dart';
+import '../../safety/data/emergency_contacts_store.dart';
 import '../../safety/screens/security_screen.dart';
 import '../../trips/data/trip_repository.dart';
 import '../../trips/screens/active_trip_empty_screen.dart';
 import '../../matching/presentation/suggestions_screen.dart';
 import '../widgets/my_trip_card.dart';
-import '../widgets/reserve_seats_sheet.dart';
+import 'reserve_seats_screen.dart';
 import '../widgets/trip_card.dart';
 import 'active_trips_screen.dart';
 import 'my_trip_screen.dart';
@@ -69,10 +70,12 @@ class _PassengerScreenState extends State<PassengerScreen>
   PassengerStatus _status = PassengerStatus.loading;
   List<Trip> _trips = const <Trip>[];
   List<MyRequest> _myRequests = const <MyRequest>[];
+  final _activeList = ValueNotifier<List<MyRequest>>([]);
   String _errorMessage = '';
   Timer? _debounce;
   Timer? _pollTimer;
   Timer? _clockTimer;
+  int _searchGeneration = 0;
   bool _filtering = false;
   bool _appInForeground = true;
   bool _myRequestsInFlight = false;
@@ -145,6 +148,7 @@ class _PassengerScreenState extends State<PassengerScreen>
       _refreshSignal!.removeListener(_refreshListener!);
     }
     _debounce?.cancel();
+    _activeList.dispose();
     _origin.dispose();
     _destination.dispose();
     super.dispose();
@@ -164,6 +168,7 @@ class _PassengerScreenState extends State<PassengerScreen>
   TripRepository get _repository => RoutbScopeDependencies.of(context).trips;
 
   Future<void> _load() async {
+    final generation = ++_searchGeneration;
     if (_status != PassengerStatus.ready) {
       setState(() {
         _status = PassengerStatus.loading;
@@ -177,7 +182,7 @@ class _PassengerScreenState extends State<PassengerScreen>
         destination: _destination.text,
         departureDate: _selectedDate,
       );
-      if (!mounted) return;
+      if (!mounted || generation != _searchGeneration) return;
       setState(() {
         _trips = trips;
         _status = PassengerStatus.ready;
@@ -188,7 +193,7 @@ class _PassengerScreenState extends State<PassengerScreen>
       await _loadMyRequests();
     } on Exception catch (error, stack) {
       logFailure('la carga de viajes', error, stack);
-      if (!mounted) return;
+      if (!mounted || generation != _searchGeneration) return;
       setState(() {
         _status = PassengerStatus.failed;
         _errorMessage = describeFailure(error);
@@ -213,6 +218,7 @@ class _PassengerScreenState extends State<PassengerScreen>
       if (!mounted) return;
       setState(() {
         _myRequests = requests;
+        _activeList.value = _activeRequests;
         _myRequestsLoading = false;
         _myRequestsFailed = false;
         _lastMyRequestsSync = DateTime.now();
@@ -270,7 +276,7 @@ class _PassengerScreenState extends State<PassengerScreen>
       return;
     }
     _clockTimer ??= Timer.periodic(const Duration(seconds: 30), (_) {
-      if (mounted) setState(() {});
+      if (mounted) setState(() => _activeList.value = _activeRequests);
     });
   }
 
@@ -288,7 +294,12 @@ class _PassengerScreenState extends State<PassengerScreen>
               .where((trip) => !confirmedTripIds.contains(trip.id))
               .toList(growable: false);
     final upcoming = available
-        .where((trip) => !trip.hasDeparted(now))
+        .where(
+          (trip) =>
+              (widget.account.id == null ||
+                  trip.driverId != widget.account.id) &&
+              !trip.hasDeparted(now),
+        )
         .toList(growable: false);
     return filterAndSortTrips(upcoming, range: _timeRange, order: _sortOrder);
   }
@@ -435,11 +446,12 @@ class _PassengerScreenState extends State<PassengerScreen>
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
-  Future<void> _openMyTrip(MyRequest request) async {
+  Future<void> _openMyTrip(MyRequest request, {bool readOnly = false}) async {
     await Navigator.of(context).push(
       RoutbPageRoute<void>(
         child: MyTripScreen(
           request: request,
+          readOnly: readOnly,
           onWithdrawn: () {
             unawaited(_loadMyRequests());
             unawaited(_load());
@@ -495,10 +507,13 @@ class _PassengerScreenState extends State<PassengerScreen>
 
     await Navigator.of(context).push(
       RoutbPageRoute<void>(
-        child: ActiveTripsScreen(
-          requests: active,
-          lastUpdated: _lastMyRequestsSync,
-          onOpen: _openMyTrip,
+        child: ValueListenableBuilder<List<MyRequest>>(
+          valueListenable: _activeList,
+          builder: (_, requests, _) => ActiveTripsScreen(
+            requests: requests,
+            lastUpdated: _lastMyRequestsSync,
+            onOpen: _openMyTrip,
+          ),
         ),
       ),
     );
@@ -541,18 +556,28 @@ class _PassengerScreenState extends State<PassengerScreen>
     RoutbSheet.show<void>(
       context: context,
       title: 'Trayecto estimado',
-      subtitle:
-          'El mapa sitúa origen, destino y paradas con las coordenadas reales',
+      subtitle: active.routeLabel,
       heightFactor: 0.8,
-      body: RouteMap(
-        origin: active.origin,
-        destination: active.destination,
-        waypoints: active.waypoints,
-        routePoints: active.routePoints,
-        // En la hoja el mapa sí se puede mover: hay sitio de sobra y no compite
-        // con el scroll del resto del cuerpo.
-        interactive: true,
-        height: MediaQuery.sizeOf(context).height * 0.45,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          RouteMap(
+            origin: active.origin,
+            destination: active.destination,
+            waypoints: active.waypoints,
+            routePoints: active.routePoints,
+            // En la hoja el mapa sí se puede mover: hay sitio de sobra y no compite
+            // con el scroll del resto del cuerpo.
+            interactive: true,
+            height: MediaQuery.sizeOf(context).height * 0.45,
+          ),
+          for (final stop in active.waypoints)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.place_outlined),
+              title: Text(stop),
+            ),
+        ],
       ),
     );
   }
@@ -562,6 +587,7 @@ class _PassengerScreenState extends State<PassengerScreen>
     if (selected == _selectedDate) return;
     setState(() {
       _selectedDate = selected;
+      _trips = [];
       _filtering = true;
     });
     await _load();
@@ -620,7 +646,7 @@ class _PassengerScreenState extends State<PassengerScreen>
   /// viajes se pide ahora dentro de la propia mini pantalla.
   Future<void> _reserve(Trip trip) async {
     if (_busyTripId != null) return;
-    final choice = await showReserveSeatsSheet(context: context, trip: trip);
+    final choice = await openReserveSeatsScreen(context: context, trip: trip);
     if (choice == null || !mounted) return;
     setState(() => _busyTripId = trip.id);
 
@@ -692,9 +718,22 @@ class _PassengerScreenState extends State<PassengerScreen>
     });
   }
 
-  Future<void> _openSuggestions() =>
-      Navigator.of(context)
-          .push(RoutbPageRoute<void>(child: const SuggestionsScreen()));
+  String? _suggestedDirection;
+  String? _suggestedZone;
+
+  Future<void> _openSuggestions() => Navigator.of(context).push(
+    RoutbPageRoute<void>(
+      child: SuggestionsScreen(
+        passengerId: widget.account.id,
+        initialDirection: _suggestedDirection,
+        initialZone: _suggestedZone,
+        onSelectionChanged: (direction, zone) {
+          _suggestedDirection = direction;
+          _suggestedZone = zone;
+        },
+      ),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -708,7 +747,9 @@ class _PassengerScreenState extends State<PassengerScreen>
           Account(
             name: name.isEmpty ? widget.account.name : name,
             role: widget.account.role,
+            driverEnabled: widget.account.driverEnabled,
             token: widget.account.token,
+            id: widget.account.id,
           ),
         );
       },
@@ -727,52 +768,50 @@ class _PassengerScreenState extends State<PassengerScreen>
         bottom: false,
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: RoutbTheme.contentMaxWidth,
-            ),
+            constraints: BoxConstraints(maxWidth: RoutbJourneyBoard.maxWidth),
             child: switch (_selectedTab) {
-              _PassengerTab.search => Column(
-                children: [
-                  _PassengerHero(
-                    userName: account.name,
-                    selectedDate: _selectedDate,
-                    currentRequest: _currentRequest,
-                    timeRange: _timeRange,
-                    onDateChanged: _setDate,
-                    onTimeRangeChanged: _setTimeRange,
-                    onOpenMap: _openFullMap,
-                    onOpenSuggestions: _openSuggestions,
-                  ),
-                  Expanded(
-                    child: switch (_status) {
-                      PassengerStatus.loading => const _TripsLoading(),
-                      PassengerStatus.failed => _TripsFailed(
-                        message: _errorMessage,
-                        onRetry: _load,
-                      ),
-                      PassengerStatus.ready => _TripsList(
-                        trips: trips,
-                        myRequest: _currentRequest,
-                        busyTripId: _busyTripId,
-                        filtering: _filtering,
-                        origin: _origin.text.trim(),
-                        destination: _destination.text.trim(),
-                        selectedDate: _selectedDate,
-                        timeRange: _timeRange,
-                        sortOrder: _sortOrder,
-                        lastUpdated: lastUpdated,
-                        busyRequestId: _busyRequestId,
-                        onReserve: _reserve,
-                        onOpenMyTrip: _openMyTrip,
-                        onCancelRequest: _cancelRequest,
-                        onSortChanged: _setSortOrder,
-                        onClearTimeFilter: _clearTimeFilter,
-                        onShowOtherDay: _showOtherDay,
-                        onRefresh: _load,
-                        onClearFilters: _clearFilters,
-                      ),
-                    },
-                  ),
+              _PassengerTab.search => RoutbJourneyBoard(
+                storageKey: 'passenger-search-results',
+                onRefresh: _load,
+                header: _PassengerHero(
+                  userName: account.name,
+                  selectedDate: _selectedDate,
+                  currentRequest: _currentRequest,
+                  timeRange: _timeRange,
+                  onDateChanged: _setDate,
+                  onTimeRangeChanged: _setTimeRange,
+                  onOpenMap: _openFullMap,
+                  onOpenSuggestions: _openSuggestions,
+                ),
+                slivers: [
+                  switch (_status) {
+                    PassengerStatus.loading =>
+                      const JourneyFeedbackSliver.loading(),
+                    PassengerStatus.failed => JourneyFeedbackSliver.error(
+                      message: _errorMessage,
+                      onRetry: _load,
+                    ),
+                    PassengerStatus.ready => _TripsList(
+                      trips: trips,
+                      myRequest: _currentRequest,
+                      busyTripId: _busyTripId,
+                      filtering: _filtering,
+                      origin: _origin.text.trim(),
+                      destination: _destination.text.trim(),
+                      selectedDate: _selectedDate,
+                      timeRange: _timeRange,
+                      sortOrder: _sortOrder,
+                      lastUpdated: lastUpdated,
+                      busyRequestId: _busyRequestId,
+                      onReserve: _reserve,
+                      onOpenMyTrip: _openMyTrip,
+                      onCancelRequest: _cancelRequest,
+                      onSortChanged: _setSortOrder,
+                      onClearTimeFilter: _clearTimeFilter,
+                      onShowOtherDay: _showOtherDay,
+                      onClearFilters: _clearFilters,
+                    ),
+                  },
                 ],
               ),
               _PassengerTab.history => _HistoryTab(
@@ -780,11 +819,14 @@ class _PassengerScreenState extends State<PassengerScreen>
                 cancelled: _cancelledHistoryRequests,
                 loading: _myRequestsLoading,
                 failed: _myRequestsFailed,
-                onOpen: _openMyTrip,
+                onOpen: (request) => _openMyTrip(request, readOnly: true),
                 onRefresh: _loadMyRequests,
                 onRetry: _loadMyRequests,
               ),
               _PassengerTab.security => SecurityScreen(
+                contactsStore: account.id == null
+                    ? null
+                    : EmergencyContactsStore(account.id!),
                 role: UserRole.passenger,
                 userName: account.name,
                 activeTrip: _activeTripInfo,
@@ -837,167 +879,58 @@ class _PassengerHero extends StatelessWidget {
     final palette = context.palette;
     final active = currentRequest;
 
-    return Container(
-      decoration: BoxDecoration(
-        gradient: palette.heroGradient,
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(34)),
-      ),
-      padding: const EdgeInsets.fromLTRB(18, 12, 18, 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          HeroBar(userName: userName, wave: true),
-          if (active != null) ...[
-            const SizedBox(height: 16),
-            Stack(
-              children: [
-                RouteMap(
-                  origin: active.origin,
-                  destination: active.destination,
-                  waypoints: active.waypoints,
-                  routePoints: active.routePoints,
-                  height: 110,
-                ),
-                Positioned(
-                  right: 6,
-                  top: 6,
-                  child: Material(
-                    color: palette.card,
-                    borderRadius: BorderRadius.circular(RoutbTheme.radiusPill),
-                    child: InkWell(
-                      onTap: onOpenMap,
-                      borderRadius: BorderRadius.circular(
-                        RoutbTheme.radiusPill,
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(9, 5, 11, 5),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.fullscreen_rounded,
-                              size: 13,
-                              color: palette.ink,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Abrir mapa',
-                              style: RoutbText.copy(
-                                11,
-                                color: palette.ink,
-                                weight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-          ] else ...[
-            const SizedBox(height: 16),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        RoutbJourneyHeader(
+          title: 'Viajes',
+          userName: userName,
+          controls: JourneyAction(
+            icon: Icons.search_rounded,
+            label: '¿A dónde vas?',
+            onTap: onOpenSuggestions,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            DateQuickPicker(value: selectedDate, onChanged: onDateChanged),
+            _TimeRangeMenu(value: timeRange, onChanged: onTimeRangeChanged),
           ],
-          Container(
-            decoration: BoxDecoration(
-              color: palette.card,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: palette.line.withValues(alpha: 0.7)),
-              boxShadow: palette.searchShadow,
-            ),
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    DateQuickPicker(
-                      value: selectedDate,
-                      onChanged: onDateChanged,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: _TimeRangeMenu(
-                          value: timeRange,
-                          onChanged: onTimeRangeChanged,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Material(
-                  color: palette.surface,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(
-                      color: palette.brand.withValues(alpha: 0.25),
-                    ),
+        ),
+        if (active != null) ...[
+          const SizedBox(height: 10),
+          Stack(
+            children: [
+              RouteMap(
+                origin: active.origin,
+                destination: active.destination,
+                waypoints: active.waypoints,
+                routePoints: active.routePoints,
+                height: 110,
+                animateRoute: !MediaQuery.disableAnimationsOf(context),
+              ),
+              Positioned(
+                right: 6,
+                top: 4,
+                child: TextButton.icon(
+                  style: TextButton.styleFrom(
+                    backgroundColor: palette.card,
+                    foregroundColor: palette.onBrandSurface,
                   ),
-                  child: InkWell(
-                    onTap: onOpenSuggestions,
-                    borderRadius: BorderRadius.circular(16),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 11,
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              gradient: palette.primaryGradient,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(
-                              Icons.search_rounded,
-                              size: 17,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              '¿A dónde vas? Buscar ruta y paradas',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: RoutbText.copy(
-                                13,
-                                color: palette.ink,
-                                weight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Container(
-                            width: 26,
-                            height: 26,
-                            decoration: BoxDecoration(
-                              color: palette.brandSurface,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(
-                              Icons.tune_rounded,
-                              size: 14,
-                              color: palette.brand,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                  onPressed: onOpenMap,
+                  icon: const Icon(Icons.fullscreen_rounded),
+                  label: const Text('Abrir mapa'),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
-      ),
+      ],
     );
   }
 }
@@ -1022,7 +955,6 @@ class _TripsList extends StatelessWidget {
     required this.onSortChanged,
     required this.onClearTimeFilter,
     required this.onShowOtherDay,
-    required this.onRefresh,
     required this.onClearFilters,
   });
 
@@ -1043,7 +975,6 @@ class _TripsList extends StatelessWidget {
   final ValueChanged<TripSortOrder> onSortChanged;
   final VoidCallback onClearTimeFilter;
   final Future<void> Function() onShowOtherDay;
-  final Future<void> Function() onRefresh;
   final Future<void> Function() onClearFilters;
 
   /// Estado vacío con una salida concreta según el filtro que esté activo.
@@ -1118,121 +1049,59 @@ class _TripsList extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
     final now = DateTime.now();
-    // Con tarjeta activa el contenido supera la ventana: el estado vacío va
-    // en un sliver con caja (desplazable) en vez de rellenar el resto, que lo
-    // dejaría sin espacio y sin construir.
-    final emptyState = _emptyState();
-
-    return RefreshIndicator(
-      onRefresh: onRefresh,
-      child: CustomScrollView(
-        key: const PageStorageKey<String>('passenger-search-results'),
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          // La tarjeta va antes que el encabezado, incluso con cero
-          // resultados: el viaje confirmado desaparece del listado cuando se
-          // llena, que es justo cuando el pasajero necesita verlo.
-          if (myRequest != null)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
-                child: MyTripCard(
-                  request: myRequest!,
-                  onTap: () => onOpenMyTrip(myRequest!),
-                  onCancel: () => onCancelRequest(myRequest!),
-                  busy: busyRequestId == myRequest!.id,
-                  lastUpdated: lastUpdated,
-                ),
-              ),
-            ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
-              child: Row(
-                children: [
-                  // El título cede espacio antes que el contador: en pantallas
-                  // estrechas es lo que evita que la fila se desborde. No lleva
-                  // `Spacer` detrás porque el separador se lo comería entero y el
-                  // título saldría cortado sin necesidad.
-                  Flexible(
-                    child: Text(
-                      'Viajes disponibles',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: RoutbText.headline(18, color: palette.ink),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 9,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: palette.ink,
-                      borderRadius: BorderRadius.circular(99),
-                    ),
-                    child: Text(
-                      '${trips.length}',
-                      style: RoutbText.copy(
-                        12,
-                        color: palette.background,
-                        weight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  _SortMenu(value: sortOrder, onChanged: onSortChanged),
-                  // El separador solo aparece mientras se busca, y es el que
-                  // empuja el indicador al borde derecho.
-                  if (filtering)
-                    Expanded(
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: palette.brand,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
+    return SliverMainAxisGroup(
+      slivers: [
+        if (myRequest != null)
+          SliverPadding(
+            padding: const EdgeInsets.only(top: 16),
+            sliver: SliverToBoxAdapter(
+              child: MyTripCard(
+                request: myRequest!,
+                onTap: () => onOpenMyTrip(myRequest!),
+                onCancel: () => onCancelRequest(myRequest!),
+                busy: busyRequestId == myRequest!.id,
+                lastUpdated: lastUpdated,
               ),
             ),
           ),
-          if (trips.isEmpty)
-            if (myRequest != null)
-              SliverToBoxAdapter(child: emptyState)
-            else
-              SliverFillRemaining(hasScrollBody: false, child: emptyState)
-          else
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 28),
-              sliver: SliverList.builder(
-                itemCount: trips.length,
-                itemBuilder: (context, index) {
-                  final trip = trips[index];
-                  final state = trip.bookingStateAt(now);
-                  return RoutbEntrance(
-                    index: index,
-                    child: TripCard(
-                      trip: trip,
-                      index: index,
-                      now: now,
-                      isNew: trip.isImminent(now),
-                      onReserve: state.isActionable && busyTripId == null
-                          ? () => onReserve(trip)
-                          : null,
-                    ),
-                  );
-                },
-              ),
+        SliverToBoxAdapter(
+          child: JourneySectionTitle(
+            'Viajes disponibles',
+            count: trips.length,
+            action: _SortMenu(value: sortOrder, onChanged: onSortChanged),
+          ),
+        ),
+        if (filtering)
+          SliverToBoxAdapter(
+            child: LinearProgressIndicator(minHeight: 2, color: palette.brand),
+          )
+        else if (trips.isEmpty)
+          SliverToBoxAdapter(
+            child: Material(
+              color: palette.card,
+              borderRadius: BorderRadius.circular(20),
+              child: _emptyState(),
             ),
-        ],
-      ),
+          )
+        else
+          SliverList.builder(
+            itemCount: trips.length,
+            itemBuilder: (context, index) {
+              final trip = trips[index];
+              final state = trip.bookingStateAt(now);
+              return TripCard(
+                key: ValueKey(trip.id),
+                trip: trip,
+                index: index,
+                now: now,
+                isNew: trip.isImminent(now),
+                onReserve: state.isActionable && busyTripId == null
+                    ? () => onReserve(trip)
+                    : null,
+              );
+            },
+          ),
+      ],
     );
   }
 }
@@ -1273,16 +1142,18 @@ class _TimeRangeMenu extends StatelessWidget {
           ),
       ],
       child: Container(
-        height: 32,
-        padding: const EdgeInsets.only(left: 9, right: 3),
+        constraints: const BoxConstraints(minHeight: 44),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
           color: palette.surface,
           borderRadius: BorderRadius.circular(RoutbTheme.radiusPill),
           border: Border.all(color: palette.line),
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.max,
+          mainAxisSize: MainAxisSize.min,
           children: [
+            Icon(Icons.schedule_rounded, color: palette.muted, size: 16),
+            const SizedBox(width: 6),
             Flexible(
               child: Text(
                 value.shortLabel,
@@ -1339,14 +1210,24 @@ class _SortMenu extends StatelessWidget {
           ),
       ],
       child: Container(
-        width: 34,
-        height: 30,
+        constraints: const BoxConstraints(minHeight: 48),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
         decoration: BoxDecoration(
           color: palette.surface,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: palette.line),
         ),
-        child: Icon(Icons.sort_rounded, size: 17, color: palette.brand),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.sort_rounded, size: 17, color: palette.onBrandSurface),
+            const SizedBox(width: 4),
+            Text(
+              'Ordenar',
+              style: RoutbText.copy(12, color: palette.onBrandSurface),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1426,68 +1307,67 @@ class _HistoryTab extends StatelessWidget {
     final palette = context.palette;
     final empty = completed.isEmpty && cancelled.isEmpty;
 
-    return Column(
-      children: [
-        const RoutbSectionHeader(
-          title: 'Historial',
-          subtitle: 'Viajes completados y cancelados',
-        ),
-        Expanded(
-          child: loading
-              ? const _TripsLoading()
-              : failed
-              ? _TripsFailed(
-                  message: 'No se pudieron cargar tus viajes.',
-                  onRetry: onRetry,
-                )
-              : RefreshIndicator(
-                  onRefresh: onRefresh,
-                  child: empty
-                      ? ListView(
-                          key: const PageStorageKey<String>(
-                            'passenger-history-empty',
-                          ),
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.all(24),
-                          children: const [
-                            SizedBox(height: 80),
-                            RoutbEmptyState(
-                              icon: Icons.history_rounded,
-                              message:
-                                  'Todavía no tienes viajes completados ni '
-                                  'cancelados. Aquí verás los viajes que ya '
-                                  'terminaron.',
+    return RoutbSectionPage(
+      title: 'Historial',
+      subtitle: 'Viajes completados y cancelados',
+      icon: Icons.history_rounded,
+      body: (_) => loading
+          ? const _TripsLoading()
+          : failed
+          ? _TripsFailed(
+              message: 'No se pudieron cargar tus viajes.',
+              onRetry: onRetry,
+            )
+          : RefreshIndicator(
+              onRefresh: onRefresh,
+              child: empty
+                  ? CustomScrollView(
+                      key: const PageStorageKey<String>(
+                        'passenger-history-empty',
+                      ),
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      slivers: const [
+                        SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(24),
+                              child: RoutbEmptyState(
+                                icon: Icons.history_rounded,
+                                message:
+                                    'Todavía no tienes viajes completados ni '
+                                    'cancelados. Aquí verás los viajes que ya '
+                                    'terminaron.',
+                              ),
                             ),
-                          ],
-                        )
-                      : ListView(
-                          key: const PageStorageKey<String>(
-                            'passenger-history',
                           ),
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
-                          children: [
-                            if (completed.isNotEmpty)
-                              _HistorySection(
-                                title: 'Completados',
-                                icon: Icons.check_circle_outline_rounded,
-                                color: palette.mint,
-                                requests: completed,
-                                onOpen: onOpen,
-                              ),
-                            if (cancelled.isNotEmpty)
-                              _HistorySection(
-                                title: 'Cancelados',
-                                icon: Icons.cancel_outlined,
-                                color: palette.rose,
-                                requests: cancelled,
-                                onOpen: onOpen,
-                              ),
-                          ],
                         ),
-                ),
-        ),
-      ],
+                      ],
+                    )
+                  : ListView(
+                      key: const PageStorageKey<String>('passenger-history'),
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
+                      children: [
+                        if (completed.isNotEmpty)
+                          _HistorySection(
+                            title: 'Completados',
+                            icon: Icons.check_circle_outline_rounded,
+                            color: palette.mint,
+                            requests: completed,
+                            onOpen: onOpen,
+                          ),
+                        if (cancelled.isNotEmpty)
+                          _HistorySection(
+                            title: 'Cancelados',
+                            icon: Icons.cancel_outlined,
+                            color: palette.rose,
+                            requests: cancelled,
+                            onOpen: onOpen,
+                          ),
+                      ],
+                    ),
+            ),
     );
   }
 }
@@ -1509,57 +1389,22 @@ class _HistorySection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.palette;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return RoutbHistorySection(
+      title: title,
+      icon: icon,
+      color: color,
+      count: requests.length,
+      children: [
+        for (final request in requests)
           Padding(
-            padding: const EdgeInsets.fromLTRB(4, 2, 4, 8),
-            child: Row(
-              children: [
-                Icon(icon, size: 18, color: color),
-                const SizedBox(width: 7),
-                Text(
-                  title,
-                  style: RoutbText.copy(
-                    15,
-                    color: palette.ink,
-                    weight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: palette.surface,
-                    borderRadius: BorderRadius.circular(99),
-                    border: Border.all(color: palette.line),
-                  ),
-                  child: Text(
-                    '${requests.length}',
-                    style: RoutbText.copy(
-                      11,
-                      color: palette.muted,
-                      weight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
+            padding: const EdgeInsets.only(bottom: 10),
+            child: MyTripCard(
+              request: request,
+              showDriver: false,
+              onTap: () => onOpen(request),
             ),
           ),
-          for (final request in requests)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: MyTripCard(request: request, onTap: () => onOpen(request)),
-            ),
-        ],
-      ),
+      ],
     );
   }
 }

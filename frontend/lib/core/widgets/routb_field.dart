@@ -22,6 +22,8 @@ import '../theme/routb_theme.dart';
 class RoutbField extends StatefulWidget {
   const RoutbField({
     required this.hint,
+    this.label,
+    this.autofillHints,
     this.controller,
     this.icon,
     this.keyboardType,
@@ -41,6 +43,8 @@ class RoutbField extends StatefulWidget {
 
   /// Texto que se ve cuando el campo está vacío.
   final String hint;
+  final String? label;
+  final Iterable<String>? autofillHints;
 
   /// Controlador del texto.
   final TextEditingController? controller;
@@ -146,6 +150,18 @@ class _RoutbFieldState extends State<RoutbField> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (widget.label != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text(
+              widget.label!,
+              style: RoutbText.copy(
+                13,
+                color: palette.ink,
+                weight: FontWeight.w600,
+              ),
+            ),
+          ),
         AnimatedContainer(
           duration: const Duration(milliseconds: 160),
           height: RoutbTheme.fieldHeight,
@@ -182,29 +198,35 @@ class _RoutbFieldState extends State<RoutbField> {
                 const SizedBox(width: 12),
               ],
               Expanded(
-                child: TextField(
-                  controller: widget.controller,
-                  focusNode: _focusNode,
-                  autofocus: widget.autofocus,
-                  obscureText: widget.obscureToggle && _obscured,
-                  keyboardType: widget.keyboardType,
-                  textCapitalization: widget.textCapitalization,
-                  inputFormatters: widget.inputFormatters,
-                  textInputAction: widget.textInputAction,
-                  onChanged: widget.onChanged,
-                  onSubmitted: widget.onSubmitted,
-                  cursorColor: palette.brand,
-                  cursorWidth: 2,
-                  cursorRadius: const Radius.circular(1),
-                  style: RoutbText.copy(14, color: palette.ink),
-                  decoration: InputDecoration(
-                    isDense: true,
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                    contentPadding: EdgeInsets.zero,
-                    hintText: widget.hint,
-                    hintStyle: RoutbText.copy(14, color: palette.muted),
+                child: Semantics(
+                  label: widget.label,
+                  child: TextField(
+                    controller: widget.controller,
+                    focusNode: _focusNode,
+                    autofocus: widget.autofocus,
+                    autofillHints: widget.autofillHints,
+                    obscureText: widget.obscureToggle && _obscured,
+                    keyboardType: widget.keyboardType,
+                    textCapitalization: widget.textCapitalization,
+                    inputFormatters: widget.inputFormatters,
+                    textInputAction: widget.textInputAction,
+                    onChanged: widget.onChanged,
+                    onSubmitted: widget.onSubmitted,
+                    cursorColor: palette.brand,
+                    cursorWidth: 2,
+                    cursorRadius: const Radius.circular(1),
+                    style: RoutbText.copy(14, color: palette.ink),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      contentPadding: EdgeInsets.zero,
+                      hintText: widget.label == widget.hint
+                          ? null
+                          : widget.hint,
+                      hintStyle: RoutbText.copy(14, color: palette.muted),
+                    ),
                   ),
                 ),
               ),
@@ -223,7 +245,7 @@ class _RoutbFieldState extends State<RoutbField> {
             padding: const EdgeInsets.only(top: 6, left: 14),
             child: Text(
               widget.errorText!,
-              style: RoutbText.copy(12, color: palette.rose),
+              style: RoutbText.copy(12, color: palette.onRoseSurface),
             ),
           ),
       ],
