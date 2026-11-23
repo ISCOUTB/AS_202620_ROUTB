@@ -416,7 +416,9 @@ void main() {
           writes.add(path);
         }
         if (path == '/users/me/driver') {
-          expect(jsonDecode(request.body)['vehicle_plate'], 'ABC-123');
+          final vehicle = jsonDecode(request.body);
+          expect(vehicle['vehicle_plate'], 'ABC-123');
+          expect(vehicle['vehicle_model'], 'Chevrolet Spark');
           enabled = true;
           mode = 'driver';
         }
@@ -469,10 +471,18 @@ void main() {
       ),
     );
     await _settle(tester);
-    final fields = find.byType(TextField);
-    await tester.enterText(fields.at(0), 'Spark');
-    await tester.enterText(fields.at(1), 'abc123');
-    expect(fields, findsNWidgets(2));
+    final dropdowns = find.byType(DropdownButton<String>);
+    await tester.tap(dropdowns.at(0));
+    await _settle(tester);
+    await tester.tap(find.widgetWithText(InkWell, 'Chevrolet').last);
+    await _settle(tester);
+    await tester.tap(dropdowns.at(1));
+    await _settle(tester);
+    await tester.tap(find.widgetWithText(InkWell, 'Spark').last);
+    await _settle(tester);
+    final plate = find.byType(TextField);
+    expect(plate, findsOneWidget);
+    await tester.enterText(plate, 'abc123');
     final gray = find.widgetWithText(ChoiceChip, 'Gris');
     await tester.ensureVisible(gray);
     await tester.tap(gray);

@@ -39,6 +39,7 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/vehicles/car_generic.webp
     - assets/data/vehicle_models.json
 
   fonts:

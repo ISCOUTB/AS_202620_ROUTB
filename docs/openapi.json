@@ -1473,7 +1473,8 @@
                 "type": "null"
               }
             ],
-            "title": "Driver Name"
+            "title": "Driver Name",
+            "description": "Nombre de pila del conductor."
           },
           "driver_phone": {
             "anyOf": [
@@ -1710,7 +1711,8 @@
           },
           "driver_name": {
             "type": "string",
-            "title": "Driver Name"
+            "title": "Driver Name",
+            "description": "Nombre de pila del conductor."
           },
           "driver_phone": {
             "anyOf": [
@@ -2028,7 +2030,8 @@
                 "type": "null"
               }
             ],
-            "title": "Passenger Name"
+            "title": "Passenger Name",
+            "description": "Nombre de pila del pasajero."
           },
           "passenger_phone": {
             "anyOf": [
@@ -2148,7 +2151,8 @@
                 "type": "null"
               }
             ],
-            "title": "Passenger Name"
+            "title": "Passenger Name",
+            "description": "Nombre de pila del pasajero."
           },
           "passenger_phone": {
             "anyOf": [
@@ -2279,7 +2283,8 @@
                 "type": "null"
               }
             ],
-            "title": "Driver Name"
+            "title": "Driver Name",
+            "description": "Nombre de pila del conductor."
           },
           "vehicle_info": {
             "anyOf": [

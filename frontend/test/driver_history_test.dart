@@ -150,6 +150,7 @@ void main() {
     expect(find.text('Completadas'), findsOneWidget);
     expect(find.text('Canceladas'), findsOneWidget);
     expect(find.text('Centro → UTB'), findsOneWidget);
+    expect(find.textContaining('pasajero confirmado'), findsNothing);
 
     await tester.tap(find.text('Centro → UTB'));
     await _settle(tester);
@@ -159,6 +160,8 @@ void main() {
     expect(find.text('Centro → UTB'), findsOneWidget);
     expect(find.text('Cancelar ruta'), findsNothing);
     expect(find.text('Solicitudes pendientes'), findsNothing);
+    expect(find.text('Cupos'), findsNothing);
+    expect(find.text('Pasajeros confirmados'), findsNothing);
 
     await tester.pageBack();
     await _settle(tester);

@@ -395,16 +395,18 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                     ),
                   ),
 
-                  const SizedBox(height: 14),
-                  RoutbCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const RoutbCardHeader(title: 'Cupos'),
-                        Center(child: OccupiedSeatsCard(trip: _trip)),
-                      ],
+                  if (!widget.readOnly) ...[
+                    const SizedBox(height: 14),
+                    RoutbCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const RoutbCardHeader(title: 'Cupos'),
+                          Center(child: OccupiedSeatsCard(trip: _trip)),
+                        ],
+                      ),
                     ),
-                  ),
+                  ],
 
                   if (!widget.readOnly &&
                       _trip.requests.pending.isNotEmpty) ...[
@@ -434,113 +436,114 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                     ),
                   ],
 
-                  const SizedBox(height: 14),
-                  RoutbCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        RoutbCardHeader(
-                          title: 'Pasajeros confirmados',
-                          count: acceptedSeatCount,
-                        ),
-                        if (_requestsError case final String error)
-                          RoutbEmptyState(
-                            message:
-                                'No se pudieron actualizar los pasajeros. $error',
-                            action: TextButton(
-                              onPressed: _reloadRequests,
-                              child: const Text('Reintentar'),
-                            ),
+                  if (!widget.readOnly) ...[
+                    const SizedBox(height: 14),
+                    RoutbCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          RoutbCardHeader(
+                            title: 'Pasajeros confirmados',
+                            count: acceptedSeatCount,
                           ),
-                        if (_loadingRequests && accepted.isEmpty)
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 20),
-                            child: Center(
-                              child: SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
+                          if (_requestsError case final String error)
+                            RoutbEmptyState(
+                              message:
+                                  'No se pudieron actualizar los pasajeros. $error',
+                              action: TextButton(
+                                onPressed: _reloadRequests,
+                                child: const Text('Reintentar'),
+                              ),
+                            ),
+                          if (_loadingRequests && accepted.isEmpty)
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 20),
+                              child: Center(
+                                child: SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 ),
                               ),
-                            ),
-                          )
-                        else if (accepted.isEmpty && _requestsError == null)
-                          const RoutbEmptyState(
-                            message:
-                                'Todavía no hay pasajeros con cupo confirmado.',
-                          )
-                        else
-                          for (final request in accepted)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: Row(
-                                children: [
-                                  InitialsAvatar(
-                                    name: request.passengerName,
-                                    initials: request.initials,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          request.passengerName,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: RoutbText.headline(
-                                            15,
-                                            color: palette.ink,
-                                          ),
-                                        ),
-                                        if (request.hasPhone)
+                            )
+                          else if (accepted.isEmpty && _requestsError == null)
+                            const RoutbEmptyState(
+                              message: 'Todavía no hay pasajeros con cupo confirmado.',
+                            )
+                          else
+                            for (final request in accepted)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 10),
+                                child: Row(
+                                  children: [
+                                    InitialsAvatar(
+                                      name: request.passengerName,
+                                      initials: request.initials,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
                                           Text(
-                                            request.passengerPhone,
-                                            style: RoutbText.copy(
-                                              12,
-                                              color: palette.muted,
-                                            ),
-                                          ),
-                                        for (final stop in request.stops) ...[
-                                          Text(
-                                            '${stop.stopSequence == null ? '' : '${stop.stopSequence}. '}${stop.addressText} · ${stop.seats} ${stop.seats == 1 ? 'persona' : 'personas'}',
-                                            maxLines: 2,
+                                            request.passengerName,
+                                            maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
-                                            style: RoutbText.copy(
-                                              12,
-                                              color: palette.muted,
+                                            style: RoutbText.headline(
+                                              15,
+                                              color: palette.ink,
                                             ),
                                           ),
-                                          if (stop.etaEstimated != null)
-                                            Padding(
-                                              padding: const EdgeInsets.only(
-                                                top: 1,
-                                              ),
-                                              child: EtaLabel(
-                                                eta: stop.etaEstimated!,
-                                                compact: true,
+                                          if (request.hasPhone)
+                                            Text(
+                                              request.passengerPhone,
+                                              style: RoutbText.copy(
+                                                12,
+                                                color: palette.muted,
                                               ),
                                             ),
+                                          for (final stop in request.stops) ...[
+                                            Text(
+                                              '${stop.stopSequence == null ? '' : '${stop.stopSequence}. '}${stop.addressText} · ${stop.seats} ${stop.seats == 1 ? 'persona' : 'personas'}',
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: RoutbText.copy(
+                                                12,
+                                                color: palette.muted,
+                                              ),
+                                            ),
+                                            if (stop.etaEstimated != null)
+                                              Padding(
+                                                padding: const EdgeInsets.only(
+                                                  top: 1,
+                                                ),
+                                                child: EtaLabel(
+                                                  eta: stop.etaEstimated!,
+                                                  compact: true,
+                                                ),
+                                              ),
+                                          ],
                                         ],
-                                      ],
+                                      ),
                                     ),
-                                  ),
-                                  if (request.hasPhone)
-                                    WhatsAppButton(
-                                      phone: request.passengerPhone,
-                                      message:
-                                          'Hola ${request.passengerName}, soy tu conductor de ROUTB para el viaje ${_trip.routeLabel} (${_trip.departureLabel}).',
-                                      compact: true,
-                                    ),
-                                ],
+                                    if (request.hasPhone)
+                                      WhatsAppButton(
+                                        phone: request.passengerPhone,
+                                        message:
+                                            'Hola ${request.passengerName}, soy tu conductor de ROUTB para el viaje ${_trip.routeLabel} (${_trip.departureLabel}).',
+                                        compact: true,
+                                      ),
+                                  ],
+                                ),
                               ),
-                            ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
+                  ],
 
                   if (!widget.readOnly) ...[
                     const SizedBox(height: 20),

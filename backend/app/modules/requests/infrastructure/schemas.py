@@ -42,7 +42,7 @@ class TripRequestResponse(BaseModel):
     trip_id: int
     passenger_id: int
     seat_count: int = 1
-    passenger_name: str | None = None
+    passenger_name: str | None = Field(default=None, description="Nombre de pila del pasajero.")
     passenger_phone: str | None = None
     status: str
     created_at: datetime
@@ -59,7 +59,7 @@ class TripResponse(BaseModel):
     departure_time: str
     status: str
     driver_id: int | None = None
-    driver_name: str | None = None
+    driver_name: str | None = Field(default=None, description="Nombre de pila del conductor.")
     requests: list[TripRequestResponse] = []
 
 
@@ -86,7 +86,7 @@ class MyRequestResponse(BaseModel):
     total_seats: int
     available_seats: int
     trip_status: str
-    driver_name: str | None = None
+    driver_name: str | None = Field(default=None, description="Nombre de pila del conductor.")
     driver_phone: str | None = None
     vehicle_info: str | None = None
     stops: list[RequestStopResponse] = []

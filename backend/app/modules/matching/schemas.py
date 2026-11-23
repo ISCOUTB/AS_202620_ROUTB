@@ -9,7 +9,7 @@ from app.shared.schemas import RoutePoint
 class SuggestionItem(BaseModel):
     trip_id: int
     driver_id: int
-    driver_name: str
+    driver_name: str = Field(description="Nombre de pila del conductor.")
     driver_phone: str | None = None
     origin: str
     destination: str

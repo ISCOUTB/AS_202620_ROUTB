@@ -18,7 +18,7 @@ _FUTURE_TIME = "11:59 PM"
 def _crear_conductor(telefono: str):
     with SessionLocal() as db:
         user = User(
-            name="Carla",
+            name="Carla María",
             last_name="Conductora",
             phone=telefono,
             hashed_password="hash",
@@ -36,7 +36,7 @@ def _crear_conductor(telefono: str):
 def _crear_pasajero(telefono: str):
     with SessionLocal() as db:
         user = User(
-            name="Paco",
+            name="Paco Luis",
             last_name="Pasajero",
             phone=telefono,
             hashed_password="hash",
@@ -105,7 +105,8 @@ def test_mis_solicitudes_incluye_el_viaje_que_ya_no_tiene_cupos():
 
         # Mientras hay cupo libre, el viaje sale en el listado publico.
         publico = client.get("/trips/").json()
-        assert any(t["id"] == trip_id for t in publico)
+        trip = next(t for t in publico if t["id"] == trip_id)
+        assert trip["driver_name"] == "Carla María"
 
         created = client.post(
             f"/requests/trips/{trip_id}",
@@ -120,6 +121,14 @@ def test_mis_solicitudes_incluye_el_viaje_que_ya_no_tiene_cupos():
             headers={"Authorization": f"Bearer {driver_token}"},
         )
         assert accepted.status_code == 200
+        assert accepted.json()["passenger_name"] == "Paco Luis"
+
+        owner_view = client.get(
+            f"/trips/{trip_id}",
+            headers={"Authorization": f"Bearer {driver_token}"},
+        )
+        assert owner_view.status_code == 200
+        assert owner_view.json()["requests"][0]["passenger_name"] == "Paco Luis"
 
         # El viaje ya no tiene cupo: desaparece del listado publico.
         assert client.get(f"/trips/{trip_id}").json()["available_seats"] == 0
@@ -134,7 +143,7 @@ def test_mis_solicitudes_incluye_el_viaje_que_ya_no_tiene_cupos():
         assert len(listado) == 1
         assert listado[0]["trip_id"] == trip_id
         assert listado[0]["status"] == "accepted"
-        assert listado[0]["driver_name"] == "Carla Conductora"
+        assert listado[0]["driver_name"] == "Carla María"
         assert listado[0]["driver_phone"] == "3120000001"
         assert listado[0]["origin"] == "Centro"
     finally:

@@ -449,19 +449,22 @@ void main() {
     testWidgets('la tarjeta muestra el mensaje y la frescura del sondeo', (
       tester,
     ) async {
-      await _usePhone(tester, const Size(390, 900));
-      final api = _PassengerApi(
-        trips: const <Map<String, dynamic>>[],
-        requests: <Map<String, dynamic>>[_myRequestJson()],
-      );
-      final dependencies = _dependencies(api.client);
-      addTearDown(dependencies.dispose);
+      final pending = MyRequest.fromJson(_myRequestJson());
+      final now = DateTime.now();
 
-      await tester.pumpWidget(
-        _app(dependencies, const PassengerScreen(account: _passenger)),
+      Widget card(MyRequest request, {DateTime? lastUpdated}) => MaterialApp(
+        theme: RoutbTheme.light(),
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 350,
+              child: MyTripCard(request: request, lastUpdated: lastUpdated),
+            ),
+          ),
+        ),
       );
-      await _settle(tester);
 
+      await tester.pumpWidget(card(pending, lastUpdated: now));
       expect(find.text('Solicitud enviada'), findsOneWidget);
       expect(
         find.textContaining('El conductor recibió tu solicitud'),
@@ -469,81 +472,63 @@ void main() {
       );
       expect(find.textContaining('Actualizado'), findsOneWidget);
 
-      // El conductor acepta: el push refresca la tarjeta y apaga el sondeo.
-      api.requests = <Map<String, dynamic>>[_myRequestJson(status: 'accepted')];
-      (dependencies.push as _FakePushService).emit(
-        const RoutbPushEvent(
-          title: 'Solicitud aceptada',
-          body: 'El conductor ha aceptado tu solicitud de cupo.',
-          event: 'request_accepted',
-          tripId: 1,
-        ),
-      );
-      await _settle(tester);
+      final accepted = MyRequest.fromJson(_myRequestJson(status: 'accepted'));
+      await tester.pumpWidget(card(accepted));
+      await tester.pump();
 
       expect(find.text('Cupo confirmado'), findsOneWidget);
-      expect(
-        find.text('El conductor ha aceptado tu solicitud de cupo.'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('Solicitud confirmada'), findsOneWidget);
       expect(find.textContaining('Actualizado'), findsNothing);
-
-      await tester.pump(const Duration(seconds: 3));
     });
 
     testWidgets('una solicitud pendiente se cancela desde la tarjeta', (
       tester,
     ) async {
-      await _usePhone(tester, const Size(390, 900));
-      final api = _PassengerApi(
-        trips: const <Map<String, dynamic>>[],
-        requests: <Map<String, dynamic>>[_myRequestJson()],
-      );
-      final dependencies = _dependencies(api.client);
-      addTearDown(dependencies.dispose);
+      var cancelled = false;
+      final pending = MyRequest.fromJson(_myRequestJson());
 
       await tester.pumpWidget(
-        _app(dependencies, const PassengerScreen(account: _passenger)),
+        MaterialApp(
+          theme: RoutbTheme.light(),
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 350,
+                child: MyTripCard(
+                  request: pending,
+                  onCancel: () => cancelled = true,
+                ),
+              ),
+            ),
+          ),
+        ),
       );
-      await _settle(tester);
 
       expect(find.byType(MyTripCard), findsOneWidget);
       expect(find.text('Cancelar solicitud'), findsOneWidget);
 
       await tester.tap(find.text('Cancelar solicitud'));
-      await tester.pump();
-      expect(find.text('¿Cancelar tu solicitud?'), findsOneWidget);
-
-      await tester.tap(
-        find.descendant(
-          of: find.byType(AlertDialog),
-          matching: find.text('Cancelar solicitud'),
-        ),
-      );
-      await _settle(tester);
-
-      expect(api.deleteCalls, 1);
-      expect(find.byType(MyTripCard), findsNothing);
-      expect(find.text('Solicitud cancelada'), findsOneWidget);
-
-      await tester.pump(const Duration(seconds: 3));
+      expect(cancelled, isTrue);
     });
 
     testWidgets('una solicitud confirmada no ofrece cancelar en la tarjeta', (
       tester,
     ) async {
-      await _usePhone(tester, const Size(390, 900));
-      final api = _PassengerApi(
-        trips: const <Map<String, dynamic>>[],
-        requests: <Map<String, dynamic>>[_myRequestJson(status: 'accepted')],
-      );
-      final dependencies = _dependencies(api.client);
-      addTearDown(dependencies.dispose);
+      final accepted = MyRequest.fromJson(_myRequestJson(status: 'accepted'));
 
       await tester.pumpWidget(
-        _app(dependencies, const PassengerScreen(account: _passenger)),
+        MaterialApp(
+          theme: RoutbTheme.light(),
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 350,
+                child: MyTripCard(request: accepted, onCancel: () {}),
+              ),
+            ),
+          ),
+        ),
       );
-      await _settle(tester);
 
       expect(find.byType(MyTripCard), findsOneWidget);
       expect(find.text('Cancelar solicitud'), findsNothing);

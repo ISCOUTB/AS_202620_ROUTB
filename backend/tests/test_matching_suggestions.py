@@ -188,7 +188,7 @@ def test_matching_suggests_compatible_trip(monkeypatch):
     data = resp.json()
     assert len(data) >= 1
     item = next(it for it in data if it["trip_id"] == trip.id)
-    assert item["driver_name"] == f"{driver.name} {driver.last_name}"
+    assert item["driver_name"] == driver.name
     assert item["available_seats"] == 3
     assert item["walk_distance_m"] >= 0
     assert "score" in item
