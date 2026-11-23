@@ -27,7 +27,7 @@ COPY . .
 # La URL debe ser la del frontend seguida de /api: Nginx quita ese prefijo y
 # reenvía la petición al backend. Se puede sobreescribir en Dokploy con
 # --build-arg ROUTB_API_BASE_URL=...
-ARG ROUTB_API_BASE_URL=https://approutb.iscoutb.dev/api
+ARG ROUTB_API_BASE_URL=https://routb.iscoutb.dev
 
 # La versión web usa el catálogo local de barrios.
 RUN flutter build web --release \
