@@ -267,27 +267,33 @@ class _CenterAction extends StatelessWidget {
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            Material(
-              color: Colors.transparent,
-              shape: const CircleBorder(),
-              child: Ink(
-                decoration: BoxDecoration(
-                  gradient: palette.primaryGradient,
-                  shape: BoxShape.circle,
-                  boxShadow: palette.raisedShadow,
-                  border: Border.all(
-                    color: palette.card.withValues(alpha: 0.9),
-                    width: 2,
+            DecoratedBox(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: palette.raisedShadow,
+              ),
+              child: Material(
+                color: Colors.transparent,
+                shape: const CircleBorder(),
+                clipBehavior: Clip.antiAlias,
+                child: Ink(
+                  decoration: BoxDecoration(
+                    gradient: palette.primaryGradient,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: palette.card.withValues(alpha: 0.9),
+                      width: 2,
+                    ),
                   ),
-                ),
-                child: InkWell(
-                  onTap: onTap,
-                  customBorder: const CircleBorder(),
-                  child: const Center(
-                    child: RoutbLogo(
-                      variant: RoutbLogoVariant.onHero,
-                      width: 30,
-                      semanticLabel: 'Viaje activo',
+                  child: InkWell(
+                    onTap: onTap,
+                    customBorder: const CircleBorder(),
+                    child: const Center(
+                      child: RoutbLogo(
+                        variant: RoutbLogoVariant.onHero,
+                        width: 30,
+                        semanticLabel: 'Viaje activo',
+                      ),
                     ),
                   ),
                 ),
