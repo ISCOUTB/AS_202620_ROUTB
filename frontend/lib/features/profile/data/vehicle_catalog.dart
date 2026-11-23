@@ -1,34 +1,246 @@
-import 'dart:convert';
+/// Catálogo curado de marcas y modelos para el formulario de vehículo.
+const vehicleCatalog = <String, List<String>>{
+  'Chevrolet': [
+    'Spark',
+    'Spark GT',
+    'Aveo',
+    'Sail',
+    'Onix',
+    'Tracker',
+    'Cruze',
+    'Optra',
+    'Captiva',
+    'Beat',
+  ],
+  'Renault': [
+    'Logan',
+    'Sandero',
+    'Stepway',
+    'Duster',
+    'Kwid',
+    'Twingo',
+    'Clio',
+    'Megane',
+    'Koleos',
+    'Kardian',
+  ],
+  'Kia': [
+    'Picanto',
+    'Rio',
+    'Cerato',
+    'K3',
+    'Sportage',
+    'Soul',
+    'Seltos',
+    'Sonet',
+    'Sorento',
+    'Carens',
+  ],
+  'Mazda': [
+    'Mazda 2',
+    'Mazda 3',
+    'Mazda 6',
+    'Mazda 323',
+    'CX-3',
+    'CX-30',
+    'CX-5',
+    'CX-9',
+    'CX-50',
+    'CX-60',
+  ],
+  'Toyota': [
+    'Corolla',
+    'Corolla Cross',
+    'Yaris',
+    'Hilux',
+    'Fortuner',
+    'RAV4',
+    'Prado',
+    'Land Cruiser',
+    '4Runner',
+    'Etios',
+  ],
+  'Nissan': [
+    'March',
+    'Versa',
+    'Sentra',
+    'Kicks',
+    'Qashqai',
+    'X-Trail',
+    'Frontier',
+    'Pathfinder',
+    'Tiida',
+    'Altima',
+  ],
+  'Hyundai': [
+    'i10',
+    'Grand i10',
+    'Accent',
+    'Elantra',
+    'Creta',
+    'Tucson',
+    'Santa Fe',
+    'Kona',
+    'Venue',
+    'Atos',
+  ],
+  'Suzuki': [
+    'Swift',
+    'Alto',
+    'Vitara',
+    'S-Cross',
+    'Baleno',
+    'Celerio',
+    'Jimny',
+    'Dzire',
+    'Grand Vitara',
+    'SX4',
+  ],
+  'Volkswagen': [
+    'Gol',
+    'Voyage',
+    'Polo',
+    'Jetta',
+    'T-Cross',
+    'Nivus',
+    'Taos',
+    'Tiguan',
+    'Virtus',
+    'Fox',
+  ],
+  'Ford': [
+    'Fiesta',
+    'EcoSport',
+    'Escape',
+    'Ranger',
+    'Focus',
+    'Edge',
+    'Explorer',
+    'Bronco Sport',
+    'Territory',
+    'Fusion',
+  ],
+  'Fiat': [
+    'Uno',
+    'Palio',
+    'Mobi',
+    'Argo',
+    '500',
+    'Strada',
+    'Pulse',
+    'Cronos',
+    'Siena',
+    'Punto',
+  ],
+  'Honda': [
+    'Civic',
+    'Fit',
+    'HR-V',
+    'CR-V',
+    'Accord',
+    'City',
+    'Pilot',
+    'WR-V',
+    'BR-V',
+    'Odyssey',
+  ],
+  'Mitsubishi': [
+    'Lancer',
+    'ASX',
+    'Outlander',
+    'Montero',
+    'Montero Sport',
+    'Eclipse Cross',
+    'L200',
+    'Mirage',
+    'Space Star',
+    'Galant',
+  ],
+  'Jeep': [
+    'Renegade',
+    'Compass',
+    'Wrangler',
+    'Cherokee',
+    'Grand Cherokee',
+    'Gladiator',
+    'Commander',
+    'Patriot',
+    'Liberty',
+    'Avenger',
+  ],
+  'Peugeot': [
+    '208',
+    '2008',
+    '3008',
+    '5008',
+    '206',
+    '207',
+    '308',
+    '301',
+    '408',
+    'Partner',
+  ],
+  'Citroën': [
+    'C3',
+    'C4',
+    'C4 Cactus',
+    'C5 Aircross',
+    'C-Elysée',
+    'C3 Aircross',
+    'C4 Picasso',
+    'Berlingo',
+    'Xsara Picasso',
+    'C5',
+  ],
+  'Subaru': [
+    'Impreza',
+    'Forester',
+    'XV',
+    'Crosstrek',
+    'Outback',
+    'Legacy',
+    'WRX',
+    'Tribeca',
+    'BRZ',
+    'Justy',
+  ],
+  'SEAT': [
+    'Ibiza',
+    'León',
+    'Arona',
+    'Ateca',
+    'Toledo',
+    'Córdoba',
+    'Altea',
+    'Tarraco',
+    'Exeo',
+    'Mii',
+  ],
+};
 
-import 'package:flutter/services.dart';
-
-/// Carga local de marca y línea del SIBGA. No usa datos personales del vehículo.
-Future<List<String>> loadVehicleModels(AssetBundle bundle) async {
-  final source = await bundle.load('assets/data/vehicle_models.json');
-  final json = utf8.decode(
-    source.buffer.asUint8List(source.offsetInBytes, source.lengthInBytes),
-  );
-  return (jsonDecode(json) as List<dynamic>).cast<String>();
+String normalizeVehicleCatalogText(String value) {
+  const accents = {'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u', 'ü': 'u'};
+  return value
+      .trim()
+      .toLowerCase()
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .replaceAllMapped(RegExp('[áéíóúü]'), (match) => accents[match[0]]!);
 }
 
-Iterable<String> suggestVehicleModels(List<String> models, String input) {
-  final normalized = _searchText(input.trim());
-  if (normalized.length < 2) return const [];
-  final words = normalized.split(RegExp(r'\s+'));
-  final prefixes = <String>[];
-  final matches = <String>[];
-  for (final model in models) {
-    final name = _searchText(model);
-    if (name == normalized || !words.every(name.contains)) continue;
-    (name.startsWith(normalized) ? prefixes : matches).add(model);
+/// Precarga el texto histórico. Una marca desconocida puede corregirse a mano.
+({String brand, String model}) splitVehicleCatalogText(String saved) {
+  final parts = saved.trim().split(RegExp(r'\s+'));
+  final first = normalizeVehicleCatalogText(parts.first);
+  const aliases = {'vw': 'volkswagen'};
+  for (final brand in vehicleCatalog.keys) {
+    if (normalizeVehicleCatalogText(brand) == (aliases[first] ?? first)) {
+      return (brand: brand, model: parts.skip(1).join(' '));
+    }
   }
-  return prefixes.followedBy(matches).take(6);
-}
-
-String _searchText(String text) {
-  const latin = {'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u', 'ü': 'u'};
-  return text.toLowerCase().replaceAllMapped(
-    RegExp('[áéíóúü]'),
-    (match) => latin[match[0]]!,
+  if (parts.length == 1) return (brand: '', model: saved.trim());
+  final modelOffset = saved.trimLeft().indexOf(RegExp(r'\s'));
+  return (
+    brand: parts.first,
+    model: saved.trimLeft().substring(modelOffset).trim(),
   );
 }

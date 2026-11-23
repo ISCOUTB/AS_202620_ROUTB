@@ -220,41 +220,39 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues(<String, Object>{}));
 
   group('Buscador del pasajero', () {
-    testWidgets(
-      'el mapa y el buscador caben en un móvil estrecho con viaje activo',
-      (tester) async {
-        for (final size in _phoneSizes) {
-          await _usePhone(tester, size);
-          final dependencies = _dependencies(
-            _routes(
-              trips: <Map<String, dynamic>>[_tripJson()],
-              myRequests: <Map<String, dynamic>>[_myRequestJson()],
-            ),
-          );
-          addTearDown(dependencies.dispose);
+    testWidgets('Viajes oculta el mapa y su acceso con una solicitud activa', (
+      tester,
+    ) async {
+      for (final size in _phoneSizes) {
+        await _usePhone(tester, size);
+        final dependencies = _dependencies(
+          _routes(
+            trips: <Map<String, dynamic>>[_tripJson()],
+            myRequests: <Map<String, dynamic>>[_myRequestJson()],
+          ),
+        );
+        addTearDown(dependencies.dispose);
 
-          await tester.pumpWidget(
-            _app(
-              RoutbScopeDependencies(
-                dependencies: dependencies,
-                child: PassengerScreen(
-                  account: const Account(
-                    token: 't',
-                    name: 'Ana',
-                    role: UserRole.passenger,
-                  ),
+        await tester.pumpWidget(
+          _app(
+            RoutbScopeDependencies(
+              dependencies: dependencies,
+              child: PassengerScreen(
+                account: const Account(
+                  token: 't',
+                  name: 'Ana',
+                  role: UserRole.passenger,
                 ),
               ),
             ),
-          );
-          await _settle(tester);
+          ),
+        );
+        await _settle(tester);
 
-          // El mapa compacto y el botón de hoja están en pantalla con viaje activo.
-          expect(find.byType(RouteMap), findsOneWidget, reason: '$size');
-          expect(find.text('Abrir mapa'), findsOneWidget, reason: '$size');
-        }
-      },
-    );
+        expect(find.byType(RouteMap), findsNothing, reason: '$size');
+        expect(find.text('Abrir mapa'), findsNothing, reason: '$size');
+      }
+    });
 
     testWidgets(
       'sin viaje activo el buscador se muestra limpio sin mapa superior',
@@ -320,51 +318,27 @@ void main() {
       );
       await _settle(tester);
 
-      // La tarjeta va arriba y se ve sin desplazar; el estado vacío queda
-      // bajo el pliegue en un móvil corto y hay que bajar a verlo.
-      expect(find.byType(MyTripCard), findsOneWidget);
-      expect(find.text('Cupo confirmado'), findsOneWidget);
-      expect(find.textContaining('Getsemaní → UTB'), findsWidgets);
-
-      await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
-      await _settle(tester);
-
-      // La lista de viajes está vacía, así que aparece el estado vacío con la
-      // fecha seleccionada (hoy). El texto exacto depende del DateLabel, pero
-      // siempre empieza con 'No hay viajes para'.
+      // La tarjeta de viaje activo ya no se fija en la pestaña Viajes.
+      expect(find.byType(MyTripCard), findsNothing);
       expect(find.textContaining('No hay viajes para'), findsOneWidget);
     });
 
     testWidgets('la tarjeta de mi viaje muestra el vehículo confirmado', (
       tester,
     ) async {
-      await _usePhone(tester, const Size(360, 640));
       const vehicle = 'Chevrolet Spark · Gris (XYZ-123)';
-      final dependencies = _dependencies(
-        _routes(
-          trips: const <Map<String, dynamic>>[],
-          myRequests: <Map<String, dynamic>>[
-            _myRequestJson(vehicleInfo: vehicle),
-          ],
-        ),
-      );
-      addTearDown(dependencies.dispose);
+      final request = MyRequest.fromJson(_myRequestJson(vehicleInfo: vehicle));
 
       await tester.pumpWidget(
-        _app(
-          RoutbScopeDependencies(
-            dependencies: dependencies,
-            child: PassengerScreen(
-              account: const Account(
-                token: 't',
-                name: 'Ana',
-                role: UserRole.passenger,
-              ),
+        MaterialApp(
+          theme: RoutbTheme.light(),
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(width: 360, child: MyTripCard(request: request)),
             ),
           ),
         ),
       );
-      await _settle(tester);
 
       expect(find.textContaining(vehicle), findsOneWidget);
     });
@@ -372,30 +346,18 @@ void main() {
     testWidgets('sin ficha del vehículo la tarjeta no inventa datos', (
       tester,
     ) async {
-      await _usePhone(tester, const Size(360, 640));
-      final dependencies = _dependencies(
-        _routes(
-          trips: const <Map<String, dynamic>>[],
-          myRequests: <Map<String, dynamic>>[_myRequestJson()],
-        ),
-      );
-      addTearDown(dependencies.dispose);
+      final request = MyRequest.fromJson(_myRequestJson());
 
       await tester.pumpWidget(
-        _app(
-          RoutbScopeDependencies(
-            dependencies: dependencies,
-            child: PassengerScreen(
-              account: const Account(
-                token: 't',
-                name: 'Ana',
-                role: UserRole.passenger,
-              ),
+        MaterialApp(
+          theme: RoutbTheme.light(),
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(width: 360, child: MyTripCard(request: request)),
             ),
           ),
         ),
       );
-      await _settle(tester);
 
       expect(find.textContaining('Chevrolet'), findsNothing);
       expect(find.textContaining('XYZ-'), findsNothing);
@@ -404,35 +366,24 @@ void main() {
     testWidgets(
       'la tarjeta oculta el vehículo si la solicitud no está aceptada',
       (tester) async {
-        // Aunque el backend ya filtra `vehicle_info` por estado, la tarjeta no
-        // debe mostrarlo si la solicitud sigue pendiente.
-        await _usePhone(tester, const Size(360, 640));
         const vehicle = 'Chevrolet Spark · Gris (XYZ-123)';
-        final dependencies = _dependencies(
-          _routes(
-            trips: const <Map<String, dynamic>>[],
-            myRequests: <Map<String, dynamic>>[
-              _myRequestJson(status: 'pending', vehicleInfo: vehicle),
-            ],
-          ),
+        final request = MyRequest.fromJson(
+          _myRequestJson(status: 'pending', vehicleInfo: vehicle),
         );
-        addTearDown(dependencies.dispose);
 
         await tester.pumpWidget(
-          _app(
-            RoutbScopeDependencies(
-              dependencies: dependencies,
-              child: PassengerScreen(
-                account: const Account(
-                  token: 't',
-                  name: 'Ana',
-                  role: UserRole.passenger,
+          MaterialApp(
+            theme: RoutbTheme.light(),
+            home: Scaffold(
+              body: Center(
+                child: SizedBox(
+                  width: 360,
+                  child: MyTripCard(request: request),
                 ),
               ),
             ),
           ),
         );
-        await _settle(tester);
 
         expect(find.text('Solicitud enviada'), findsOneWidget);
         expect(find.textContaining(vehicle), findsNothing);
@@ -500,14 +451,25 @@ void main() {
       );
       await _settle(tester);
 
-      await tester.tap(find.text('Abrir mapa'));
+      await tester.tap(find.byKey(const Key('routb-center-action')));
       await _settle(tester);
 
-      // El mapa de la hoja es más alto que el compacto del buscador.
+      final openMap = find.text('Abrir mapa');
+      final embeddedMap = find.byType(RouteMap);
+      expect(find.byTooltip('Actualizar'), findsNothing);
+      expect(
+        tester.getBottomLeft(openMap).dy,
+        lessThan(tester.getTopLeft(embeddedMap).dy),
+      );
+      await tester.tap(openMap);
+      await _settle(tester);
+
       expect(find.text('Trayecto estimado'), findsOneWidget);
-      final compact = tester.getSize(find.byType(RouteMap).first).height;
-      final sheet = tester.getSize(find.byType(RouteMap).last).height;
-      expect(sheet, greaterThan(compact));
+      expect(find.byType(RouteMap), findsWidgets);
+      await tester.binding.handlePopRoute();
+      await _settle(tester);
+      expect(find.text('Trayecto estimado'), findsNothing);
+      expect(embeddedMap, findsOneWidget);
     });
   });
 
@@ -527,7 +489,6 @@ void main() {
 
         // La carga inicial consulta una vez /requests/me.
         expect(api.myRequestsCalls, 1);
-        expect(find.text('Solicitud enviada'), findsOneWidget);
 
         // Antes de los 15 segundos no hay ráfagas de peticiones.
         await tester.pump(const Duration(seconds: 14));
@@ -539,7 +500,6 @@ void main() {
         await _settle(tester);
 
         expect(api.myRequestsCalls, 2);
-        expect(find.text('Cupo confirmado'), findsOneWidget);
 
         // Ya no queda nada pendiente: el temporizador se detuvo.
         await tester.pump(const Duration(seconds: 45));

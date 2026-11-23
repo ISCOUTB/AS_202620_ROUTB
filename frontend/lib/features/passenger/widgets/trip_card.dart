@@ -8,6 +8,7 @@ import '../../../core/widgets/routb_card.dart';
 import '../../../core/widgets/routb_journey_schedule.dart';
 import '../../../core/widgets/routb_seats.dart';
 import '../../../core/widgets/routb_vehicle_badge.dart';
+import 'vehicle_illustration.dart';
 
 /// Salida disponible, con recorrido, conductor y estado de la reserva.
 class TripCard extends StatelessWidget {
@@ -55,7 +56,40 @@ class TripCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          RoutbJourneySchedule(trip: trip),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final width = (constraints.maxWidth * 0.38).clamp(72.0, 160.0);
+              final illustration = Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  VehicleIllustration(width: width),
+                  if (isNew) ...[
+                    const SizedBox(height: 4),
+                    RoutbBadge(
+                      text: 'Nuevo',
+                      background: palette.mintSurface,
+                      foreground: palette.onMintSurface,
+                    ),
+                  ],
+                ],
+              );
+              final schedule = RoutbJourneySchedule(trip: trip, compact: true);
+              if (constraints.maxWidth - width - 12 <
+                  MediaQuery.textScalerOf(context).scale(116)) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [illustration, const SizedBox(height: 8), schedule],
+                );
+              }
+              return Row(
+                children: [
+                  illustration,
+                  const SizedBox(width: 12),
+                  Expanded(child: schedule),
+                ],
+              );
+            },
+          ),
           const SizedBox(height: 12),
           Row(
             children: [
@@ -70,42 +104,28 @@ class TripCard extends StatelessWidget {
             ],
           ),
           const Divider(height: 24),
-          Row(
-            children: [
-              InitialsAvatar(
-                name: driverName,
-                initials: trip.driverInitials,
-                size: 32,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  driverName,
-                  style: RoutbText.copy(
-                    14,
-                    color: palette.ink,
-                    weight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              if (isNew)
-                RoutbBadge(
-                  text: 'Nuevo',
-                  background: palette.mintSurface,
-                  foreground: palette.onMintSurface,
-                ),
-            ],
-          ),
-          if (trip.hasVehicleInfo) ...[
-            const SizedBox(height: 6),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: RoutbVehicleBadge(info: trip.vehicleInfo!, dense: true),
-            ),
-          ],
-          const SizedBox(height: 12),
           LayoutBuilder(
             builder: (context, constraints) {
+              final driver = Row(
+                children: [
+                  InitialsAvatar(
+                    name: driverName,
+                    initials: trip.driverInitials,
+                    size: 32,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      driverName,
+                      style: RoutbText.copy(
+                        14,
+                        color: palette.ink,
+                        weight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              );
               final seats = Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -134,27 +154,47 @@ class TripCard extends StatelessWidget {
                 ],
               );
               final button = _ReserveButton(state: state, onPressed: onReserve);
-              if (constraints.maxWidth <
-                  MediaQuery.textScalerOf(context).scale(270)) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [seats, const SizedBox(height: 8), button],
+              final scale = MediaQuery.textScalerOf(context);
+              if (constraints.maxWidth >= scale.scale(320)) {
+                return Row(
+                  children: [
+                    Expanded(flex: 3, child: driver),
+                    const SizedBox(width: 10),
+                    Expanded(flex: 3, child: seats),
+                    const SizedBox(width: 10),
+                    Flexible(flex: 4, child: button),
+                  ],
                 );
               }
-              return Row(
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Expanded(child: seats),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: button,
-                    ),
-                  ),
+                  if (constraints.maxWidth >= scale.scale(212))
+                    Row(
+                      children: [
+                        Expanded(child: driver),
+                        const SizedBox(width: 8),
+                        Flexible(child: seats),
+                      ],
+                    )
+                  else ...[
+                    driver,
+                    const SizedBox(height: 8),
+                    seats,
+                  ],
+                  const SizedBox(height: 10),
+                  button,
                 ],
               );
             },
           ),
+          if (trip.hasVehicleInfo) ...[
+            const SizedBox(height: 6),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: RoutbVehicleBadge(info: trip.vehicleInfo!, dense: true),
+            ),
+          ],
         ],
       ),
     );

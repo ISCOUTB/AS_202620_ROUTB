@@ -69,3 +69,19 @@ def test_contrato_modalidades():
         assert contract["paths"][path][method]["security"]
     fields = contract["components"]["schemas"]["UserResponse"]["properties"]
     assert {"role", "active_mode", "driver_enabled"} <= fields.keys()
+
+
+def test_contrato_nombres_de_pila_en_viajes_y_solicitudes():
+    contract = _load_contract()["components"]["schemas"]
+    implementation = app.openapi()["components"]["schemas"]
+    for schema, role in (
+        ("TripResponse", "driver"),
+        ("MyRequestResponse", "driver"),
+        ("SuggestionItem", "driver"),
+        ("TripRequestResponse", "passenger"),
+        ("TripRequestSummary", "passenger"),
+    ):
+        field = f"{role}_name"
+        documented = contract[schema]["properties"][field]
+        assert documented == implementation[schema]["properties"][field]
+        assert documented["description"].startswith("Nombre de pila")

@@ -40,7 +40,7 @@ router = APIRouter()
 def _to_response(
     req, *, include_phone: bool | None = None
 ) -> schemas.TripRequestResponse:
-    p_name = f"{req.passenger.name} {req.passenger.last_name}" if req.passenger else None
+    p_name = req.passenger.name if req.passenger else None
     # El teléfono es dato personal: al conductor solo se le entrega cuando el
     # cupo quedó aceptado (decisión D3 del sprint). La creación de la solicitud
     # lo incluye porque la respuesta va al propio pasajero.
@@ -85,7 +85,7 @@ def _to_my_response(req, stops=None, route_points=None) -> schemas.MyRequestResp
         total_seats=trip.total_seats if trip else 0,
         available_seats=trip.available_seats if trip else 0,
         trip_status=trip.status if trip else "cancelled",
-        driver_name=f"{driver.name} {driver.last_name}" if driver else None,
+        driver_name=driver.name if driver else None,
         driver_phone=driver.phone if driver else None,
         vehicle_info=vehicle_info,
         stops=[

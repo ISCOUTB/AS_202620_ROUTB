@@ -376,11 +376,6 @@ class HistoryRouteTile extends StatelessWidget {
       TripPhase.scheduled => (palette.amberSurface, palette.onAmberSurface),
     };
 
-    final confirmed = trip.requests.accepted.fold<int>(
-      0,
-      (total, request) => total + request.seatCount,
-    );
-
     return RoutbCard(
       onTap: onTap,
       child: Column(
@@ -418,13 +413,6 @@ class HistoryRouteTile extends StatelessWidget {
                 background: pillBackground,
                 foreground: pillForeground,
               ),
-              if (confirmed > 0)
-                Text(
-                  confirmed == 1
-                      ? '1 pasajero confirmado'
-                      : '$confirmed pasajeros confirmados',
-                  style: RoutbText.copy(12, color: palette.muted),
-                ),
             ],
           ),
         ],

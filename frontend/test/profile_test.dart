@@ -150,6 +150,27 @@ Future<void> _scrollToVehicle(WidgetTester tester) async {
   await _settle(tester);
 }
 
+Future<void> _selectVehicleOption(
+  WidgetTester tester,
+  int dropdown,
+  String option,
+) async {
+  final control = find.byType(DropdownButton<String>).at(dropdown);
+  await tester.ensureVisible(control);
+  await tester.tap(control);
+  await _settle(tester);
+  final menu = find.byType(Scrollable).last;
+  final item = find.descendant(
+    of: menu,
+    matching: find.widgetWithText(DropdownMenuItem<String>, option),
+  );
+  await tester.scrollUntilVisible(item, 160, scrollable: menu);
+  await tester.tap(
+    find.ancestor(of: item, matching: find.byType(InkWell)).first,
+  );
+  await _settle(tester);
+}
+
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues(<String, Object>{}));
 
@@ -258,23 +279,22 @@ void main() {
 
       final fields = find.byType(TextField);
       expect(ModalRoute.of(tester.element(fields.first)), isA<PageRoute>());
-      await tester.enterText(fields.at(0), 'chevrolet onix l');
-      await _settle(tester);
-      final modelOption = find.widgetWithText(ListTile, 'CHEVROLET ONIX LT');
-      expect(modelOption, findsOneWidget);
-      await tester.tap(modelOption);
-      await tester.enterText(fields.at(1), 'xyz 123');
+      expect(find.text('Selecciona una marca'), findsOneWidget);
+      expect(find.text('Selecciona un modelo'), findsOneWidget);
+
+      await _selectVehicleOption(tester, 0, 'Chevrolet');
+      await _selectVehicleOption(tester, 1, 'Onix');
+      await tester.enterText(fields.first, 'xyz 123');
       await tester.pump();
-      expect(find.text('Marca y modelo'), findsOneWidget);
       expect(
-        tester.widget<TextField>(fields.at(1)).controller!.text,
+        tester.widget<TextField>(fields.first).controller!.text,
         'XYZ-123',
       );
       final gray = find.widgetWithText(ChoiceChip, 'Gris');
       await tester.ensureVisible(gray);
       await tester.tap(gray);
       await tester.pump();
-      expect(fields, findsNWidgets(2));
+      expect(fields, findsOneWidget);
       expect(tester.widget<ChoiceChip>(gray).selected, isTrue);
 
       await tester.tap(find.text('Guardar vehículo'));
@@ -282,9 +302,60 @@ void main() {
 
       expect(api.vehicleCalls, 1);
       expect(api.lastVehicleBody?['vehicle_plate'], 'XYZ-123');
-      expect(api.lastVehicleBody?['vehicle_model'], 'CHEVROLET ONIX LT');
-      expect(find.text('CHEVROLET ONIX LT · Gris (XYZ-123)'), findsOneWidget);
+      expect(api.lastVehicleBody?['vehicle_model'], 'Chevrolet Onix');
+      expect(find.text('Chevrolet Onix · Gris (XYZ-123)'), findsOneWidget);
       expect(find.text('Registrado'), findsOneWidget);
+      await _drainToast(tester);
+    });
+
+    testWidgets('edita un valor histórico y descarta modelos de otra marca', (
+      tester,
+    ) async {
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final api = _FakeApi(
+        _profileJson(
+          vehicleModel: 'CHEVROLET ONIX LT',
+          vehiclePlate: 'XYZ-123',
+          vehicleColor: 'Gris',
+        ),
+      );
+      final dependencies = _dependencies(api);
+      addTearDown(dependencies.dispose);
+      await tester.pumpWidget(
+        _app(dependencies, Scaffold(body: ProfileScreen(account: _driver))),
+      );
+      await _settle(tester);
+      await _scrollToVehicle(tester);
+      await tester.tap(find.text('Editar vehículo'));
+      await _settle(tester);
+
+      await tester.binding.setSurfaceSize(const Size(320, 720));
+      await _settle(tester);
+      final fields = find.byType(TextField);
+      expect(find.text('Escribe el modelo'), findsOneWidget);
+      expect(
+        tester.widget<TextField>(fields.first).controller!.text,
+        'ONIX LT',
+      );
+
+      await _selectVehicleOption(tester, 0, 'Renault');
+      expect(find.text('Selecciona un modelo'), findsOneWidget);
+      expect(fields, findsOneWidget);
+      await _selectVehicleOption(tester, 0, 'OTRA');
+      expect(find.byType(DropdownButton<String>), findsOneWidget);
+      await tester.enterText(fields.at(0), ' BYD ');
+      await tester.enterText(fields.at(1), '   ');
+      await tester.tap(find.text('Guardar cambios'));
+      await _settle(tester);
+      expect(api.vehicleCalls, 0);
+
+      await tester.binding.setSurfaceSize(null);
+      await _settle(tester);
+      await tester.enterText(fields.at(1), ' Dolphin Mini ');
+      await tester.tap(find.text('Guardar cambios'));
+      await _settle(tester);
+      expect(api.lastVehicleBody?['vehicle_model'], 'BYD Dolphin Mini');
+      expect(tester.takeException(), isNull);
       await _drainToast(tester);
     });
 
@@ -323,8 +394,9 @@ void main() {
       await _settle(tester);
 
       final fields = find.byType(TextField);
-      await tester.enterText(fields.at(0), 'Chevrolet Spark');
-      await tester.enterText(fields.at(1), 'XYZ-123');
+      await _selectVehicleOption(tester, 0, 'Chevrolet');
+      await _selectVehicleOption(tester, 1, 'Spark');
+      await tester.enterText(fields.first, 'XYZ-123');
       await tester.pump();
 
       await tester.tap(find.text('Guardar vehículo'));
@@ -352,8 +424,9 @@ void main() {
       await _settle(tester);
 
       final fields = find.byType(TextField);
-      await tester.enterText(fields.at(0), 'Chevrolet Spark');
-      await tester.enterText(fields.at(1), '123');
+      await _selectVehicleOption(tester, 0, 'Chevrolet');
+      await _selectVehicleOption(tester, 1, 'Spark');
+      await tester.enterText(fields.first, '123');
       final gray = find.widgetWithText(ChoiceChip, 'Gris');
       await tester.ensureVisible(gray);
       await tester.tap(gray);
@@ -365,7 +438,7 @@ void main() {
       expect(api.vehicleCalls, 0);
       expect(find.textContaining('placa colombiana válida'), findsOneWidget);
       expect(
-        tester.widget<TextField>(fields.at(1)).focusNode!.hasFocus,
+        tester.widget<TextField>(fields.first).focusNode!.hasFocus,
         isTrue,
       );
 

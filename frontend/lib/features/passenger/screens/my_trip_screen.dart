@@ -14,6 +14,7 @@ import '../../../core/widgets/routb_button.dart';
 import '../../../core/widgets/routb_card.dart';
 import '../../../core/widgets/routb_route.dart';
 import '../../../core/widgets/routb_seats.dart';
+import '../../../core/widgets/routb_sheet.dart';
 import '../../../core/widgets/routb_toast.dart';
 import '../../../core/widgets/routb_vehicle_badge.dart';
 import '../../../core/widgets/route_map.dart';
@@ -109,6 +110,37 @@ class _MyTripScreenState extends State<MyTripScreen> {
     }
   }
 
+  void _openFullMap() {
+    final request = _request;
+    RoutbSheet.show<void>(
+      context: context,
+      title: 'Trayecto estimado',
+      subtitle: request.routeLabel,
+      heightFactor: 0.8,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          RouteMap(
+            origin: request.origin,
+            destination: request.destination,
+            waypoints: request.waypoints,
+            routePoints: request.routePoints,
+            // En la hoja el mapa sí se puede mover: hay sitio de sobra y no compite
+            // con el scroll del resto del cuerpo.
+            interactive: true,
+            height: MediaQuery.sizeOf(context).height * 0.45,
+          ),
+          for (final stop in request.waypoints)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.place_outlined),
+              title: Text(stop),
+            ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _withdraw() async {
     if (_busy || !context.canOpenRoute) return;
 
@@ -163,23 +195,7 @@ class _MyTripScreenState extends State<MyTripScreen> {
 
     return Scaffold(
       backgroundColor: palette.background,
-      appBar: AppBar(
-        title: const Text('Mi viaje'),
-        actions: [
-          if (!widget.readOnly)
-            IconButton(
-              icon: _refreshing
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.refresh_rounded),
-              tooltip: 'Actualizar',
-              onPressed: () => _reloadRequest(silent: false),
-            ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('Mi viaje')),
       body: SafeArea(
         top: false,
         child: LayoutBuilder(
@@ -192,6 +208,14 @@ class _MyTripScreenState extends State<MyTripScreen> {
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(14, 8, 14, 32),
                   children: [
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        onPressed: _openFullMap,
+                        icon: const Icon(Icons.map_outlined, size: 18),
+                        label: const Text('Abrir mapa'),
+                      ),
+                    ),
                     RouteMap(
                       origin: _request.origin,
                       destination: _request.destination,
@@ -295,7 +319,7 @@ class _MyTripScreenState extends State<MyTripScreen> {
                     // El conductor solo se muestra mientras el viaje sigue
                     // activo. En el historial queda fuera, igual que en la
                     // tarjeta del listado.
-                    if (_request.isActive) ...[
+                    if (!widget.readOnly && _request.isActive) ...[
                       const SizedBox(height: 14),
                       RoutbCard(
                         child: Column(

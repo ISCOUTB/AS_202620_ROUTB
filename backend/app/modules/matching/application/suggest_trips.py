@@ -93,7 +93,6 @@ def suggest_trips(
             t.id,
             t.driver_id,
             u.name AS driver_name,
-            u.last_name AS driver_last_name,
             u.phone AS driver_phone,
             t.origin,
             t.destination,
@@ -147,7 +146,6 @@ def suggest_trips(
     for row in candidates[:max_routing]:
         trip_id = row["id"]
         driver_id = row["driver_id"]
-        driver_full_name = f"{row['driver_name']} {row['driver_last_name']}".strip()
         driver_phone = row["driver_phone"]
         origin = row["origin"]
         destination = row["destination"]
@@ -229,7 +227,7 @@ def suggest_trips(
             SuggestionItem(
                 trip_id=trip_id,
                 driver_id=driver_id,
-                driver_name=driver_full_name,
+                driver_name=row['driver_name'].strip(),
                 driver_phone=driver_phone,
                 origin=origin,
                 destination=destination,

@@ -16,14 +16,12 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/theme/routb_palette.dart';
 import '../../../core/theme/routb_text.dart';
 import '../../../core/widgets/date_quick_picker.dart';
-import '../../../core/widgets/route_map.dart';
 import '../../../core/widgets/routb_button.dart';
 import '../../../core/widgets/routb_journey_board.dart';
 import '../../../core/widgets/routb_history_section.dart';
 import '../../../core/widgets/routb_nav_bar.dart';
 import '../../../core/widgets/routb_section_header.dart';
 import '../../../core/widgets/routb_seats.dart';
-import '../../../core/widgets/routb_sheet.dart';
 import '../../../core/widgets/routb_toast.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../notifications/push_notification_service.dart';
@@ -78,6 +76,8 @@ class _PassengerScreenState extends State<PassengerScreen>
   Timer? _debounce;
   Timer? _pollTimer;
   Timer? _clockTimer;
+  Timer? _midnightTimer;
+  DateTime _windowStart = TripSchedule.dateOnly(DateTime.now());
   int _searchGeneration = 0;
   bool _filtering = false;
   bool _appInForeground = true;
@@ -87,7 +87,6 @@ class _PassengerScreenState extends State<PassengerScreen>
   bool _myRequestsLoading = true;
   bool _myRequestsFailed = false;
   int? _busyTripId;
-  int? _busyRequestId;
   bool _asked = false;
   ValueNotifier<int>? _refreshSignal;
   VoidCallback? _refreshListener;
@@ -102,6 +101,7 @@ class _PassengerScreenState extends State<PassengerScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _scheduleMidnight();
   }
 
   @override
@@ -144,6 +144,7 @@ class _PassengerScreenState extends State<PassengerScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _midnightTimer?.cancel();
     _pollTimer?.cancel();
     _clockTimer?.cancel();
     unawaited(_pushSubscription?.cancel());
@@ -162,10 +163,38 @@ class _PassengerScreenState extends State<PassengerScreen>
     final foreground = state == AppLifecycleState.resumed;
     if (foreground == _appInForeground) return;
     _appInForeground = foreground;
+    if (foreground) {
+      _updateDayWindow();
+    } else {
+      _midnightTimer?.cancel();
+    }
     // Al volver se reanuda solo si sigue habiendo una solicitud pendiente; en
     // segundo plano se apaga para no drenar la batería.
     _evaluatePolling();
     _evaluateClock();
+  }
+
+  void _scheduleMidnight() {
+    final now = DateTime.now();
+    final next = DateTime(now.year, now.month, now.day + 1);
+    _midnightTimer = Timer(next.difference(now), _updateDayWindow);
+  }
+
+  void _updateDayWindow() {
+    final today = TripSchedule.dateOnly(DateTime.now());
+    if (_windowStart != today) {
+      setState(() {
+        _windowStart = today;
+        _selectedDate = TripSchedule.clampToTripWindow(
+          _selectedDate,
+          now: today,
+        );
+        _trips = [];
+        _filtering = true;
+      });
+      unawaited(_load());
+    }
+    _scheduleMidnight();
   }
 
   TripRepository get _repository => RoutbScopeDependencies.of(context).trips;
@@ -352,55 +381,6 @@ class _PassengerScreenState extends State<PassengerScreen>
     setState(() => _selectedTab = tab);
   }
 
-  /// Cancela una solicitud pendiente desde la tarjeta resumida (G5).
-  Future<void> _cancelRequest(MyRequest request) async {
-    if (_busyRequestId != null || !context.canOpenRoute) return;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        final palette = dialogContext.palette;
-        return AlertDialog(
-          title: const Text('¿Cancelar tu solicitud?'),
-          content: Text(
-            'Tu solicitud a ${request.driverName ?? 'el conductor'} se '
-            'descartará y podrás volver a pedir cupo en otro viaje.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Mantener solicitud'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: Text(
-                'Cancelar solicitud',
-                style: TextStyle(color: palette.rose),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-    if (confirmed != true || !mounted) return;
-
-    setState(() => _busyRequestId = request.id);
-    try {
-      await _repository.withdrawRequest(request.id);
-      if (!mounted) return;
-      await _loadMyRequests();
-      if (!mounted) return;
-      await _load();
-      if (!mounted) return;
-      RoutbToast.show(context, 'Solicitud cancelada');
-    } on ApiException catch (error) {
-      if (!mounted) return;
-      RoutbToast.show(context, error.message);
-    } finally {
-      if (mounted) setState(() => _busyRequestId = null);
-    }
-  }
-
   /// Solicitudes vivas, con las confirmadas primero y luego las pendientes.
   List<MyRequest> get _activeRequests {
     final active = _myRequests
@@ -556,38 +536,6 @@ class _PassengerScreenState extends State<PassengerScreen>
       await Future<void>.delayed(const Duration(milliseconds: 500));
       if (!mounted) return;
     }
-  }
-
-  void _openFullMap() {
-    final active = _currentRequest;
-    if (active == null) return;
-    RoutbSheet.show<void>(
-      context: context,
-      title: 'Trayecto estimado',
-      subtitle: active.routeLabel,
-      heightFactor: 0.8,
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          RouteMap(
-            origin: active.origin,
-            destination: active.destination,
-            waypoints: active.waypoints,
-            routePoints: active.routePoints,
-            // En la hoja el mapa sí se puede mover: hay sitio de sobra y no compite
-            // con el scroll del resto del cuerpo.
-            interactive: true,
-            height: MediaQuery.sizeOf(context).height * 0.45,
-          ),
-          for (final stop in active.waypoints)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.place_outlined),
-              title: Text(stop),
-            ),
-        ],
-      ),
-    );
   }
 
   Future<void> _setDate(DateTime date) async {
@@ -757,8 +705,6 @@ class _PassengerScreenState extends State<PassengerScreen>
   Widget _build(BuildContext context, Account account) {
     final palette = context.palette;
     final trips = _visibleTrips;
-    final pollingActive = _pollTimer != null && _appInForeground;
-    final lastUpdated = pollingActive ? _lastMyRequestsSync : null;
 
     return Scaffold(
       backgroundColor: palette.background,
@@ -774,9 +720,7 @@ class _PassengerScreenState extends State<PassengerScreen>
                 header: _PassengerHero(
                   userName: account.name,
                   selectedDate: _selectedDate,
-                  currentRequest: _currentRequest,
                   onDateChanged: _setDate,
-                  onOpenMap: _openFullMap,
                   onOpenSuggestions: _openSuggestions,
                 ),
                 slivers: [
@@ -789,18 +733,13 @@ class _PassengerScreenState extends State<PassengerScreen>
                     ),
                     PassengerStatus.ready => _TripsList(
                       trips: trips,
-                      myRequest: _currentRequest,
                       busyTripId: _busyTripId,
                       filtering: _filtering,
                       origin: _origin.text.trim(),
                       destination: _destination.text.trim(),
                       selectedDate: _selectedDate,
                       sortOrder: _sortOrder,
-                      lastUpdated: lastUpdated,
-                      busyRequestId: _busyRequestId,
                       onReserve: _reserve,
-                      onOpenMyTrip: _openMyTrip,
-                      onCancelRequest: _cancelRequest,
                       onSortChanged: _setSortOrder,
                       onShowOtherDay: _showOtherDay,
                       onClearFilters: _clearFilters,
@@ -849,29 +788,22 @@ class _PassengerScreenState extends State<PassengerScreen>
   }
 }
 
-/// Hero del modo pasajero: saludo, mapa (si hay viaje activo) y acceso a búsqueda.
+/// Encabezado de Viajes con búsqueda y selector de fecha.
 class _PassengerHero extends StatelessWidget {
   const _PassengerHero({
     required this.userName,
     required this.selectedDate,
     required this.onDateChanged,
-    required this.onOpenMap,
     required this.onOpenSuggestions,
-    this.currentRequest,
   });
 
   final String userName;
   final DateTime selectedDate;
   final ValueChanged<DateTime> onDateChanged;
-  final VoidCallback onOpenMap;
   final VoidCallback onOpenSuggestions;
-  final MyRequest? currentRequest;
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.palette;
-    final active = currentRequest;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -890,36 +822,9 @@ class _PassengerHero extends StatelessWidget {
             value: selectedDate,
             onChanged: onDateChanged,
             alignment: WrapAlignment.center,
+            passengerStyle: true,
           ),
         ),
-        if (active != null) ...[
-          const SizedBox(height: 10),
-          Stack(
-            children: [
-              RouteMap(
-                origin: active.origin,
-                destination: active.destination,
-                waypoints: active.waypoints,
-                routePoints: active.routePoints,
-                height: 110,
-                animateRoute: !MediaQuery.disableAnimationsOf(context),
-              ),
-              Positioned(
-                right: 6,
-                top: 4,
-                child: TextButton.icon(
-                  style: TextButton.styleFrom(
-                    backgroundColor: palette.card,
-                    foregroundColor: palette.onBrandSurface,
-                  ),
-                  onPressed: onOpenMap,
-                  icon: const Icon(Icons.fullscreen_rounded),
-                  label: const Text('Abrir mapa'),
-                ),
-              ),
-            ],
-          ),
-        ],
       ],
     );
   }
@@ -929,36 +834,26 @@ class _PassengerHero extends StatelessWidget {
 class _TripsList extends StatelessWidget {
   const _TripsList({
     required this.trips,
-    required this.myRequest,
     required this.busyTripId,
     required this.filtering,
     required this.origin,
     required this.destination,
     required this.selectedDate,
     required this.sortOrder,
-    required this.lastUpdated,
-    required this.busyRequestId,
     required this.onReserve,
-    required this.onOpenMyTrip,
-    required this.onCancelRequest,
     required this.onSortChanged,
     required this.onShowOtherDay,
     required this.onClearFilters,
   });
 
   final List<Trip> trips;
-  final MyRequest? myRequest;
   final int? busyTripId;
   final bool filtering;
   final String origin;
   final String destination;
   final DateTime selectedDate;
   final TripSortOrder sortOrder;
-  final DateTime? lastUpdated;
-  final int? busyRequestId;
   final ValueChanged<Trip> onReserve;
-  final ValueChanged<MyRequest> onOpenMyTrip;
-  final ValueChanged<MyRequest> onCancelRequest;
   final ValueChanged<TripSortOrder> onSortChanged;
   final Future<void> Function() onShowOtherDay;
   final Future<void> Function() onClearFilters;
@@ -1007,19 +902,6 @@ class _TripsList extends StatelessWidget {
     final now = DateTime.now();
     return SliverMainAxisGroup(
       slivers: [
-        if (myRequest != null)
-          SliverPadding(
-            padding: const EdgeInsets.only(top: 16),
-            sliver: SliverToBoxAdapter(
-              child: MyTripCard(
-                request: myRequest!,
-                onTap: () => onOpenMyTrip(myRequest!),
-                onCancel: () => onCancelRequest(myRequest!),
-                busy: busyRequestId == myRequest!.id,
-                lastUpdated: lastUpdated,
-              ),
-            ),
-          ),
         SliverToBoxAdapter(
           child: JourneySectionTitle(
             'Viajes disponibles',

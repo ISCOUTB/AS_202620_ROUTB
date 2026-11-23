@@ -5,6 +5,8 @@ import '../../../app/app_routes.dart';
 import '../../../core/models/user_profile.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/routb_palette.dart';
+import '../../../core/theme/routb_text.dart';
+import '../../../core/theme/routb_theme.dart';
 import '../../../core/widgets/routb_button.dart';
 import '../../../core/widgets/routb_field.dart';
 import '../../../core/widgets/route_actions.dart';
@@ -72,17 +74,33 @@ class _VehicleScreenState extends State<_VehicleScreen> {
     'Bicolor': null,
   };
 
+  static const _otherBrand = 'OTRA';
+  static const _otherModel = 'Otro modelo';
+  static const _vehicleIcon = Icons.directions_car_filled_rounded;
+
+  final _brandFocus = FocusNode();
+  final _brandChoiceFocus = FocusNode();
+  final _modelChoiceFocus = FocusNode();
   final _modelFocus = FocusNode();
   final _plateFocus = FocusNode();
   final _colorFocus = FocusNode();
+  late final _savedModel = widget.profile?.vehicleModel ?? '';
+  late final _savedParts = splitVehicleCatalogText(_savedModel);
+  late String? _selectedBrand = _savedModel.isEmpty
+      ? null
+      : vehicleCatalog.containsKey(_savedParts.brand)
+      ? _savedParts.brand
+      : _otherBrand;
+  late String? _selectedModel = _initialModel();
+  late final _brand = TextEditingController(
+    text: _selectedBrand == _otherBrand ? _savedParts.brand : '',
+  );
   late final _model = TextEditingController(
-    text: widget.profile?.vehicleModel ?? '',
+    text: _usesManualModel ? _savedParts.model : '',
   );
   late final _plate = TextEditingController(
     text: widget.profile?.vehiclePlate ?? '',
   );
-  late final _modelInput = Listenable.merge([_model, _modelFocus]);
-  late final _catalog = loadVehicleModels(DefaultAssetBundle.of(context));
   late final _savedColor = widget.profile?.vehicleColor?.trim() ?? '';
   late String _color = _savedColor;
   late final Map<String, Color?> _availableColors = {
@@ -94,14 +112,66 @@ class _VehicleScreenState extends State<_VehicleScreen> {
       _savedColor: null,
   };
 
+  bool _vehicleIdentityChanged = false;
+  String? _brandError;
   String? _modelError;
   String? _plateError;
   String? _colorError;
   bool _saving = false;
   String? _saveError;
 
+  bool get _usesManualModel =>
+      _selectedBrand == _otherBrand || _selectedModel == _otherModel;
+
+  String? _initialModel() {
+    final models = vehicleCatalog[_selectedBrand];
+    if (models == null || _savedParts.model.isEmpty) return null;
+    final saved = normalizeVehicleCatalogText(_savedParts.model);
+    for (final model in models) {
+      if (normalizeVehicleCatalogText(model) == saved) return model;
+    }
+    return _otherModel;
+  }
+
+  void _changeBrand(String? value) {
+    if (_selectedBrand == value) return;
+    setState(() {
+      _selectedBrand = value;
+      _selectedModel = null;
+      _brand.clear();
+      _model.clear();
+      _brandError = null;
+      _modelError = null;
+      _vehicleIdentityChanged = true;
+    });
+  }
+
+  void _changeModel(String? value) {
+    if (_selectedModel == value) return;
+    setState(() {
+      _selectedModel = value;
+      _model.clear();
+      _modelError = null;
+      _vehicleIdentityChanged = true;
+    });
+  }
+
+  String get _brandValue =>
+      _selectedBrand == _otherBrand ? _brand.text.trim() : _selectedBrand ?? '';
+
+  String get _modelValue =>
+      _usesManualModel ? _model.text.trim() : _selectedModel ?? '';
+
+  String get _vehicleValue => !_vehicleIdentityChanged && _savedModel.isNotEmpty
+      ? _savedModel
+      : '$_brandValue $_modelValue';
+
   @override
   void dispose() {
+    _brandFocus.dispose();
+    _brandChoiceFocus.dispose();
+    _modelChoiceFocus.dispose();
+    _brand.dispose();
     _modelFocus.dispose();
     _plateFocus.dispose();
     _colorFocus.dispose();
@@ -113,17 +183,35 @@ class _VehicleScreenState extends State<_VehicleScreen> {
   bool get _hasVehicle => widget.profile?.hasVehicle ?? false;
 
   bool _validate() {
-    final modelError = validateVehicleModel(_model.text);
+    final brandError = _brandValue.isEmpty
+        ? (_selectedBrand == _otherBrand
+              ? 'Escribe la marca del vehículo'
+              : 'Selecciona una marca')
+        : normalizeVehicleCatalogText(_brandValue) == 'otra'
+        ? 'Escribe la marca real del vehículo'
+        : null;
+    final modelError = _modelValue.isEmpty
+        ? (_usesManualModel
+              ? 'Escribe el modelo del vehículo'
+              : 'Selecciona un modelo')
+        : normalizeVehicleCatalogText(_modelValue) == 'otro modelo'
+        ? 'Escribe el modelo real del vehículo'
+        : brandError == null
+        ? validateVehicleModel(_vehicleValue)
+        : null;
     final plateError = validateVehiclePlate(_plate.text);
     final colorError = validateVehicleColor(_color);
 
     setState(() {
+      _brandError = brandError;
       _modelError = modelError;
       _plateError = plateError;
       _colorError = colorError;
     });
-    final invalidField = modelError != null
-        ? _modelFocus
+    final invalidField = brandError != null
+        ? (_selectedBrand == _otherBrand ? _brandFocus : _brandChoiceFocus)
+        : modelError != null
+        ? (_usesManualModel ? _modelFocus : _modelChoiceFocus)
         : plateError != null
         ? _plateFocus
         : colorError != null
@@ -149,7 +237,7 @@ class _VehicleScreenState extends State<_VehicleScreen> {
     try {
       final updated = await widget.auth.updateVehicle(
         activate: widget.activate,
-        model: _model.text,
+        model: _vehicleValue,
         plate: normalizeVehiclePlate(_plate.text),
         color: _color,
       );
@@ -242,58 +330,77 @@ class _VehicleScreenState extends State<_VehicleScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          RoutbField(
-            icon: Icons.directions_car_filled_rounded,
-            label: 'Marca y modelo',
-            hint: 'Ej. Chevrolet Spark',
-            controller: _model,
-            focusNode: _modelFocus,
-            inputFormatters: [LengthLimitingTextInputFormatter(50)],
-            textCapitalization: TextCapitalization.words,
-            textInputAction: TextInputAction.next,
-            onSubmitted: (_) => _plateFocus.requestFocus(),
-            errorText: _modelError,
-            onChanged: (_) {
-              if (_modelError != null) setState(() => _modelError = null);
-            },
+          _VehicleSelect(
+            label: 'Marca',
+            hint: 'Selecciona una marca',
+            options: [...vehicleCatalog.keys, _otherBrand],
+            selected: _selectedBrand,
+            focusNode: _brandChoiceFocus,
+            errorText: _selectedBrand == _otherBrand ? null : _brandError,
+            onChanged: _saving ? null : _changeBrand,
           ),
-          ListenableBuilder(
-            listenable: _modelInput,
-            builder: (context, _) {
-              if (!_modelFocus.hasFocus || _model.text.trim().length < 2) {
-                return const SizedBox.shrink();
-              }
-              return FutureBuilder<List<String>>(
-                future: _catalog,
-                builder: (context, snapshot) {
-                  final matches = suggestVehicleModels(
-                    snapshot.data ?? const [],
-                    _model.text,
-                  ).toList();
-                  if (matches.isEmpty) return const SizedBox.shrink();
-                  return Column(
-                    children: [
-                      for (final model in matches)
-                        ListTile(
-                          title: Text(model),
-                          trailing: const Icon(
-                            Icons.north_west_rounded,
-                            size: 16,
-                          ),
-                          onTap: () {
-                            _model.text = model;
-                            setState(() => _modelError = null);
-                            _plateFocus.requestFocus();
-                          },
-                        ),
-                    ],
-                  );
-                },
-              );
-            },
-          ),
+          if (_selectedBrand == _otherBrand) ...[
+            const SizedBox(height: 12),
+            RoutbField(
+              key: const ValueKey('vehicle-brand-input'),
+              icon: _vehicleIcon,
+              label: 'Escribe la marca',
+              hint: 'Ej. BYD',
+              controller: _brand,
+              focusNode: _brandFocus,
+              inputFormatters: [LengthLimitingTextInputFormatter(50)],
+              textCapitalization: TextCapitalization.words,
+              textInputAction: TextInputAction.next,
+              onSubmitted: (_) => _modelFocus.requestFocus(),
+              errorText: _brandError,
+              onChanged: (_) => setState(() {
+                _vehicleIdentityChanged = true;
+                _brandError = null;
+                _modelError = null;
+              }),
+            ),
+          ] else ...[
+            const SizedBox(height: 12),
+            _VehicleSelect(
+              label: 'Modelo',
+              hint: 'Selecciona un modelo',
+              options: [
+                ...?vehicleCatalog[_selectedBrand],
+                if (_selectedBrand != null) _otherModel,
+              ],
+              selected: _selectedModel,
+              focusNode: _modelChoiceFocus,
+              errorText: _usesManualModel ? null : _modelError,
+              onChanged: _saving || _selectedBrand == null
+                  ? null
+                  : _changeModel,
+            ),
+          ],
+          if (_usesManualModel) ...[
+            const SizedBox(height: 12),
+            RoutbField(
+              key: const ValueKey('vehicle-model-input'),
+              icon: _vehicleIcon,
+              label: 'Escribe el modelo',
+              hint: _selectedBrand == _otherBrand
+                  ? 'Ej. Dolphin Mini'
+                  : 'Modelo del vehículo',
+              controller: _model,
+              focusNode: _modelFocus,
+              inputFormatters: [LengthLimitingTextInputFormatter(50)],
+              textCapitalization: TextCapitalization.words,
+              textInputAction: TextInputAction.next,
+              onSubmitted: (_) => _plateFocus.requestFocus(),
+              errorText: _modelError,
+              onChanged: (_) => setState(() {
+                _vehicleIdentityChanged = true;
+                _modelError = null;
+              }),
+            ),
+          ],
           const SizedBox(height: 12),
           RoutbField(
+            key: const ValueKey('vehicle-plate-input'),
             icon: Icons.badge_outlined,
             label: 'Placa',
             hint: 'Ej. ABC-123',
@@ -358,6 +465,124 @@ class _VehicleScreenState extends State<_VehicleScreen> {
         ],
       ),
       footer: footer,
+    );
+  }
+}
+
+class _VehicleSelect extends StatelessWidget {
+  const _VehicleSelect({
+    required this.label,
+    required this.hint,
+    required this.options,
+    required this.selected,
+    required this.focusNode,
+    required this.errorText,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String hint;
+  final List<String> options;
+  final String? selected;
+  final FocusNode focusNode;
+  final String? errorText;
+  final ValueChanged<String?>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final placeholder = Text(
+      hint,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: RoutbText.copy(14, color: palette.muted),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: Text(
+            label,
+            style: RoutbText.copy(
+              13,
+              color: palette.ink,
+              weight: FontWeight.w600,
+            ),
+          ),
+        ),
+        ListenableBuilder(
+          listenable: focusNode,
+          builder: (context, child) => AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            height: RoutbTheme.fieldHeight,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              color: focusNode.hasFocus ? palette.card : palette.surface,
+              borderRadius: BorderRadius.circular(RoutbTheme.radiusField),
+              border: Border.all(
+                color: errorText != null
+                    ? palette.rose
+                    : focusNode.hasFocus
+                    ? palette.brand
+                    : Colors.transparent,
+                width: 1.5,
+              ),
+            ),
+            child: child,
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.directions_car_filled_rounded,
+                size: 18,
+                color: palette.muted,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Semantics(
+                  label: label,
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: selected,
+                      isExpanded: true,
+                      hint: placeholder,
+                      disabledHint: placeholder,
+                      focusNode: focusNode,
+                      focusColor: Colors.transparent,
+                      dropdownColor: palette.card,
+                      iconEnabledColor: palette.muted,
+                      iconDisabledColor: palette.muted,
+                      borderRadius: BorderRadius.circular(
+                        RoutbTheme.radiusField,
+                      ),
+                      menuMaxHeight: 320,
+                      style: RoutbText.copy(14, color: palette.ink),
+                      items: [
+                        for (final option in options)
+                          DropdownMenuItem(
+                            value: option,
+                            child: Text(
+                              option,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                      ],
+                      onChanged: onChanged,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (errorText case final error?)
+          Padding(
+            padding: const EdgeInsets.only(top: 5),
+            child: Text(error, style: RoutbText.copy(12, color: palette.rose)),
+          ),
+      ],
     );
   }
 }

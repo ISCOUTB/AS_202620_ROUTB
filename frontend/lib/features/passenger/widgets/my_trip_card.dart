@@ -11,6 +11,7 @@ import '../../../core/widgets/routb_field.dart';
 import '../../../core/widgets/routb_freshness.dart';
 import '../../../core/widgets/routb_seats.dart';
 import '../../../core/widgets/routb_vehicle_badge.dart';
+import 'vehicle_illustration.dart';
 
 /// Píldora con el estado de la solicitud: confirmada, en espera o cancelada.
 ///
@@ -211,26 +212,7 @@ class MyTripCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              if (showDriver)
-                InitialsAvatar(
-                  name: request.driverName ?? '?',
-                  initials: request.driverInitials,
-                  size: 44,
-                )
-              else
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: palette.brandSurface,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Icon(
-                    Icons.route_rounded,
-                    size: 20,
-                    color: palette.brand,
-                  ),
-                ),
+              const VehicleIllustration(width: 54),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -242,23 +224,27 @@ class MyTripCard extends StatelessWidget {
                       lastUpdated: lastUpdated,
                     ),
                     const SizedBox(height: 6),
-                    // El trayecto cede antes que la hora: en pantallas estrechas
-                    // es lo que evita que la fila se desborde.
-                    Flexible(
-                      child: Text(
-                        request.routeLabel,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: RoutbText.headline(15, color: palette.ink),
-                      ),
+                    Text(
+                      request.routeLabel,
+                      style: RoutbText.headline(15, color: palette.ink),
                     ),
                     if (showDriver && request.hasDriverName) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        'Conductor: ${request.driverName}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: RoutbText.copy(12, color: palette.muted),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          InitialsAvatar(
+                            name: request.driverName!,
+                            initials: request.driverInitials,
+                            size: 24,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'Conductor: ${request.driverName}',
+                              style: RoutbText.copy(12, color: palette.muted),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                     const SizedBox(height: 3),

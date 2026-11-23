@@ -63,7 +63,7 @@ def _to_response(
     is_public_list: bool = False,
     route_points: list[schemas.RoutePoint] | None = None,
 ) -> schemas.TripResponse:
-    driver_name = f"{trip.driver.name} {trip.driver.last_name}" if trip.driver else None
+    driver_name = trip.driver.name if trip.driver else None
     is_owner_driver = (
         current_user_id is not None and trip.driver_id == current_user_id
     )
@@ -84,9 +84,7 @@ def _to_response(
                     trip_id=request.trip_id,
                     passenger_id=request.passenger_id,
                     seat_count=getattr(request, "seat_count", 1),
-                    passenger_name=(
-                        f"{passenger.name} {passenger.last_name}" if passenger else None
-                    ),
+                    passenger_name=passenger.name if passenger else None,
                     # El teléfono es dato personal: el conductor solo lo recibe
                     # cuando el cupo quedó aceptado (decisión D3 del sprint).
                     passenger_phone=(

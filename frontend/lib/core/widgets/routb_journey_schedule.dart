@@ -9,16 +9,18 @@ class RoutbJourneySchedule extends StatelessWidget {
   const RoutbJourneySchedule({
     required this.trip,
     this.stops = const [],
+    this.compact = false,
     super.key,
   });
 
   final Trip trip;
+  final bool compact;
   final List<String> stops;
 
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    final time = Column(
+    late final time = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
@@ -102,6 +104,33 @@ class RoutbJourneySchedule extends StatelessWidget {
         ),
       ],
     );
+    if (compact) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                trip.departureDateLabel,
+                style: RoutbText.copy(12, color: p.muted),
+              ),
+              Text(
+                trip.departureLabel,
+                style: RoutbText.copy(
+                  14,
+                  color: p.onBrandSurface,
+                  weight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          route,
+        ],
+      );
+    }
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth <
