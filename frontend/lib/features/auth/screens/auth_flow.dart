@@ -306,7 +306,7 @@ class _LoginStep extends StatelessWidget {
               child: Column(
                 children: [
                   RoutbField(
-                    hint: 'Número de teléfono',
+                    hint: 'Teléfono',
                     label: 'Teléfono',
                     autofillHints: const [
                       AutofillHints.telephoneNumberNational,
