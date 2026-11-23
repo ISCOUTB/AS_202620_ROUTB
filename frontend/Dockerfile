@@ -6,8 +6,13 @@ FROM ubuntu:24.04 AS builder
 ARG FLUTTER_VERSION=3.47.1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates curl git unzip xz-utils zip \
+    ca-certificates \
+    curl \
+    git \
     libglu1-mesa \
+    unzip \
+    xz-utils \
+    zip \
     && rm -rf /var/lib/apt/lists/*
 
 RUN git clone --depth 1 --branch "${FLUTTER_VERSION}" \
@@ -20,7 +25,7 @@ WORKDIR /app
 # Copia primero los manifiestos para reutilizar la capa de dependencias.
 COPY pubspec.yaml pubspec.lock ./
 RUN flutter config --enable-web \
-    && flutter pub get
+    && flutter pub get --enforce-lockfile
 
 COPY . .
 
@@ -30,7 +35,7 @@ COPY . .
 ARG ROUTB_API_BASE_URL=https://routb.iscoutb.dev
 
 # La versión web usa el catálogo local de barrios.
-RUN flutter build web --release \
+RUN flutter build web --release --no-pub \
     --dart-define=ROUTB_API_BASE_URL="${ROUTB_API_BASE_URL}"
 
 # Etapa 2: servir la aplicación con Nginx
