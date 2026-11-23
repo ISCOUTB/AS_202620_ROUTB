@@ -31,6 +31,8 @@ La referencia S10 es el commit de integración `adde017` del 12 de octubre. Entr
 
 ## Calidad, seguridad y trazabilidad
 
+**Seguimiento de SonarCloud.** La corrida del cierre conserva el job provisional descrito abajo. El workflow actualizado ejecuta el escáner oficial y espera el Quality Gate. El resultado del primer escaneo desde GitHub Actions queda por verificar. [Workflow actualizado](../../.github/workflows/ci.yml)
+
 | Criterio | Resultado y ubicación de la prueba |
 |---|---|
 | Consistencia de cupos | Línea base histórica: 0/20 intentos procesados por ausencia de la ruta. Después: 20/20 procesados, exactamente 4 aceptados sobre 4 cupos y saldo 0. El flujo vigente se verifica con las pruebas de solicitudes del cierre. [Escenario y procedimiento](../arc42/10_requisitos_de_calidad.md#escenario-de-consistencia-de-cupos) · [Invariantes actuales](../evidencia/concurrencia-solicitudes-cupos.md) |
