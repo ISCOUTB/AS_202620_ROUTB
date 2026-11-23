@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -45,6 +46,47 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues(<String, Object>{}));
 
   group('RoutbApp', () {
+    testWidgets(
+      'solo limita el acceso en navegadores de escritorio al redimensionar',
+      (tester) async {
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final dependencies = _dependencies();
+        addTearDown(dependencies.dispose);
+        await tester.pumpWidget(RoutbApp(dependencies: dependencies));
+        await _startAuthFlow(tester);
+
+        for (final size in const [
+          Size(1920, 1080),
+          Size(1280, 720),
+          Size(390, 640),
+        ]) {
+          tester.view.physicalSize = size;
+          await tester.pump();
+          final width =
+              kIsWeb && defaultTargetPlatform == TargetPlatform.windows
+              ? size.width.clamp(0.0, 460.0)
+              : size.width;
+          final frame = Rect.fromLTWH(
+            (size.width - width) / 2,
+            0,
+            width,
+            size.height,
+          );
+          final screen = find.byType(Scaffold);
+          expect(tester.getRect(screen), frame);
+          expect(tester.getRect(find.byType(Overlay)), frame);
+          expect(MediaQuery.sizeOf(tester.element(screen)), frame.size);
+          expect(tester.takeException(), isNull);
+        }
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.windows,
+        TargetPlatform.android,
+        TargetPlatform.iOS,
+      }),
+    );
+
     testWidgets('arranca en el acceso cuando no hay sesión', (tester) async {
       final dependencies = _dependencies();
       addTearDown(dependencies.dispose);

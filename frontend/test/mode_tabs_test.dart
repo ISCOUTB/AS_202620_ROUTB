@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:frontend/app/dependencies.dart';
 import 'package:frontend/app/app_routes.dart';
+import 'package:frontend/app/routb_app.dart';
 import 'package:frontend/core/models/user_role.dart';
 import 'package:frontend/core/models/trip.dart';
 import 'package:frontend/core/widgets/address_search_field.dart';
@@ -242,6 +244,48 @@ Future<void> _scrollToLogout(WidgetTester tester) async {
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues(<String, Object>{}));
+
+  for (final account in [_driver, _passenger]) {
+    testWidgets(
+      'la barra y el diálogo de ${account.role.label} respetan el marco web',
+      (tester) async {
+        _usePhone(tester, const Size(1366, 768));
+        const frame = Rect.fromLTWH(453, 0, 460, 768);
+        final dependencies = _dependencies(
+          account.role == UserRole.driver
+              ? _DriverApi().client
+              : _PassengerApi().client,
+        );
+        addTearDown(dependencies.dispose);
+        await dependencies.session.save(
+          token: account.token,
+          name: account.name,
+          role: account.role,
+        );
+        await tester.pumpWidget(RoutbApp(dependencies: dependencies));
+        await _settle(tester);
+
+        final bar = find.byType(RoutbNavBar);
+        final barRect = tester.getRect(bar);
+        expect(barRect.width, frame.width);
+        expect(barRect.bottomLeft, frame.bottomLeft);
+        await tester.tap(_tab('Seguridad'));
+        await _settle(tester);
+        await tester.ensureVisible(find.text('Llamar al 123'));
+        await tester.tap(find.text('Llamar al 123'));
+        await _settle(tester);
+        expect(find.text('¿Llamar al 123?'), findsOneWidget);
+        expect(tester.getRect(find.byType(ModalBarrier).last), frame);
+        await tester.tap(find.text('Cancelar'));
+        await _settle(tester);
+        await tester.ensureVisible(find.text('Soporte'));
+        expect(tester.getRect(bar), barRect);
+        expect(tester.takeException(), isNull);
+      },
+      skip: !kIsWeb,
+      variant: TargetPlatformVariant.only(TargetPlatform.windows),
+    );
+  }
 
   testWidgets('conserva el borrador y publica al reintentar', (tester) async {
     _usePhone(tester, const Size(390, 844));

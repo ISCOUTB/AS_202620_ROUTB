@@ -31,5 +31,7 @@ Las decisiones arquitectónicas que impactan significativamente la estructura, l
 | [ADR 0025](../adr/0025-despacho-push-con-background-tasks.md) | Aceptado | Despachar las notificaciones push con `BackgroundTasks` después del `commit`, con una tarea de fondo autónoma y entrega *at-most-once*. |
 | [ADR 0026](../adr/0026-datos-vehiculo-y-visibilidad.md) | Aceptado | Registrar modelo, color y placa del vehículo como datos opcionales del conductor y exponerlos solo al pasajero con solicitud aceptada. |
 | [ADR 0027](../adr/0027-retirar-consentimiento-propio-de-ubicacion.md) | Aceptado | Retirar el consentimiento propio de ubicación y usar únicamente el permiso del sistema operativo, manteniendo ofuscación, retención y purga. |
+| [ADR 0028](../adr/0028-eliminacion-de-cuenta.md) | Aceptado | Eliminar la cuenta autenticada con confirmación explícita y bloquear la operación mientras existan viajes o solicitudes activas. |
+| [ADR 0029](../adr/0029-modalidades-de-viaje.md) | Aceptado | Permitir que una misma cuenta alterne entre pasajero y conductor, con la habilitación del vehículo como control de permisos. |
 
 ---

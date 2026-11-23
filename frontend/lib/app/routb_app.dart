@@ -1,9 +1,11 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../core/network/api_exception.dart';
+import '../core/theme/routb_palette.dart';
 import '../core/theme/routb_theme.dart';
 import '../core/theme/theme_controller.dart';
 import '../core/widgets/routb_splash.dart';
@@ -49,11 +51,14 @@ class RoutbApp extends StatelessWidget {
                 // Las barras del sistema siguen a la paleta para que no queden
                 // barras grises encima del hero.
                 final brightness = Theme.of(context).brightness;
+                final navigator = child ?? const SizedBox.shrink();
                 return AnnotatedRegion<SystemUiOverlayStyle>(
                   value: RoutbTheme.overlayStyleFor(brightness),
                   child: ColoredBox(
                     color: Theme.of(context).scaffoldBackgroundColor,
-                    child: child ?? const SizedBox.shrink(),
+                    child: kIsWeb && _isDesktopPlatform
+                        ? _DesktopWebViewport(child: navigator)
+                        : navigator,
                   ),
                 );
               },
@@ -61,6 +66,48 @@ class RoutbApp extends StatelessWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+bool get _isDesktopPlatform => switch (defaultTargetPlatform) {
+  TargetPlatform.windows ||
+  TargetPlatform.macOS ||
+  TargetPlatform.linux => true,
+  _ => false,
+};
+
+/// Limita el navegador completo para que sus rutas y overlays compartan
+/// tanto las restricciones de layout como el tamaño lógico del área visible.
+class _DesktopWebViewport extends StatelessWidget {
+  const _DesktopWebViewport({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return ColoredBox(
+      color: palette.brandSurface,
+      child: Center(
+        child: SizedBox(
+          width: 460,
+          height: double.infinity,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: palette.background,
+              boxShadow: palette.cardShadow,
+            ),
+            child: LayoutBuilder(
+              builder: (context, constraints) => MediaQuery(
+                data: MediaQuery.of(context)
+                    .copyWith(size: constraints.biggest),
+                child: ClipRect(child: child),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
