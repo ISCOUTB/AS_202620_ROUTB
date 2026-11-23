@@ -16,6 +16,7 @@ anyio==4.15.1 \
     --hash=sha256:6152fdbbf9a77fdec97731721bebf7c4c44f7c29b424b0065826173efc7ed101 \
     --hash=sha256:9f28306018cbd6d329e64a36d58256edff76dd996fe423bc957326e578b82a94
     # via
+    #   fastapi
     #   httpx
     #   starlette
 bcrypt==5.0.0 \
@@ -437,9 +438,9 @@ cryptography==50.0.2 \
     # via
     #   google-auth
     #   pyjwt
-fastapi==0.141.1 \
-    --hash=sha256:bfb91aa2d334c61cb35ba9a116fc123b3d3df31640b801cf57a7a78ec3f603b3 \
-    --hash=sha256:e8822fc40db1e1858054d7a949a888695bc9bdce70139178e33bd2871a453ca1
+fastapi==0.165.0 \
+    --hash=sha256:896f48462042bb4f162147eb8fac7e858753dc1f486765709baf105d70e4fc5b \
+    --hash=sha256:dd94d4128319c1e1d50535ab023ab698f850a4d2822f0e181747b46f4ff3c0ab
     # via -r requirements.in
 firebase-admin==6.5.0 \
     --hash=sha256:e716dde1447f0a1cd1523be76ff872df33c4e1a3c079564ace033b2ad60bcc4f \
@@ -827,7 +828,9 @@ msgpack==1.2.3 \
 opentelemetry-api==1.45.2 \
     --hash=sha256:2cbd737377e710ee740d261c94e93fa0f08e6d037c18f17513cc0a2d94479a34 \
     --hash=sha256:d7b0008e21e5fd61cbe7a7f34ca3b6905a78ab677d9bc395e299359c75cda6b4
-    # via google-api-core
+    # via
+    #   fastapi
+    #   google-api-core
 packaging==26.3 \
     --hash=sha256:94edc256424af38762eb31306eed28beb9f0efc50a8837492c9d6fd6004aed79 \
     --hash=sha256:d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c
