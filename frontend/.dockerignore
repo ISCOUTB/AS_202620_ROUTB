@@ -1,0 +1,32 @@
+# Secretos locales: nunca deben entrar al contexto de compilación.
+.env
+.env.*
+
+# Cachés y artefactos generados.
+.dart_tool/
+build/
+.flutter-plugins-dependencies
+coverage/
+
+# Configuración de IDE.
+.idea/
+.vscode/
+*.iml
+
+# Metadatos de Git.
+.git/
+.gitignore
+
+# Plataformas nativas: la imagen solo sirve Flutter Web.
+android/
+ios/
+linux/
+macos/
+windows/
+
+# Pruebas y herramientas de desarrollo.
+test/
+tool/
+
+# Documentación.
+README.md
