@@ -99,10 +99,7 @@ con `dart format`, ejecuta `flutter analyze` y corre `flutter test`.
 
 ### Análisis de SonarCloud
 
-El análisis de calidad se ejecuta desde GitHub Actions con el scanner oficial
-de SonarCloud cuando el secreto `SONAR_TOKEN` está configurado en el repositorio
-(Settings → Secrets and variables → Actions). En pull requests sin acceso a
-secretos, el paso se omite.
+El panel de SonarCloud conserva los resultados de análisis del proyecto.
 
 - **Enlace:** [ROUTB en SonarCloud](https://sonarcloud.io/dashboard?id=ISCOUTB_AS_202620_ROUTB)
 
